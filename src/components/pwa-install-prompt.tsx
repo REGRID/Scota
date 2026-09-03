@@ -70,9 +70,11 @@ export function PwaInstallPrompt() {
       <div className="bg-slate-900 text-white rounded-3xl p-4 sm:p-5 shadow-2xl border-2 border-emerald-500/40 space-y-3">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center shadow-lg text-slate-950 font-black text-xl shrink-0">
-              SC
-            </div>
+            <img
+              src="/scota-icon.png"
+              alt="Scota"
+              className="w-12 h-12 object-contain shrink-0"
+            />
             <div>
               <h4 className="font-extrabold text-sm text-white flex items-center gap-1.5">
                 Instal Aplikasi Scota <Sparkles className="w-3.5 h-3.5 text-emerald-400" />

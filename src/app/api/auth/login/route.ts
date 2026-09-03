@@ -21,27 +21,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "ID Pengguna atau Password salah. Akses ditolak." }, { status: 401 })
     }
 
-    // Role Karyawan mandatory staffName validation
-    if (account.role === "KARYAWAN") {
-      if (!cleanStaffName) {
-        return NextResponse.json({ error: "Wajib memilih 'Siapa yang login' (Reza, Ummu, Cheisa, Novi, Titis)." }, { status: 400 })
-      }
-      const isAllowed = ALLOWED_STAFF_NAMES.includes(cleanStaffName.toLowerCase())
-      if (!isAllowed) {
-        return NextResponse.json({ error: "Nama staf yang dipilih tidak valid." }, { status: 400 })
-      }
-    }
-
     const authenticatedUser = cleanUsername
-    const userRole = account.role
-    const finalStaffName = account.role === "KARYAWAN" ? cleanStaffName : ""
+    const userRole = account.role || "ADMIN"
+    const finalStaffName = cleanStaffName || ""
 
     // Auth Token encoded with authenticated username, role, and staffName
     const tokenPayload = Buffer.from(`${authenticatedUser}:${cleanPassword}:${userRole}:${finalStaffName}:nota_session_secret`).toString("base64")
 
     const response = NextResponse.json({
       success: true,
-      message: `Login ${userRole === "KARYAWAN" ? `Karyawan (${finalStaffName})` : `Admin (${authenticatedUser})`} berhasil`,
+      message: `Login Admin (${authenticatedUser}) berhasil`,
       user: {
         username: authenticatedUser,
         role: userRole,

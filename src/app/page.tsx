@@ -10,7 +10,7 @@ import { SettingsModal } from "@/components/SettingsModal"
 import { SubscriptionModal } from "@/components/SubscriptionModal"
 import { SubscriptionBanner } from "@/components/SubscriptionBanner"
 import { IntroductionDashboard } from "@/components/IntroductionDashboard"
-import { SubscriptionInfo } from "@/lib/subscription"
+import { SubscriptionInfo, SubscriptionTier } from "@/lib/subscription"
 import { ParsedReceiptResult } from "@/app/api/parse-receipt/route"
 import { Camera, Receipt, History, ShieldCheck, CheckCircle2, Maximize2, LogOut, UserCheck, Loader2, Settings, Sparkles, Info } from "lucide-react"
 
@@ -22,6 +22,8 @@ export default function HomePage() {
   // Admin Auth Gate State
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
   const [adminUser, setAdminUser] = useState<string>("rama")
+  const [authInitialMode, setAuthInitialMode] = useState<"login" | "register">("login")
+  const [authInitialTier, setAuthInitialTier] = useState<SubscriptionTier>("trial")
   const [showLanding, setShowLanding] = useState<boolean>(() => {
     if (typeof window !== "undefined") {
       const hasToken = localStorage.getItem("nota_admin_token")
@@ -52,7 +54,7 @@ export default function HomePage() {
   const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null)
 
   // Fetch active subscription & studio profile on mount
-  useEffect(() => {
+  const fetchSubscription = useCallback(() => {
     fetch("/api/subscription")
       .then((res) => res.json())
       .then((data) => {
@@ -62,6 +64,10 @@ export default function HomePage() {
       })
       .catch((err) => console.warn("Failed to fetch subscription:", err))
   }, [])
+
+  useEffect(() => {
+    fetchSubscription()
+  }, [fetchSubscription])
 
   // Auto-Persist Active Navigation Tab Per-Account
   useEffect(() => {
@@ -521,7 +527,11 @@ export default function HomePage() {
   if (showLanding) {
     return (
       <IntroductionDashboard
-        onEnterApp={() => setShowLanding(false)}
+        onEnterApp={(options) => {
+          if (options?.mode) setAuthInitialMode(options.mode)
+          if (options?.tier) setAuthInitialTier(options.tier)
+          setShowLanding(false)
+        }}
         onOpenPricingModal={() => setShowSubscriptionModal(true)}
       />
     )
@@ -530,9 +540,9 @@ export default function HomePage() {
   // 2. Render Auth Gate Guard
   if (isAuthenticated === null) {
     return (
-      <div className="min-h-screen bg-slate-100 text-slate-900 flex flex-col items-center justify-center space-y-3 font-sans">
-        <Loader2 className="w-10 h-10 text-emerald-600 animate-spin" />
-        <p className="text-xs font-semibold text-slate-500">Memverifikasi Sesi Admin...</p>
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center space-y-3 font-sans">
+        <Loader2 className="w-10 h-10 text-emerald-400 animate-spin" />
+        <p className="text-xs font-semibold text-slate-400">Memverifikasi Sesi Admin...</p>
       </div>
     )
   }
@@ -540,9 +550,12 @@ export default function HomePage() {
   if (isAuthenticated === false) {
     return (
       <AdminLoginScreen
+        initialMode={authInitialMode}
+        initialTier={authInitialTier}
         onLoginSuccess={(_token, user) => {
           setAdminUser(user)
           setIsAuthenticated(true)
+          fetchSubscription()
         }}
         onBackToLanding={() => setShowLanding(true)}
       />
@@ -563,9 +576,11 @@ export default function HomePage() {
       <header className="bg-slate-900 text-white sticky top-0 z-30 shadow-md pt-[env(safe-area-inset-top,0px)] border-b border-slate-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center text-slate-950 font-black shadow-md shadow-emerald-500/20">
-              <Receipt className="w-5 h-5 text-slate-950" />
-            </div>
+            <img
+              src="/scota-icon.png"
+              alt="Scota"
+              className="w-9 h-9 object-contain"
+            />
             <div>
               <h1 className="font-extrabold text-base sm:text-lg tracking-tight leading-tight flex items-center gap-2">
                 {subscription?.studioProfile?.studioName || "Scota"}

@@ -250,3 +250,56 @@ export async function updateAdminPassword(username: string, newPass: string): Pr
     return true
   }
 }
+
+/**
+ * Register a new Admin account.
+ * Role is permanently assigned as "ADMIN".
+ */
+export async function registerAdminAccount(params: {
+  username: string
+  password: string
+  fullName?: string
+  businessName?: string
+  phone?: string
+  tier?: string
+}): Promise<{ success: boolean; username: string; role: string; error?: string }> {
+  try {
+    const cleanUser = params.username.trim().toLowerCase()
+    const cleanPass = params.password.trim()
+
+    if (!cleanUser || !cleanPass) {
+      return { success: false, username: cleanUser, role: "ADMIN", error: "ID Pengguna dan Password wajib diisi" }
+    }
+
+    // Check if user already exists
+    const existing = await getUserAccountDetails(cleanUser)
+    if (existing) {
+      return { success: false, username: cleanUser, role: "ADMIN", error: "ID Pengguna sudah terdaftar. Silakan gunakan ID lain atau masuk." }
+    }
+
+    // 1. Try to save to Supabase `admin_accounts` table
+    try {
+      await supabase.from("admin_accounts").insert({
+        username: cleanUser,
+        password: cleanPass,
+        role: "ADMIN",
+        fullName: params.fullName || "",
+        businessName: params.businessName || "",
+        phone: params.phone || "",
+        tier: params.tier || "trial",
+        createdAt: new Date().toISOString(),
+      })
+    } catch (dbErr) {
+      console.warn("Supabase insert admin_accounts notice:", dbErr)
+    }
+
+    // 2. Always persist in memory and local store
+    setLocalPassword(cleanUser, cleanPass)
+    DEFAULT_ADMINS.push({ username: cleanUser, defaultPass: cleanPass, role: "ADMIN" })
+
+    return { success: true, username: cleanUser, role: "ADMIN" }
+  } catch (error: any) {
+    console.error("registerAdminAccount error:", error)
+    return { success: false, username: params.username, role: "ADMIN", error: error.message || "Gagal membuat akun" }
+  }
+}

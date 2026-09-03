@@ -149,7 +149,7 @@ export function ReceiptImageUpload({
       const reader = new FileReader()
       reader.onload = async (e) => {
         const rawBase64 = e.target?.result as string
-        const compressed = await compressImageBase64(rawBase64, 1920, 1920, 0.85)
+        const compressed = await compressImageBase64(rawBase64, 1200, 1200, 0.82)
         resolve(compressed)
       }
       reader.readAsDataURL(file)
@@ -212,7 +212,7 @@ export function ReceiptImageUpload({
           </div>
           <p className="text-xs text-amber-800 font-medium leading-relaxed">
             {quotaError ||
-              "Batas frekuensi Google Gemini API tercapai atau API Key tidak valid. Silakan periksa kembali API Key Anda."}
+              "Batas pemrosesan harian tercapai atau koneksi terganggu. Silakan coba beberapa saat lagi."}
           </p>
         </div>
       )}
@@ -528,7 +528,7 @@ export function ReceiptImageUpload({
                 </h3>
                 <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto leading-relaxed">
                   {isQuotaReached
-                    ? (quotaError || "Batas frekuensi Google Gemini API tercapai atau API Key tidak valid.")
+                    ? (quotaError || "Batas pemrosesan harian tercapai atau koneksi terganggu.")
                     : "Pilih foto dari galeri atau ambil foto dari kamera."}
                 </p>
               </div>

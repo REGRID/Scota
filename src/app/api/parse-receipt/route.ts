@@ -44,40 +44,49 @@ function sanitizeRawText(input: string): string {
 async function callGeminiRestApi(apiKey: string, modelName: string, contentsParts: any[]) {
   const cleanKey = (apiKey || "").trim().replace(/^["']|["']$/g, "")
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${cleanKey}`
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [{ parts: contentsParts }],
-      generationConfig: {
-        temperature: 0.1,
-        maxOutputTokens: 2048,
-        responseMimeType: "application/json",
-      },
-    }),
-  })
+  
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 9000)
 
-  if (!response.ok) {
-    const errText = await response.text()
-    if (errText.includes("API_KEY_INVALID") || errText.includes("API key not valid") || errText.includes("INVALID_ARGUMENT")) {
-      const invalidErr = new Error("GOOGLE_API_KEY_INVALID: API Key tidak valid. Silakan buat API Key gratis di https://aistudio.google.com/app/apikey")
-      ;(invalidErr as any).status = 400
-      throw invalidErr
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      signal: controller.signal,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: contentsParts }],
+        generationConfig: {
+          temperature: 0.1,
+          maxOutputTokens: 1024,
+          responseMimeType: "application/json",
+        },
+      }),
+    })
+
+    if (!response.ok) {
+      const errText = await response.text()
+      if (errText.includes("API_KEY_INVALID") || errText.includes("API key not valid") || errText.includes("INVALID_ARGUMENT")) {
+        const invalidErr = new Error("GOOGLE_API_KEY_INVALID: API Key tidak valid. Silakan buat API Key gratis di https://aistudio.google.com/app/apikey")
+        ;(invalidErr as any).status = 400
+        throw invalidErr
+      }
+      if (response.status === 429 || errText.includes("RESOURCE_EXHAUSTED") || errText.includes("Quota exceeded")) {
+        const quotaErr = new Error("GOOGLE_CLOUD_QUOTA_EXCEEDED")
+        ;(quotaErr as any).status = 429
+        throw quotaErr
+      }
+      if (response.status === 404) {
+        throw new Error(`MODEL_NOT_FOUND: Model ${modelName} tidak ditemukan`)
+      }
+      throw new Error(`Gemini API Error (${response.status}): ${errText}`)
     }
-    if (response.status === 429 || errText.includes("RESOURCE_EXHAUSTED") || errText.includes("Quota exceeded")) {
-      const quotaErr = new Error("GOOGLE_CLOUD_QUOTA_EXCEEDED")
-      ;(quotaErr as any).status = 429
-      throw quotaErr
-    }
-    if (response.status === 404) {
-      throw new Error(`MODEL_NOT_FOUND: Model ${modelName} tidak ditemukan`)
-    }
-    throw new Error(`Gemini API Error (${response.status}): ${errText}`)
+
+    const data = await response.json()
+    const textOutput = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || ""
+    return textOutput
+  } finally {
+    clearTimeout(timeoutId)
   }
-
-  const data = await response.json()
-  const textOutput = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || ""
-  return textOutput
 }
 
 export async function POST(req: NextRequest) {
@@ -156,75 +165,45 @@ export async function POST(req: NextRequest) {
     // 3. Fetch Official Parent & Sub Categories strictly from Database (auto-seeded if empty)
     const categoryHierarchy = await getOrSeedCategories()
 
-    // Build DB Hierarchy Map
+    // Build DB Hierarchy Map & Compact String Representation (saves ~350 tokens per request)
     const officialHierarchyMap = categoryHierarchy.map((parent) => ({
       parentName: parent.name,
       subNames: Array.from(new Set(["Umum", ...parent.subCategories.map((s) => s.name)])),
     }))
 
-    let officialCategoriesPromptText = "DAFTAR RESMI KATEGORI UTAMA & SUB-KATEGORI DATABASE (DILARANG MEMBUAT BARU/SENDIRI):\n"
-    if (officialHierarchyMap.length > 0) {
-      officialHierarchyMap.forEach((h: any) => {
-        officialCategoriesPromptText += `- Kategori Utama: "${h.parentName}" -> Sub-Kategori yang diizinkan: ${JSON.stringify(h.subNames)}\n`
-      })
-    } else {
-      officialCategoriesPromptText += `- Kategori Utama: "Lain-lain" -> Sub-Kategori: ["Umum"]\n`
-    }
+    const categoriesCompactMap = officialHierarchyMap
+      .map((h: any) => `"${h.parentName}": ${JSON.stringify(h.subNames)}`)
+      .join(", ")
 
     // 4. Retrieve Self-Learned Knowledge Base from Past Verified Receipts
     const learnedKnowledgeContext = await getLearnedKnowledgeContext()
 
-    // 5. Construct Multimodal Prompt with Injected Active Memory & Strict Database Constraints
-    const promptText = `
-Anda adalah ahli ekstraksi visual data struk/nota/surat jalan/faktur fisik tingkat tinggi.
-Tugas Anda adalah membaca foto nota atau surat jalan berikut.
-
-${officialCategoriesPromptText}
-
-${learnedKnowledgeContext}
-
-PETUNJUK ANALISIS MULTIMODAL & ATURAN TERKATALOG:
-1. DETEKSI ORIENTASI: Baca teks sesuai arah tulisan.
-2. NAMA TOKO / PT / COFFEE SHOP: Cari di bagian header paling atas.
-3. TANGGAL TRANSAKSI: Format YYYY-MM-DD. Gunakan (${new Date().toISOString().split("T")[0]}) jika tidak tertera.
-4. RINCIAN ITEM PRODUK (PENTING! DILARANG MEMBUAT KATEGORI ATAU SUB-KATEGORI SENDIRI):
-   - Baca setiap baris barang dalam tabel nota/surat jalan.
-   - Baca HARGA atau JUMLAH RP untuk tiap barang. Konversi ke angka murni tanpa titik/koma desimal.
-   - Tentukan quantity (banyaknya pcs/crt/pack) jika tertera.
-   - PILIH "category" (Kategori Utama) HANYA DARI DAFTAR RESMI DI ATAS! (DILARANG menciptakan nama kategori baru).
-   - PILIH "subCategory" HANYA DARI DAFTAR SUB-KATEGORI RESMI YANG SESUAI DI ATAS! (Jika tidak tertera, isi "Umum").
-   - ABAIKAN baris non-barang (seperti nomor surat jalan, penerima, pengirim, disetujui oleh, hormat kami).
-5. DISKON / POTONGAN HARGA / PROMO: Cari nilai diskon, potongan harga, promo, atau voucher (baik dalam nominal Rp maupun persentase %). Konversi ke angka nominal murni dalam Rupiah (Rp). Jika tidak ada, isi 0.
-6. PAJAK / PPN: Cari nilai PPN atau Pajak jika ada. Jika tidak ada, isi 0.
-7. SUBTOTAL & TOTAL NETTO AKHIR:
-   - "subtotal": Jumlah harga barang sebelum diskon dan PPN.
-   - "discountAmount": Nominal potongan diskon dalam Rupiah.
-   - "totalAmount": Netto / Total Akhir pembayaran (Subtotal - Diskon + PPN).
-
-TEKS OCR PENDUKUNG:
-"""
-${rawText || "Tidak ada teks OCR"}
-"""
-
-Keluarkan HANYA format JSON valid berikut tanpa markdown/penjelasan tambahan:
+    // 5. Construct Compact High-Speed Multimodal Prompt
+    const promptText = `Ekstrak visual foto nota/struk/kuitansi/faktur ini menjadi format JSON valid.
+Kategori Resmi: { ${categoriesCompactMap} }
+${learnedKnowledgeContext ? `Memori: ${learnedKnowledgeContext}\n` : ""}
+Instruksi:
+1. "merchantName": Nama toko/tempat usaha pada header.
+2. "date": Format YYYY-MM-DD (default: "${new Date().toISOString().split("T")[0]}").
+3. "items": Array item [{ name, category, subCategory, price (angka murni), quantity (default 1) }].
+   - Cocokkan "category" & "subCategory" HANYA dari Kategori Resmi di atas (subCategory default "Umum").
+4. "subtotal": Total harga barang sebelum diskon/pajak.
+5. "discountAmount": Nominal diskon/promo (default 0).
+6. "taxAmount": Nominal PPN/pajak (default 0).
+7. "totalAmount": Total bayar akhir (Subtotal - Diskon + Pajak).
+${rawText ? `OCR Teks: ${rawText}\n` : ""}
+Keluarkan HANYA JSON:
 {
-  "merchantName": "Nama Toko / PT",
+  "merchantName": "Nama Toko",
   "date": "YYYY-MM-DD",
-  "subtotal": 1920000,
+  "subtotal": 0,
   "discountAmount": 0,
-  "taxAmount": 211200,
-  "totalAmount": 2131205,
+  "taxAmount": 0,
+  "totalAmount": 0,
   "items": [
-    {
-      "name": "Nama Produk / Barang",
-      "category": "Bahan Baku",
-      "subCategory": "Susu",
-      "price": 1920000,
-      "quantity": 10
-    }
+    { "name": "Item", "category": "Kategori", "subCategory": "Sub", "price": 0, "quantity": 1 }
   ]
-}
-`
+}`
 
     const contentsParts: any[] = []
 
@@ -248,12 +227,11 @@ Keluarkan HANYA format JSON valid berikut tanpa markdown/penjelasan tambahan:
     contentsParts.push({ text: promptText })
 
     const candidateModels = [
-      "gemini-3.6-flash",
+      "gemini-3.7-flash",
       "gemini-3.5-flash-lite",
       "gemini-3.1-flash-lite",
-      "gemini-2.5-flash",
-      "gemini-2.0-flash",
-      "gemini-flash-latest",
+      "gemini-3.5-flash",
+      "gemini-3.6-flash",
     ]
     let textOutput = ""
     let lastError: any = null
@@ -375,7 +353,9 @@ Keluarkan HANYA format JSON valid berikut tanpa markdown/penjelasan tambahan:
     const remainingQuota = await incrementRateLimit(cleanIp)
 
     const response = NextResponse.json({
+      ...parsedJson,
       result: parsedJson,
+      parsed: parsedJson,
       mode: "gemini_multimodal_vision",
       remainingQuota,
     })

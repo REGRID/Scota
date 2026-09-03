@@ -39,11 +39,18 @@ import {
   FileText,
   X,
   XCircle,
+  ZoomIn,
+  ZoomOut,
+  RotateCw,
+  RotateCcw,
+  Eye,
+  Maximize2,
 } from "lucide-react"
 import { TIER_CONFIG, SubscriptionTier } from "@/lib/subscription"
+import { compressImageBase64 } from "@/lib/ocr"
 
 interface IntroductionDashboardProps {
-  onEnterApp: () => void
+  onEnterApp: (options?: { mode?: "login" | "register"; tier?: SubscriptionTier }) => void
   onOpenPricingModal?: () => void
 }
 
@@ -81,6 +88,9 @@ export function IntroductionDashboard({
   const [customParsedData, setCustomParsedData] = useState<CustomParsedResult | null>(null)
   const [scanError, setScanError] = useState<string | null>(null)
   const [showSourceModal, setShowSourceModal] = useState<boolean>(false)
+  const [showImageLightbox, setShowImageLightbox] = useState<boolean>(false)
+  const [lightboxZoom, setLightboxZoom] = useState<number>(1)
+  const [lightboxRotate, setLightboxRotate] = useState<number>(0)
   const [activeSection, setActiveSection] = useState<string>("simulasi")
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const cameraInputRef = useRef<HTMLInputElement | null>(null)
@@ -191,12 +201,18 @@ export function IntroductionDashboard({
     setSelectedReceiptType("custom")
     setCustomParsedData(null)
 
-    // Convert to base64 Data URL and auto-trigger scan immediately
+    // Convert and compress to optimized base64 Data URL for instant OCR processing
     const reader = new FileReader()
     reader.onload = async () => {
-      const base64 = reader.result as string
-      setUploadedBase64(base64)
-      await handleScanUploadedFile(base64, file)
+      const rawBase64 = reader.result as string
+      try {
+        const compressedBase64 = await compressImageBase64(rawBase64, 1280, 1280, 0.82)
+        setUploadedBase64(compressedBase64)
+        await handleScanUploadedFile(compressedBase64, file)
+      } catch {
+        setUploadedBase64(rawBase64)
+        await handleScanUploadedFile(rawBase64, file)
+      }
     }
     reader.onerror = () => {
       setScanError("Gagal membaca file gambar. Silakan coba unggah ulang.")
@@ -204,7 +220,7 @@ export function IntroductionDashboard({
     reader.readAsDataURL(file)
   }
 
-  // Trigger Real Gemini Cloud Scan for Uploaded Receipt
+  // Trigger Real Cloud Scan for Uploaded Receipt
   const handleScanUploadedFile = async (base64Arg?: string, fileArg?: File) => {
     const base64Data = base64Arg || uploadedBase64
     const fileObj = fileArg || fileInputRef.current?.files?.[0] || cameraInputRef.current?.files?.[0] || galleryInputRef.current?.files?.[0] || docInputRef.current?.files?.[0]
@@ -215,10 +231,7 @@ export function IntroductionDashboard({
     setSimStep(2)
 
     try {
-      setScanProgressMessage("1. Membaca gambar struk & teks...")
-      await new Promise((r) => setTimeout(r, 400))
-
-      setScanProgressMessage("2. Gemini Vision mengekstrak nominal & rincian barang...")
+      setScanProgressMessage("Membaca & mengekstrak data nota...")
 
       let res: Response
       if (base64Data) {
@@ -236,12 +249,10 @@ export function IntroductionDashboard({
         })
       }
 
-      setScanProgressMessage("3. Memetakan kategori pembukuan...")
-
       const data = await res.json()
+      const result = data?.result || data?.parsed || (data?.items ? data : null)
 
-      if (res.ok && data && (data.items || data.parsed)) {
-        const result = data.items ? data : data.parsed
+      if (res.ok && result) {
         setCustomParsedData({
           merchantName: result.merchantName || "Struk Pembelian Usaha",
           date: result.date || new Date().toISOString().split("T")[0],
@@ -285,28 +296,31 @@ export function IntroductionDashboard({
     if (docInputRef.current) docInputRef.current.value = ""
   }
 
+  const handleOpenLightbox = () => {
+    setLightboxZoom(1)
+    setLightboxRotate(0)
+    setShowImageLightbox(true)
+  }
+
+  const handleZoomIn = () => setLightboxZoom((prev) => Math.min(Number((prev + 0.25).toFixed(2)), 3.5))
+  const handleZoomOut = () => setLightboxZoom((prev) => Math.max(Number((prev - 0.25).toFixed(2)), 0.5))
+  const handleRotate = () => setLightboxRotate((prev) => (prev + 90) % 360)
+  const handleResetZoom = () => {
+    setLightboxZoom(1)
+    setLightboxRotate(0)
+  }
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-emerald-500 selection:text-white">
       {/* 1. TOP NAVBAR */}
       <nav className="sticky top-0 z-40 bg-slate-950/80 backdrop-blur-xl border-b border-slate-800/80">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center text-slate-950 font-black shadow-lg shadow-emerald-500/20">
-              <Receipt className="w-5 h-5 text-slate-950" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-black text-base sm:text-lg tracking-tight text-white">
-                  Scota
-                </span>
-                <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                  SaaS Pembukuan
-                </span>
-              </div>
-              <p className="text-[10px] text-slate-400 hidden sm:block">
-                Digitalisasi Struk & Rekap Pengeluaran Usaha
-              </p>
-            </div>
+            <img
+              src="/scota-logo-dark.png"
+              alt="Scota"
+              className="h-8 sm:h-9 w-auto object-contain"
+            />
           </div>
 
           {/* Nav Links (Desktop) with Dynamic Active Scrollspy */}
@@ -333,10 +347,16 @@ export function IntroductionDashboard({
           {/* Action CTA */}
           <div className="flex items-center gap-2 sm:gap-3">
             <button
-              onClick={onEnterApp}
+              onClick={() => onEnterApp({ mode: "login" })}
+              className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-900 border border-transparent hover:border-slate-800 transition-all cursor-pointer"
+            >
+              Masuk
+            </button>
+            <button
+              onClick={() => onEnterApp({ mode: "register", tier: "trial" })}
               className="inline-flex items-center gap-2 px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-slate-950 font-black text-xs sm:text-sm transition-all shadow-lg shadow-emerald-500/25 active:scale-98 cursor-pointer"
             >
-              <span>Buka Aplikasi</span>
+              <span>Daftar</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
@@ -370,7 +390,7 @@ export function IntroductionDashboard({
             {/* CTAs */}
             <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
               <button
-                onClick={onEnterApp}
+                onClick={() => onEnterApp({ mode: "register", tier: "trial" })}
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-slate-950 font-black text-sm transition-all shadow-xl shadow-emerald-500/30 active:scale-98 cursor-pointer"
               >
                 <Zap className="w-4 h-4 text-slate-950" />
@@ -447,252 +467,299 @@ export function IntroductionDashboard({
               onChange={handleFileChange}
             />
 
-            {/* Simulation Viewport Grid */}
-            <div className="pt-6 grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
-              {/* LEFT COLUMN: Input Receipt (Graphic or Uploaded Image) */}
-              <div className="bg-slate-950 rounded-2xl p-4 border border-slate-800 font-mono text-xs text-slate-300 space-y-2 relative overflow-hidden flex flex-col justify-between min-h-[300px]">
-                
-                {/* A. If Image is Uploaded */}
-                {uploadedImage ? (
-                  <div className="relative w-full h-full flex flex-col items-center justify-between">
-                    <div className="relative w-full h-64 rounded-xl overflow-hidden border border-slate-800 bg-slate-900/80 flex items-center justify-center">
+            {/* Viewport: Full Width Upload Hero on Default, Split Grid when Active */}
+            {!uploadedImage && !isScanningCustom && !customParsedData && !scanError ? (
+              /* A. FULL-WIDTH SPACIOUS HERO UPLOAD DROPZONE */
+              <div className="pt-6">
+                <div
+                  onClick={() => setShowSourceModal(true)}
+                  className="bg-slate-950/80 rounded-3xl p-6 sm:p-12 border-2 border-dashed border-slate-800 hover:border-emerald-500/50 transition-all text-center space-y-6 relative overflow-hidden shadow-2xl group cursor-pointer"
+                >
+                  {/* Subtle Background Glow */}
+                  <div className="absolute inset-0 bg-gradient-to-b from-emerald-500/5 via-transparent to-transparent pointer-events-none" />
+
+                  <div className="space-y-4 relative z-10">
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-3xl bg-gradient-to-br from-emerald-500/20 to-teal-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center mx-auto shadow-xl shadow-emerald-500/10 group-hover:scale-110 transition-transform">
+                      <Scan className="w-8 h-8 sm:w-10 sm:h-10 animate-pulse" />
+                    </div>
+
+                    <div className="space-y-1.5 max-w-xl mx-auto">
+                      <h3 className="text-lg sm:text-2xl font-black text-white tracking-tight">
+                        Unggah atau Potret Foto Nota Sekarang
+                      </h3>
+                      <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
+                        Pindai struk kasir thermal, bon belanja toko, kuitansi kertas, atau faktur PDF untuk mengekstrak seluruh data nominal & item secara otomatis.
+                      </p>
+                    </div>
+
+                    {/* 3 Quick Action Source Cards */}
+                    <div
+                      onClick={(e) => e.stopPropagation()}
+                      className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-2xl mx-auto pt-2"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => cameraInputRef.current?.click()}
+                        className="p-4 sm:p-5 rounded-2xl bg-slate-900/90 hover:bg-emerald-950/50 border border-slate-800 hover:border-emerald-500/50 flex flex-col items-center justify-center text-center space-y-2 transition-all cursor-pointer group/btn active:scale-95 shadow-md"
+                      >
+                        <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center group-hover/btn:bg-emerald-500 group-hover/btn:text-slate-950 transition-colors">
+                          <Camera className="w-5 h-5" />
+                        </div>
+                        <span className="text-xs sm:text-sm font-black text-white">Ambil via Kamera</span>
+                        <span className="text-[10.5px] text-slate-400">Potret langsung nota fisik</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => galleryInputRef.current?.click()}
+                        className="p-4 sm:p-5 rounded-2xl bg-slate-900/90 hover:bg-teal-950/50 border border-slate-800 hover:border-teal-500/50 flex flex-col items-center justify-center text-center space-y-2 transition-all cursor-pointer group/btn active:scale-95 shadow-md"
+                      >
+                        <div className="w-10 h-10 rounded-xl bg-teal-500/20 text-teal-400 flex items-center justify-center group-hover/btn:bg-teal-500 group-hover/btn:text-slate-950 transition-colors">
+                          <ImageIcon className="w-5 h-5" />
+                        </div>
+                        <span className="text-xs sm:text-sm font-black text-white">Pilih dari Galeri</span>
+                        <span className="text-[10.5px] text-slate-400">Foto struk di album HP/PC</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => docInputRef.current?.click()}
+                        className="p-4 sm:p-5 rounded-2xl bg-slate-900/90 hover:bg-purple-950/50 border border-slate-800 hover:border-purple-500/50 flex flex-col items-center justify-center text-center space-y-2 transition-all cursor-pointer group/btn active:scale-95 shadow-md"
+                      >
+                        <div className="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center group-hover/btn:bg-purple-500 group-hover/btn:text-slate-950 transition-colors">
+                          <FileText className="w-5 h-5" />
+                        </div>
+                        <span className="text-xs sm:text-sm font-black text-white">Upload Dokumen / PDF</span>
+                        <span className="text-[10.5px] text-slate-400">Berkas faktur & nota PDF</span>
+                      </button>
+                    </div>
+
+                    {/* Feature Trust Pills */}
+                    <div className="pt-4 border-t border-slate-800/80 flex flex-wrap items-center justify-center gap-4 sm:gap-8 text-[11px] text-slate-400">
+                      <span className="flex items-center gap-1.5 font-medium">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Ekstraksi Kilat ~1.5 Detik
+                      </span>
+                      <span className="flex items-center gap-1.5 font-medium">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Akurasi 99.8% Multi-Barang
+                      </span>
+                      <span className="flex items-center gap-1.5 font-medium">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Otomatis Masuk Pembukuan Usaha
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* B. 2-COLUMN SPLIT RESULTS VIEW */
+              <div className="pt-6 grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
+                {/* LEFT COLUMN: Input Receipt (Uploaded Image with Lightbox) */}
+                <div className="bg-slate-950 rounded-2xl p-4 border border-slate-800 text-xs text-slate-300 space-y-3 relative overflow-hidden flex flex-col justify-between min-h-[340px]">
+                  <div className="relative w-full h-full flex flex-col items-center justify-between space-y-3">
+                    {/* Clickable Image Container with Hover Zoom & Tooltip */}
+                    <div
+                      onClick={handleOpenLightbox}
+                      className="relative w-full h-64 sm:h-72 rounded-2xl overflow-hidden border border-slate-800 bg-slate-900/90 flex items-center justify-center cursor-pointer group select-none shadow-inner"
+                      title="Klik untuk melihat foto lebih jelas & perbesar"
+                    >
                       <img
-                        src={uploadedImage}
+                        src={uploadedImage || ""}
                         alt="Foto Nota Terunggah"
-                        className="w-full h-full object-contain"
+                        className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
                       />
+
+                      {/* Top Left Badge: Original Verified Photo */}
+                      <div className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-xl bg-slate-950/80 backdrop-blur-md border border-emerald-500/40 text-emerald-400 text-[10px] font-black flex items-center gap-1.5 shadow-md">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>Foto Nota Terlampir</span>
+                      </div>
+
+                      {/* Hover Center Pill for Detail/Zoom */}
+                      <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                        <div className="px-4 py-2 rounded-2xl bg-slate-900/95 backdrop-blur-md border border-emerald-500/50 text-white text-xs font-bold shadow-2xl flex items-center gap-2 transform translate-y-1 group-hover:translate-y-0 transition-transform">
+                          <Maximize2 className="w-4 h-4 text-emerald-400" />
+                          <span>Klik untuk Perbesar & Detail</span>
+                        </div>
+                      </div>
 
                       {/* Animated Laser Scan Bar */}
                       {isScanningCustom && (
                         <div className="absolute inset-x-0 h-1 bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-400 shadow-[0_0_15px_#10b981] animate-bounce top-0" />
                       )}
 
-                      {/* Delete / Reset Button */}
+                      {/* Delete / Reset Button Top-Right */}
                       <button
-                        onClick={handleResetCustomUpload}
-                        className="absolute top-2 right-2 p-1.5 rounded-lg bg-slate-900/90 hover:bg-red-500/80 text-slate-400 hover:text-white border border-slate-700 transition-all cursor-pointer"
-                        title="Hapus / Ganti Foto"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleResetCustomUpload()
+                        }}
+                        className="absolute top-2.5 right-2.5 p-2 rounded-xl bg-slate-950/80 hover:bg-red-500 text-slate-400 hover:text-white border border-slate-700 transition-all cursor-pointer z-10 shadow-md"
+                        title="Hapus / Ganti Foto Nota"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
 
-                    <div className="w-full pt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400">
-                      <span className="truncate max-w-[140px]">File: {uploadedFileName || "nota-bisnis.jpg"}</span>
-                      <div className="flex items-center gap-2">
+                    {/* Friendly Bottom Toolbar */}
+                    <div className="w-full pt-1 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400">
+                      <button
+                        onClick={handleOpenLightbox}
+                        className="text-emerald-400 hover:text-emerald-300 font-bold flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 transition-all cursor-pointer"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>Lihat Foto Lebih Jelas</span>
+                      </button>
+
+                      <div className="flex items-center gap-1.5">
                         <button
                           onClick={() => cameraInputRef.current?.click()}
-                          className="text-emerald-400 hover:underline font-bold flex items-center gap-1 cursor-pointer"
+                          className="px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 font-medium flex items-center gap-1 cursor-pointer transition-all"
                           title="Ambil foto ulang via kamera"
                         >
-                          <Camera className="w-3 h-3" /> Kamera
+                          <Camera className="w-3 h-3 text-emerald-400" /> Kamera
                         </button>
-                        <span className="text-slate-700">•</span>
                         <button
                           onClick={() => galleryInputRef.current?.click()}
-                          className="text-emerald-400 hover:underline font-bold flex items-center gap-1 cursor-pointer"
+                          className="px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 font-medium flex items-center gap-1 cursor-pointer transition-all"
                           title="Pilih foto dari galeri"
                         >
-                          <ImageIcon className="w-3 h-3" /> Galeri
+                          <ImageIcon className="w-3 h-3 text-teal-400" /> Galeri
                         </button>
-                        <span className="text-slate-700">•</span>
                         <button
                           onClick={() => docInputRef.current?.click()}
-                          className="text-emerald-400 hover:underline font-bold flex items-center gap-1 cursor-pointer"
+                          className="px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 font-medium flex items-center gap-1 cursor-pointer transition-all"
                           title="Pilih file dokumen/PDF"
                         >
-                          <FileText className="w-3 h-3" /> Dokumen
+                          <FileText className="w-3 h-3 text-purple-400" /> Dokumen
                         </button>
                       </div>
                     </div>
+                  </div>
+                </div>
 
-                    {/* Scan Action Overlay if not yet analyzed */}
-                    {!isScanningCustom && !customParsedData && (
-                      <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm flex flex-col items-center justify-center p-4 text-center space-y-2.5">
-                        <Sparkles className="w-8 h-8 text-emerald-400 animate-pulse" />
-                        <span className="text-xs font-bold text-white">Foto Nota Berhasil Dimuat</span>
+                {/* RIGHT COLUMN: Auto-Categorization Extraction Output */}
+                <div className="bg-slate-950/70 rounded-2xl p-4 sm:p-5 border border-slate-800 space-y-3 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between pb-3 border-b border-slate-800/80">
+                      <span className="text-xs font-black text-white flex items-center gap-1.5">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Hasil Ekstraksi Otomatis
+                      </span>
+                      <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                        Akurasi 99.8%
+                      </span>
+                    </div>
+
+                    {/* Scanning In-Progress Feedback */}
+                    {isScanningCustom ? (
+                      <div className="py-14 flex flex-col items-center justify-center text-center space-y-3">
+                        <Loader2 className="w-9 h-9 text-emerald-400 animate-spin" />
+                        <div className="space-y-1">
+                          <strong className="block text-sm text-white font-bold">Sedang Membaca & Mengekstrak Nota...</strong>
+                          <p className="text-xs text-emerald-400 font-medium">{scanProgressMessage}</p>
+                        </div>
+                      </div>
+                    ) : scanError ? (
+                      /* Error State with Retry */
+                      <div className="py-8 px-4 flex flex-col items-center justify-center text-center space-y-3 bg-red-950/20 border border-red-500/30 rounded-2xl my-2">
+                        <AlertCircle className="w-8 h-8 text-red-400" />
+                        <div className="space-y-1">
+                          <strong className="block text-xs text-red-300 font-bold">Ekstraksi Nota Gagal</strong>
+                          <p className="text-[11px] text-slate-400 leading-relaxed max-w-xs">{scanError}</p>
+                        </div>
                         <button
                           onClick={() => handleScanUploadedFile()}
-                          className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-black text-xs cursor-pointer shadow-lg shadow-emerald-500/25 transition-all flex items-center gap-2"
+                          className="px-4 py-2 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/40 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
                         >
-                          <Scan className="w-4 h-4" />
-                          <span>Pindai Foto Nota</span>
+                          <RefreshCw className="w-3.5 h-3.5" />
+                          <span>Coba Pindai Ulang</span>
                         </button>
                       </div>
-                    )}
-                  </div>
-                ) : (
-                  /* B. Card with 3 Options: Kamera, Galeri, Dokumen */
-                  <div className="relative w-full h-full flex flex-col justify-between">
-                    {/* Background Sample Receipt Data */}
-                    <div className="text-[11px] text-emerald-400 font-bold border-b border-slate-800 pb-2 flex justify-between opacity-35">
-                      <span>STRUK BELANJA OPERASIONAL BISNIS</span>
-                      <span>TGL: 2026-09-03</span>
-                    </div>
-
-                    <div className="space-y-1.5 py-2 text-[11.5px] opacity-25">
-                      <div className="flex justify-between">
-                        <span>1. Kardus Kemasan 20x20 (100 pcs)</span>
-                        <span className="text-white">Rp 350.000</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>2. Lakban & Perlengkapan Toko</span>
-                        <span className="text-white">Rp 120.000</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>3. Bahan Baku Tambahan Batch-A</span>
-                        <span className="text-white">Rp 480.000</span>
-                      </div>
-                    </div>
-
-                    <div className="border-t border-slate-800 pt-2 flex justify-between text-xs font-bold text-white opacity-35">
-                      <span>TOTAL PENGELUARAN</span>
-                      <span className="text-emerald-400">Rp 950.000</span>
-                    </div>
-
-                    {/* Prominent Overlay Card with clean appearance */}
-                    <div
-                      onClick={() => setShowSourceModal(true)}
-                      className="absolute inset-0 bg-slate-950/85 backdrop-blur-xs flex flex-col items-center justify-center p-4 text-center space-y-3 cursor-pointer rounded-xl border border-slate-800/60 hover:border-emerald-500/40 transition-all group"
-                    >
-                      <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center border border-emerald-500/20 group-hover:scale-110 transition-transform">
-                        <Scan className="w-6 h-6 animate-pulse" />
-                      </div>
-                      <div className="space-y-0.5">
-                        <span className="text-xs sm:text-sm font-black text-white block">
-                          Unggah Foto Nota dari HP atau Kamera
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setShowSourceModal(true)
-                        }}
-                        className="px-6 py-2.5 rounded-full bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-black text-xs sm:text-sm cursor-pointer shadow-lg shadow-emerald-500/30 transition-all flex items-center gap-2"
-                      >
-                        <span>Pindai Foto Nota</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* RIGHT COLUMN: Auto-Categorization Extraction Output */}
-              <div className="bg-slate-950/60 rounded-2xl p-4 border border-slate-800 space-y-3 flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between pb-2 border-b border-slate-800/80">
-                    <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Hasil Ekstraksi Otomatis
-                    </span>
-                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                      Akurasi 99.8%
-                    </span>
-                  </div>
-
-                  {/* Scanning In-Progress Feedback */}
-                  {isScanningCustom ? (
-                    <div className="py-12 flex flex-col items-center justify-center text-center space-y-3">
-                      <Loader2 className="w-8 h-8 text-emerald-400 animate-spin" />
-                      <div className="space-y-1">
-                        <strong className="block text-xs text-white">Sedang Membaca & Mengekstrak Nota...</strong>
-                        <p className="text-[11px] text-emerald-400 font-medium">{scanProgressMessage}</p>
-                      </div>
-                    </div>
-                  ) : scanError ? (
-                    /* Error State with Retry */
-                    <div className="py-8 px-3 flex flex-col items-center justify-center text-center space-y-3 bg-red-950/20 border border-red-500/30 rounded-xl my-2">
-                      <AlertCircle className="w-8 h-8 text-red-400" />
-                      <div className="space-y-1">
-                        <strong className="block text-xs text-red-300">Ekstraksi Nota Gagal</strong>
-                        <p className="text-[11px] text-slate-400 leading-relaxed max-w-xs">{scanError}</p>
-                      </div>
-                      <button
-                        onClick={() => handleScanUploadedFile()}
-                        className="px-4 py-2 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/40 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
-                      >
-                        <RefreshCw className="w-3.5 h-3.5" />
-                        <span>Coba Pindai Ulang</span>
-                      </button>
-                    </div>
-                  ) : customParsedData ? (
-                    /* A. Real Extracted Results from Upload */
-                    <div className="space-y-2 pt-2">
-                      <div className="p-2 rounded-xl bg-emerald-950/40 border border-emerald-500/40 flex justify-between items-center text-xs">
-                        <div>
-                          <strong className="block text-white">{customParsedData.merchantName}</strong>
-                          <span className="text-[10px] text-emerald-400">Tanggal: {customParsedData.date}</span>
-                        </div>
-                        <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold">
-                          Berhasil Diekstrak
-                        </span>
-                      </div>
-
-                      {customParsedData.items.map((item, idx) => (
-                        <div
-                          key={idx}
-                          className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 flex justify-between items-center text-xs"
-                        >
-                          <div className="space-y-0.5">
-                            <strong className="block text-slate-200">{item.name}</strong>
-                            <span className="text-[10px] text-slate-400">
-                              {item.category} {item.subCategory ? `• ${item.subCategory}` : ""}
-                            </span>
+                    ) : customParsedData ? (
+                      /* Real Extracted Results from Upload */
+                      <div className="space-y-2.5 pt-2">
+                        {/* Merchant Store Card Header */}
+                        <div className="p-3 rounded-2xl bg-gradient-to-r from-emerald-950/40 via-slate-900 to-slate-900 border border-emerald-500/40 flex justify-between items-center text-xs shadow-md">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0">
+                              <Store className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <strong className="block text-white text-sm font-black tracking-tight">{customParsedData.merchantName}</strong>
+                              <span className="text-[10px] text-slate-400 block mt-0.5">Tanggal Nota: <span className="text-emerald-400 font-mono font-bold">{customParsedData.date}</span></span>
+                            </div>
                           </div>
-                          <span className="font-mono text-emerald-400 font-bold">
-                            Rp {(item.price || 0).toLocaleString("id-ID")}
+                          <span className="text-[10px] px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 font-black border border-emerald-400/30 flex items-center gap-1">
+                            <Check className="w-3 h-3 text-emerald-400" /> Selesai
                           </span>
                         </div>
-                      ))}
 
-                      <div className="p-2.5 rounded-xl bg-slate-900/90 border border-slate-700 flex justify-between items-center text-xs font-bold text-white">
-                        <span>TOTAL PENGELUARAN</span>
-                        <span className="text-emerald-400 font-mono text-sm">
-                          Rp {customParsedData.totalAmount.toLocaleString("id-ID")}
-                        </span>
-                      </div>
-                    </div>
-                  ) : (
-                    /* B. Default Sample Preview before Upload/Scan */
-                    <div className="space-y-2 pt-2">
-                      <div className="p-2 rounded-xl bg-slate-900 border border-slate-800 flex justify-between items-center text-xs">
-                        <div>
-                          <strong className="block text-slate-200">Kemasan & Packaging</strong>
-                          <span className="text-[10px] text-slate-400">Belanja Barang & Persediaan</span>
+                        {/* Item Rows with Smooth Scroll if Long */}
+                        <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                          {customParsedData.items.map((item, idx) => (
+                            <div
+                              key={idx}
+                              className="p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-slate-700 flex justify-between items-center text-xs transition-colors"
+                            >
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-1.5">
+                                  <strong className="text-slate-100 font-bold">{item.name}</strong>
+                                  {(item.quantity || 1) > 1 && (
+                                    <span className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-emerald-950 text-emerald-300 border border-emerald-500/30 font-bold">
+                                      {item.quantity}x
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <span className="px-2 py-0.5 rounded-md text-[9.5px] bg-slate-800 text-slate-300 border border-slate-700/80 font-medium">
+                                    {item.category} {item.subCategory ? `• ${item.subCategory}` : ""}
+                                  </span>
+                                </div>
+                              </div>
+                              <span className="font-mono text-emerald-400 font-extrabold text-xs sm:text-sm shrink-0">
+                                Rp {(item.price || 0).toLocaleString("id-ID")}
+                              </span>
+                            </div>
+                          ))}
                         </div>
-                        <span className="font-mono text-emerald-400 font-bold">Rp 350.000</span>
-                      </div>
-                      <div className="p-2 rounded-xl bg-slate-900 border border-slate-800 flex justify-between items-center text-xs">
-                        <div>
-                          <strong className="block text-slate-200">Perlengkapan Toko / Usaha</strong>
-                          <span className="text-[10px] text-slate-400">Belanja Barang & Persediaan</span>
-                        </div>
-                        <span className="font-mono text-emerald-400 font-bold">Rp 120.000</span>
-                      </div>
-                      <div className="p-2 rounded-xl bg-slate-900 border border-slate-800 flex justify-between items-center text-xs">
-                        <div>
-                          <strong className="block text-slate-200">Bahan Baku / Produk Jual</strong>
-                          <span className="text-[10px] text-slate-400">Belanja Barang & Persediaan</span>
-                        </div>
-                        <span className="font-mono text-emerald-400 font-bold">Rp 480.000</span>
-                      </div>
 
-                      <div className="p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 flex justify-between items-center text-xs font-bold text-white">
-                        <span>ESTIMASI TOTAL</span>
-                        <span className="text-emerald-400 font-mono text-sm">Rp 950.000</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
+                        {/* Total Pengeluaran Card */}
+                        <div className="p-3 rounded-2xl bg-gradient-to-r from-emerald-950/80 via-slate-900 to-slate-900 border-2 border-emerald-500/60 flex justify-between items-center text-xs font-black text-white shadow-lg shadow-emerald-500/10">
+                          <span className="text-slate-300 uppercase tracking-wider text-[11px]">TOTAL PENGELUARAN</span>
+                          <span className="text-emerald-400 font-mono text-base sm:text-lg">
+                            Rp {customParsedData.totalAmount.toLocaleString("id-ID")}
+                          </span>
+                        </div>
 
-                <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
-                  <span className="text-slate-400">Status Pembukuan:</span>
-                  <span className="text-emerald-400 font-bold flex items-center gap-1">
-                    <CheckCircle2 className="w-3.5 h-3.5" /> Laporan & Rekapitulasi Terupdate
-                  </span>
+                        {/* Quick Action CTA Row */}
+                        <div className="pt-1 flex flex-col sm:flex-row gap-2">
+                          <button
+                            onClick={() => onEnterApp({ mode: "register", tier: "trial" })}
+                            className="flex-1 py-2.5 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-98 text-slate-950 font-black text-xs transition-all shadow-md shadow-emerald-500/25 flex items-center justify-center gap-1.5 cursor-pointer"
+                          >
+                            <ArrowRight className="w-3.5 h-3.5" />
+                            <span>Gunakan di Dashboard Scota</span>
+                          </button>
+                          <button
+                            onClick={() => setShowSourceModal(true)}
+                            className="py-2.5 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700 font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                            title="Pindai foto nota lainnya"
+                          >
+                            <RefreshCw className="w-3 h-3 text-emerald-400" />
+                            <span>Pindai Nota Lain</span>
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
+                    <span className="text-slate-400">Status Pembukuan:</span>
+                    <span className="text-emerald-400 font-bold flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Laporan & Rekapitulasi Terupdate
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </section>
@@ -916,7 +983,7 @@ export function IntroductionDashboard({
                   <Check className="w-4 h-4" /> Hemat hingga 95% Waktu Pembukuan
                 </span>
                 <button
-                  onClick={onEnterApp}
+                  onClick={() => onEnterApp({ mode: "register", tier: "trial" })}
                   className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs transition-all shadow-md active:scale-95 cursor-pointer"
                 >
                   Coba Sekarang
@@ -1071,17 +1138,24 @@ export function IntroductionDashboard({
                     </div>
                   </div>
 
-                  <div className="pt-8">
+                  <div className="pt-8 space-y-2">
                     <button
-                      onClick={() => handleOrderWhatsApp(tierKey)}
-                      className={`w-full py-3 px-4 rounded-xl text-xs sm:text-sm font-extrabold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                      onClick={() => onEnterApp({ mode: "register", tier: "trial" })}
+                      className={`w-full py-3 px-4 rounded-xl text-xs sm:text-sm font-extrabold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg ${
                         isPro
-                          ? "bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-lg shadow-emerald-500/25 active:scale-98"
-                          : "bg-slate-800 hover:bg-slate-700 text-white border border-slate-700"
+                          ? "bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-emerald-500/25 active:scale-98"
+                          : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/30 active:scale-98"
                       }`}
                     >
-                      <MessageCircle className="w-4 h-4" />
-                      <span>Pesan Paket via WhatsApp</span>
+                      <Zap className="w-4 h-4" />
+                      <span>Mulai Gratis 14 Hari</span>
+                    </button>
+                    <button
+                      onClick={() => handleOrderWhatsApp(tierKey)}
+                      className="w-full py-2 px-3 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-900/80 border border-slate-800 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Atau Tanya / Pesan via WhatsApp</span>
                     </button>
                   </div>
                 </div>
@@ -1136,9 +1210,11 @@ export function IntroductionDashboard({
       <footer className="py-12 bg-slate-950 text-slate-400 text-xs border-t border-slate-900">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-xs">
-              SC
-            </div>
+            <img
+              src="/scota-icon.png"
+              alt="Scota"
+              className="w-8 h-8 object-contain"
+            />
             <div>
               <span className="font-bold text-white">Scota Platform</span>
               <p className="text-[11px] text-slate-500">
@@ -1148,8 +1224,8 @@ export function IntroductionDashboard({
           </div>
 
           <div className="flex items-center gap-4 text-xs">
-            <button onClick={onEnterApp} className="text-emerald-400 hover:text-emerald-300 font-bold cursor-pointer">
-              Buka Aplikasi / Dashboard
+            <button onClick={() => onEnterApp({ mode: "login" })} className="text-emerald-400 hover:text-emerald-300 font-bold cursor-pointer">
+              Buka Aplikasi / Masuk Dashboard
             </button>
           </div>
         </div>
@@ -1259,6 +1335,131 @@ export function IntroductionDashboard({
               className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition-all cursor-pointer"
             >
               Batal
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* High-Resolution Photo Detail & Zoom Lightbox Modal */}
+      {showImageLightbox && uploadedImage && (
+        <div
+          onClick={() => setShowImageLightbox(false)}
+          className="fixed inset-0 z-50 flex flex-col justify-between p-3 sm:p-6 bg-slate-950/95 backdrop-blur-xl animate-in fade-in duration-200 select-none"
+        >
+          {/* Top Bar Header & Controls */}
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-5xl mx-auto flex items-center justify-between gap-4 p-3 sm:p-4 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-2xl backdrop-blur-md"
+          >
+            <div className="flex items-center gap-3 overflow-hidden">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0">
+                <Receipt className="w-5 h-5" />
+              </div>
+              <div className="truncate">
+                <h4 className="text-xs sm:text-sm font-black text-white truncate">
+                  {customParsedData?.merchantName || "Detail Foto Nota Fisik"}
+                </h4>
+                <p className="text-[11px] text-slate-400 truncate">
+                  {uploadedFileName || "nota-terunggah.jpg"} {customParsedData ? `• Tanggal: ${customParsedData.date}` : ""}
+                </p>
+              </div>
+            </div>
+
+            {/* Zoom & Action Controls */}
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+              <button
+                onClick={handleZoomOut}
+                className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 hover:text-white transition-all cursor-pointer"
+                title="Perkecil (Zoom Out)"
+              >
+                <ZoomOut className="w-4 h-4" />
+              </button>
+
+              <span className="text-[11px] font-mono font-bold text-emerald-400 px-2 min-w-[48px] text-center hidden sm:inline-block">
+                {Math.round(lightboxZoom * 100)}%
+              </span>
+
+              <button
+                onClick={handleZoomIn}
+                className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 hover:text-white transition-all cursor-pointer"
+                title="Perbesar (Zoom In)"
+              >
+                <ZoomIn className="w-4 h-4" />
+              </button>
+
+              <button
+                onClick={handleRotate}
+                className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 hover:text-white transition-all cursor-pointer"
+                title="Putar 90° (Rotate)"
+              >
+                <RotateCw className="w-4 h-4" />
+              </button>
+
+              <button
+                onClick={handleResetZoom}
+                className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 hover:text-white transition-all cursor-pointer hidden sm:flex"
+                title="Reset Ukuran (100%)"
+              >
+                <RotateCcw className="w-4 h-4" />
+              </button>
+
+              <div className="w-[1px] h-6 bg-slate-700 mx-1" />
+
+              <button
+                onClick={() => setShowImageLightbox(false)}
+                className="p-2 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 transition-all cursor-pointer"
+                title="Tutup (ESC)"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Center Image Viewport with Pan/Zoom Transform */}
+          <div
+            onClick={() => setShowImageLightbox(false)}
+            className="flex-1 w-full max-w-5xl mx-auto my-3 sm:my-4 flex items-center justify-center overflow-auto rounded-3xl border border-slate-800/80 bg-slate-900/40 p-4 relative"
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="relative transition-transform duration-200 ease-out flex items-center justify-center max-w-full max-h-full"
+              style={{
+                transform: `scale(${lightboxZoom}) rotate(${lightboxRotate}deg)`,
+                transformOrigin: "center center",
+              }}
+            >
+              <img
+                src={uploadedImage}
+                alt="Detail Foto Nota"
+                className="max-h-[70vh] max-w-[85vw] object-contain rounded-xl shadow-2xl border border-slate-700/50"
+              />
+            </div>
+          </div>
+
+          {/* Bottom Floating Info Summary Pill */}
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-3xl mx-auto p-3 rounded-2xl bg-slate-900/95 border border-slate-800 shadow-2xl backdrop-blur-md flex flex-col sm:flex-row items-center justify-between gap-3 text-xs"
+          >
+            {customParsedData ? (
+              <div className="flex items-center gap-3">
+                <span className="text-slate-400">Hasil Scan:</span>
+                <strong className="text-white font-bold">{customParsedData.merchantName}</strong>
+                <span className="text-slate-600">•</span>
+                <span className="font-mono text-emerald-400 font-extrabold text-sm">
+                  Rp {customParsedData.totalAmount.toLocaleString("id-ID")}
+                </span>
+                <span className="text-slate-400">({customParsedData.items.length} item)</span>
+              </div>
+            ) : (
+              <span className="text-slate-400">Gunakan tombol perbesar atau putar untuk melihat detail tulisan pada struk.</span>
+            )}
+
+            <button
+              onClick={() => setShowImageLightbox(false)}
+              className="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold transition-all cursor-pointer text-xs"
+            >
+              Tutup Preview
             </button>
           </div>
         </div>

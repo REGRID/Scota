@@ -305,3 +305,54 @@ export async function updateStudioProfile(profile: Partial<StudioProfile>): Prom
   inMemorySubscription.studioProfile = updatedProfile
   return updatedProfile
 }
+
+/**
+ * Save / Update Full Subscription Info
+ */
+export async function saveSubscriptionInfo(info: SubscriptionInfo): Promise<SubscriptionInfo> {
+  inMemorySubscription = { ...info }
+
+  try {
+    const { data: existing } = await supabase.from("subscriptions").select("id").limit(1).maybeSingle()
+    if (existing) {
+      await supabase
+        .from("subscriptions")
+        .update({
+          tier: info.tier,
+          validUntil: info.validUntil,
+          monthlyScanLimit: info.monthlyScanLimit,
+          usedScansThisMonth: info.usedScansThisMonth,
+          studioName: info.studioProfile.studioName,
+          tagline: info.studioProfile.tagline,
+          address: info.studioProfile.address,
+          phone: info.studioProfile.phone,
+          logoUrl: info.studioProfile.logoUrl,
+          invoiceFooter: info.studioProfile.invoiceFooter,
+          taxNumber: info.studioProfile.taxNumber,
+          activeLicenseKey: info.activeLicenseKey,
+          updatedAt: new Date().toISOString(),
+        })
+        .eq("id", existing.id)
+    } else {
+      await supabase.from("subscriptions").insert({
+        tier: info.tier,
+        validUntil: info.validUntil,
+        monthlyScanLimit: info.monthlyScanLimit,
+        usedScansThisMonth: info.usedScansThisMonth,
+        studioName: info.studioProfile.studioName,
+        tagline: info.studioProfile.tagline,
+        address: info.studioProfile.address,
+        phone: info.studioProfile.phone,
+        logoUrl: info.studioProfile.logoUrl,
+        invoiceFooter: info.studioProfile.invoiceFooter,
+        taxNumber: info.studioProfile.taxNumber,
+        activeLicenseKey: info.activeLicenseKey,
+      })
+    }
+  } catch (err) {
+    console.warn("Could not save full subscription info to database:", err)
+  }
+
+  return inMemorySubscription
+}
+

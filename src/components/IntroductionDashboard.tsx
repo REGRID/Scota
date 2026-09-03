@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react"
 import Link from "next/link"
+import { ThemeToggle } from "@/lib/theme"
 import {
   Sparkles,
   CheckCircle2,
@@ -354,6 +355,7 @@ export function IntroductionDashboard({
             >
               Superadmin
             </Link>
+            <ThemeToggle />
             <button
               onClick={() => onEnterApp({ mode: "login" })}
               className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-900 border border-transparent hover:border-slate-800 transition-all cursor-pointer"

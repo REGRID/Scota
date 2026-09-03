@@ -17,6 +17,7 @@ import {
 } from "@/lib/pwaNotification"
 import { useAppDialog } from "@/components/ui/app-dialog"
 import { toast } from "sonner"
+import { useTheme, ThemeToggle } from "@/lib/theme"
 
 interface SettingsModalProps {
   isOpen: boolean
@@ -682,6 +683,10 @@ export function SettingsModal({ isOpen, onClose, currentAdminUser, onLogout }: S
                 <span className="font-bold text-slate-800">
                   {isKaryawan ? "Input Nota & Talangan Staf" : "Dual-Admin Approval"}
                 </span>
+              </div>
+              <div className="flex items-center justify-between pt-2 border-t border-slate-200/80">
+                <span className="font-semibold text-slate-500">Tema Tampilan:</span>
+                <ThemeToggle />
               </div>
             </div>
 

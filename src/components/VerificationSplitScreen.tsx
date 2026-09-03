@@ -525,31 +525,30 @@ export function VerificationSplitScreen({
       )}
 
       {/* Top Header Controls Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs">
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-slate-900/90 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-2xl transition-colors duration-200">
         <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={onCancel}
-            className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors shrink-0"
+            className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-950 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 transition-colors shrink-0 cursor-pointer"
             title="Batal / Kembali"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h2 className="font-extrabold text-slate-900 text-base sm:text-lg flex items-center gap-2 flex-wrap">
+            <h2 className="font-black text-slate-900 dark:text-white text-base sm:text-lg flex items-center gap-2 flex-wrap">
               {editingReceiptId ? "Edit Ulang Data Nota" : "Verifikasi Hasil Scan Nota"}
               {batchInfo ? (
-                <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 font-extrabold border border-amber-300 flex items-center gap-1">
-                  <Layers className="w-3.5 h-3.5 text-amber-600" />
+                <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold border border-amber-500/20 flex items-center gap-1">
+                  <Layers className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
                   Nota Ke-{batchInfo.currentIndex + 1} dari {batchInfo.totalCount} (Batch Mass Upload)
                 </span>
               ) : (
-                <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold border border-emerald-200">
+                <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/20">
                   Split View
                 </span>
               )}
             </h2>
-
           </div>
         </div>
 
@@ -559,7 +558,7 @@ export function VerificationSplitScreen({
             <button
               type="button"
               onClick={onSkipBatch}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold text-xs transition-colors border border-amber-200"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-950 hover:bg-slate-200 dark:hover:bg-slate-800 text-amber-700 dark:text-amber-400 font-bold text-xs transition-colors border border-slate-200 dark:border-slate-800 cursor-pointer"
             >
               Lewati Nota Ini <ArrowRight className="w-3.5 h-3.5" />
             </button>
@@ -568,7 +567,7 @@ export function VerificationSplitScreen({
           <button
             type="button"
             onClick={onCancel}
-            className="px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
+            className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
           >
             Batal All
           </button>
@@ -577,7 +576,7 @@ export function VerificationSplitScreen({
             type="button"
             disabled={isSaving}
             onClick={handleSave}
-            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-extrabold text-sm transition-all shadow-md shadow-emerald-600/20 disabled:opacity-50"
+            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-black text-xs sm:text-sm transition-all shadow-md shadow-emerald-500/20 disabled:opacity-50 cursor-pointer"
           >
             {isSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             {batchInfo && batchInfo.currentIndex < batchInfo.totalCount - 1
@@ -590,17 +589,17 @@ export function VerificationSplitScreen({
       </div>
 
       {/* Mobile Switcher Tabs (< lg) */}
-      <div className="flex lg:hidden bg-slate-200/80 p-1 rounded-xl border border-slate-300">
+      <div className="flex lg:hidden bg-slate-100 dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-800">
         <button
           type="button"
           onClick={() => setMobileView("form")}
           className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-bold transition-all ${
             mobileView === "form"
-              ? "bg-white text-slate-900 shadow-sm"
-              : "text-slate-600 hover:text-slate-900"
+              ? "bg-emerald-500 text-slate-950 shadow-xs font-black"
+              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
           }`}
         >
-          <FileCheck className="w-4 h-4 text-emerald-600" />
+          <FileCheck className="w-4 h-4" />
           Edit Data & Barang ({items.length})
         </button>
 
@@ -609,41 +608,41 @@ export function VerificationSplitScreen({
           onClick={() => setMobileView("image")}
           className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-bold transition-all ${
             mobileView === "image"
-              ? "bg-white text-slate-900 shadow-sm"
-              : "text-slate-600 hover:text-slate-900"
+              ? "bg-emerald-500 text-slate-950 shadow-xs font-black"
+              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
           }`}
         >
-          <ImageIcon className="w-4 h-4 text-blue-600" />
+          <ImageIcon className="w-4 h-4" />
           Foto Struk Belanja
         </button>
       </div>
 
       {errorMsg && (
-        <div className="p-4 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-sm flex items-center gap-3">
-          <AlertCircle className="w-5 h-5 shrink-0 text-red-600" />
+        <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-300 text-sm flex items-center gap-3">
+          <AlertCircle className="w-5 h-5 shrink-0 text-rose-500 dark:text-rose-400" />
           <span className="font-semibold">{errorMsg}</span>
         </div>
       )}
 
       {/* Main Container Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* LEFT PANE: Interactive Image Viewer with Clean Lightbox Trigger Header */}
+        {/* LEFT PANE: Interactive Image Viewer */}
         <div
           className={`lg:col-span-5 flex-col space-y-3 lg:sticky lg:top-4 ${
             mobileView === "image" ? "flex" : "hidden lg:flex"
           }`}
         >
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden flex flex-col">
-            <div className="p-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-2 text-xs">
-              <span className="font-bold text-slate-800 flex items-center gap-1.5">
-                <Eye className="w-4 h-4 text-emerald-600" />
+          <div className="bg-white dark:bg-slate-900/90 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-xl overflow-hidden flex flex-col transition-colors duration-200">
+            <div className="p-3.5 bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 text-xs">
+              <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <Eye className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                 Foto Struk / Nota Fisik
               </span>
 
               <button
                 type="button"
                 onClick={() => setShowLightbox(true)}
-                className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-extrabold text-xs transition-all flex items-center gap-1.5 shadow-xs"
+                className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 active:scale-95 text-emerald-700 dark:text-emerald-400 border border-slate-200 dark:border-slate-700 font-bold text-xs transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
                 title="Buka Lightbox Pop-Up Zoom Mouse & Touch"
               >
                 <Maximize2 className="w-3.5 h-3.5" /> Fullscreen Zoom
@@ -653,24 +652,24 @@ export function VerificationSplitScreen({
             {/* Clickable Image Preview Box */}
             <div
               onClick={() => activeDisplayImage && setShowLightbox(true)}
-              className="relative min-h-[380px] max-h-[580px] overflow-hidden bg-slate-900 flex items-center justify-center p-4 cursor-zoom-in group"
+              className="relative min-h-[380px] max-h-[580px] overflow-hidden bg-slate-100 dark:bg-slate-950 flex items-center justify-center p-4 cursor-zoom-in group"
             >
               {activeDisplayImage ? (
                 /* eslint-disable-next-html-element */
                 <img
                   src={activeDisplayImage}
                   alt="Foto Struk Belanja"
-                  className="max-w-full h-auto max-h-[520px] object-contain rounded-lg shadow-2xl group-hover:opacity-90 transition-opacity"
+                  className="max-w-full h-auto max-h-[520px] object-contain rounded-lg shadow-md dark:shadow-2xl group-hover:opacity-90 transition-opacity"
                 />
               ) : isImageLoading ? (
-                <div className="text-emerald-400 font-extrabold text-xs flex items-center gap-2">
+                <div className="text-emerald-600 dark:text-emerald-400 font-extrabold text-xs flex items-center gap-2">
                   <RefreshCw className="w-5 h-5 animate-spin" /> Memuat Foto Struk Nota...
                 </div>
               ) : (
-                <div className="text-slate-400 font-semibold text-xs text-center p-6 space-y-1">
-                  <ImageIcon className="w-8 h-8 mx-auto text-slate-600 mb-2" />
+                <div className="text-slate-500 dark:text-slate-400 font-semibold text-xs text-center p-6 space-y-1">
+                  <ImageIcon className="w-8 h-8 mx-auto text-slate-400 dark:text-slate-600 mb-2" />
                   <p>Foto struk tidak diload di awal.</p>
-                  <p className="text-[11px] text-slate-500">Klik "Fullscreen Zoom" atau buka foto jika tersedia.</p>
+                  <p className="text-[11px] text-slate-400 dark:text-slate-500">Klik "Fullscreen Zoom" atau buka foto jika tersedia.</p>
                 </div>
               )}
 
@@ -678,92 +677,92 @@ export function VerificationSplitScreen({
               {activeDisplayImage && (
                 <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-2xs">
                   <span className="px-4 py-2 rounded-2xl bg-slate-900/90 text-white font-extrabold text-xs border border-slate-700 flex items-center gap-2 shadow-2xl">
-                    <Maximize2 className="w-4 h-4 text-emerald-400" /> Klik Untuk Pop-Up & Zoom Touch / Mouse
+                    <Maximize2 className="w-4 h-4 text-emerald-400" /> Klik Untuk Pop-Up & Zoom
                   </span>
                 </div>
               )}
             </div>
 
-            <div className="p-3 bg-slate-50 border-t border-slate-200">
+            <div className="p-3 bg-slate-50 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800">
               <button
                 type="button"
                 onClick={() => setShowRawOcr(!showRawOcr)}
-                className="w-full flex items-center justify-between text-xs font-semibold text-slate-700 hover:text-emerald-600 transition-colors py-1"
+                className="w-full flex items-center justify-between text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors py-1 cursor-pointer"
               >
                 <span className="flex items-center gap-1.5">
                   <FileText className="w-4 h-4 text-slate-500" />
-                  {showRawOcr ? "Sembunyikan Teks Mentah OCR" : "Lihat Teks Mentah Tesseract OCR"}
+                  {showRawOcr ? "Sembunyikan Teks Mentah OCR" : "Lihat Teks Mentah OCR"}
                 </span>
                 {showRawOcr ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
 
               {showRawOcr && (
-                <div className="mt-2 p-3 bg-slate-900 text-slate-200 text-xs font-mono rounded-xl max-h-48 overflow-y-auto whitespace-pre-wrap leading-relaxed border border-slate-800">
-                  {rawOcrText || "Tidak ada teks OCR mentah."}
+                <div className="mt-2 p-3 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-[11px] font-mono text-slate-700 dark:text-slate-300 max-h-48 overflow-y-auto whitespace-pre-wrap">
+                  {rawOcrText || "(Teks mentah kosong)"}
                 </div>
               )}
             </div>
           </div>
         </div>
 
-        {/* RIGHT PANE: Editable Form */}
+        {/* RIGHT PANE: Editable Form & Items */}
         <div
           className={`lg:col-span-7 flex-col space-y-5 ${
             mobileView === "form" ? "flex" : "hidden lg:flex"
           }`}
         >
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-5 sm:p-6 space-y-6">
-            <div className="border-b border-slate-100 pb-4 flex flex-wrap items-center justify-between gap-2">
-              <h3 className="font-extrabold text-slate-900 text-base sm:text-lg flex items-center gap-2">
-                <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                {editingReceiptId ? "Perbarui Data Nota" : "Rincian Hasil Ekstraksi Struk"}
+          {/* Section 1: Main Header & Receipt Info */}
+          <div className="bg-white dark:bg-slate-900/90 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 sm:p-6 shadow-sm dark:shadow-xl space-y-5 transition-colors duration-200">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-3">
+              <h3 className="font-black text-slate-900 dark:text-white text-sm sm:text-base flex items-center gap-2">
+                <Receipt className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> Informasi Utama Nota
               </h3>
 
               <button
                 type="button"
                 onClick={() => openAddCategoryModal("parent")}
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-xs font-extrabold transition-colors border border-emerald-200 shadow-2xs"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-950 text-emerald-700 dark:text-emerald-400 hover:bg-slate-200 dark:hover:bg-slate-850 text-xs font-bold transition-colors border border-slate-200 dark:border-slate-800 cursor-pointer"
               >
-                <FolderPlus className="w-4 h-4" /> + Buat Kategori Baru
+                <FolderPlus className="w-4 h-4" /> + Kategori Baru
               </button>
             </div>
 
             {/* Header Fields: Merchant Name, Date, Payment Method & Status */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 flex items-center gap-1">
-                  <Store className="w-3.5 h-3.5 text-slate-500" /> Nama Toko / Merchant / PT
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                  <Store className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" /> Nama Toko / Merchant / PT
                 </label>
                 <input
                   type="text"
                   value={merchantName}
                   onChange={(e) => setMerchantName(e.target.value)}
                   placeholder="Nama toko..."
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 text-sm text-slate-900 font-semibold transition-all bg-white"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 focus:border-emerald-500 text-sm text-slate-900 dark:text-white font-semibold transition-all bg-slate-50 dark:bg-slate-950 placeholder:text-slate-400 dark:placeholder:text-slate-500"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 flex items-center gap-1">
-                  <Calendar className="w-3.5 h-3.5 text-slate-500" /> Tanggal Nota
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                  <Calendar className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" /> Tanggal Nota
                 </label>
                 <input
                   type="date"
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 text-sm text-slate-900 font-semibold transition-all bg-white"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 focus:border-emerald-500 text-sm text-slate-900 dark:text-white font-semibold transition-all bg-slate-50 dark:bg-slate-950"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 flex items-center gap-1">
-                  <CreditCard className="w-3.5 h-3.5 text-slate-500" /> Metode Pembayaran
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                  <CreditCard className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" /> Metode Pembayaran
                 </label>
                 <div className="relative">
                   <select
                     value={paymentMethod}
                     onChange={(e) => handlePaymentMethodSelect(e.target.value)}
-                    className="w-full appearance-none pl-3.5 pr-9 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-500 text-sm font-semibold text-slate-900 bg-white cursor-pointer transition-all"
+                    className="w-full appearance-none pl-3.5 pr-9 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 focus:border-emerald-500 text-sm font-semibold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-950 cursor-pointer transition-all"
                   >
                     {availablePaymentMethods.map((method) => (
                       <option key={method} value={method}>
@@ -771,7 +770,7 @@ export function VerificationSplitScreen({
                       </option>
                     ))}
                   </select>
-                  <ChevronDown className="w-4 h-4 text-slate-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
               </div>
 

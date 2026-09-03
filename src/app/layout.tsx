@@ -4,6 +4,7 @@ import "./globals.css"
 import { Toaster } from "sonner"
 
 import { AppDialogProvider } from "@/components/ui/app-dialog"
+import { ThemeProvider } from "@/lib/theme"
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" })
 
@@ -45,17 +46,19 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="id" className={inter.variable}>
+    <html lang="id" className={`${inter.variable} dark`} suppressHydrationWarning>
       <head>
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
       </head>
-      <body className="min-h-screen bg-slate-100 text-slate-900 flex flex-col font-sans antialiased selection:bg-emerald-500 selection:text-white">
-        <AppDialogProvider>
-          {children}
-          <Toaster position="top-right" richColors />
-        </AppDialogProvider>
+      <body className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 flex flex-col font-sans antialiased selection:bg-emerald-500 selection:text-white transition-colors duration-200">
+        <ThemeProvider>
+          <AppDialogProvider>
+            {children}
+            <Toaster position="top-right" richColors />
+          </AppDialogProvider>
+        </ThemeProvider>
       </body>
     </html>
   )

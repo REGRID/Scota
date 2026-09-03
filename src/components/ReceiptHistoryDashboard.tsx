@@ -1889,16 +1889,16 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
       />
 
       {/* TOP HEADER BANNER */}
-      <div className="bg-white px-5 py-4 rounded-2xl border border-slate-200/90 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white dark:bg-slate-900/90 px-5 py-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 transition-colors duration-200">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-slate-900 text-emerald-400 border border-slate-800 flex items-center justify-center shadow-xs shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-950 text-emerald-600 dark:text-emerald-400 border border-slate-200 dark:border-slate-800 flex items-center justify-center shadow-xs shrink-0">
             <ReceiptIcon className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
+            <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
               Riwayat & Laporan Nota
             </h2>
-            <p className="text-xs text-slate-500 font-medium">
+            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
               Rekapitulasi pengeluaran usaha dan arsip bukti transaksi.
             </p>
           </div>
@@ -1912,12 +1912,12 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
             onClick={() => setShowApprovalModal(true)}
             className={`relative inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all border shadow-xs active:scale-[0.98] shrink-0 cursor-pointer ${
               pendingApprovals.length > 0
-                ? "bg-amber-500 text-slate-950 border-amber-600 font-black animate-pulse"
-                : "bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200"
+                ? "bg-amber-500 text-slate-950 border-amber-400 font-black animate-pulse"
+                : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-950 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800"
             }`}
             title="Verifikasi Persetujuan Admin"
           >
-            <ShieldCheck className="w-4 h-4 text-slate-700" />
+            <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
             <span>Persetujuan</span>
             {pendingApprovals.length > 0 && (
               <span className="ml-1 px-1.5 py-0.5 bg-slate-950 text-amber-300 rounded-full text-[10px] font-black leading-none">
@@ -1932,23 +1932,23 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
             onClick={() => setShowNotificationsModal(true)}
             className={`relative inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all border shadow-xs active:scale-[0.98] shrink-0 cursor-pointer ${
               unreadNotificationCount > 0
-                ? "bg-slate-900 text-white border-slate-800"
-                : "bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200"
+                ? "bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-white border-amber-500/40"
+                : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-950 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800"
             }`}
             title="Pusat Notifikasi Aktivitas"
           >
             <div className="relative flex items-center justify-center">
-              <Bell className="w-4 h-4 text-amber-500" />
+              <Bell className="w-4 h-4 text-amber-500 dark:text-amber-400" />
               {unreadNotificationCount > 0 && (
                 <span className="absolute -top-1 -right-1 flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
                 </span>
               )}
             </div>
             <span>Notifikasi</span>
             {unreadNotificationCount > 0 && (
-              <span className="ml-0.5 px-1.5 py-0.5 bg-red-600 text-white rounded-full text-[10px] font-black leading-none">
+              <span className="ml-0.5 px-1.5 py-0.5 bg-rose-600 text-white rounded-full text-[10px] font-black leading-none">
                 {unreadNotificationCount}
               </span>
             )}
@@ -1960,11 +1960,11 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
             onClick={() => setShowCharts(!showCharts)}
             className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all border shadow-xs active:scale-[0.98] shrink-0 cursor-pointer ${
               showCharts
-                ? "bg-slate-900 text-white border-slate-800"
-                : "bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200"
+                ? "bg-emerald-500 text-slate-950 border-emerald-400 font-black"
+                : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-950 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800"
             }`}
           >
-            <BarChart3 className="w-4 h-4 text-emerald-500" />
+            <BarChart3 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
             <span>Grafik</span>
           </button>
 
@@ -1972,10 +1972,10 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
           <button
             type="button"
             onClick={() => setShowDataOptionsModal(true)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-all border border-slate-200 shadow-xs active:scale-[0.98] shrink-0 cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-950 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold transition-all border border-slate-200 dark:border-slate-800 shadow-xs active:scale-[0.98] shrink-0 cursor-pointer"
             title="Opsi Backup, Restore, dan Ekspor"
           >
-            <Database className="w-4 h-4 text-slate-700" />
+            <Database className="w-4 h-4 text-slate-500 dark:text-slate-400" />
             <span>Kelola Data</span>
           </button>
 
@@ -1983,10 +1983,10 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
           <button
             type="button"
             onClick={() => setShowStatementPrintModal(true)}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-black transition-all shadow-sm shrink-0 active:scale-[0.98] cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-black transition-all shadow-md shadow-emerald-500/20 shrink-0 active:scale-[0.98] cursor-pointer"
             title="Cetak Laporan Rekap"
           >
-            <Printer className="w-4 h-4 text-emerald-400" />
+            <Printer className="w-4 h-4 text-slate-950" />
             <span>Cetak</span>
           </button>
         </div>
@@ -1995,99 +1995,99 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
       {/* TOP 4 KPI CARDS ROW */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Card 1: Total Pengeluaran */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs space-y-3 hover:border-slate-300 transition-all text-left">
-          <div className="flex items-center justify-between text-slate-400 text-xs font-bold uppercase tracking-wider">
+        <div className="bg-white dark:bg-slate-900/90 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs dark:shadow-xl space-y-3 hover:border-slate-300 dark:hover:border-slate-700 transition-all text-left">
+          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
             <span>
               {isSubCategoryActive ? `Sub: ${selectedSubCategory}` : "Total Pengeluaran"}
             </span>
-            <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 font-mono font-bold text-[11px] border border-emerald-200/60">
+            <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono font-bold text-[11px] border border-emerald-500/20">
               IDR
             </span>
           </div>
           <div>
-            <p className="text-2xl sm:text-3xl font-black font-mono text-slate-900 tracking-tight">
+            <p className="text-2xl sm:text-3xl font-black font-mono text-slate-900 dark:text-white tracking-tight">
               Rp {totalSpend.toLocaleString("id-ID")}
             </p>
-            <p className="text-xs font-medium text-slate-500 mt-1 flex items-center gap-1.5">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
               <span>{isSubCategoryActive ? selectedSubCategory : `${filteredReceipts.length} transaksi nota`}</span>
             </p>
           </div>
         </div>
 
         {/* Card 2: Jumlah Nota */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs space-y-3 hover:border-slate-300 transition-all text-left">
-          <div className="flex items-center justify-between text-slate-400 text-xs font-bold uppercase tracking-wider">
+        <div className="bg-white dark:bg-slate-900/90 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs dark:shadow-xl space-y-3 hover:border-slate-300 dark:hover:border-slate-700 transition-all text-left">
+          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
             <span>Volume Transaksi</span>
-            <div className="w-7 h-7 rounded-lg bg-sky-50 text-sky-700 flex items-center justify-center border border-sky-200/60">
+            <div className="w-7 h-7 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center border border-sky-500/20">
               <ReceiptIcon className="w-4 h-4" />
             </div>
           </div>
           <div>
-            <p className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight font-mono">
-              {filteredReceipts.length} <span className="text-base font-bold text-slate-500">Struk</span>
+            <p className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight font-mono">
+              {filteredReceipts.length} <span className="text-base font-bold text-slate-500 dark:text-slate-400">Struk</span>
             </p>
-            <p className="text-xs font-medium text-slate-500 mt-1">
-              Rata-rata: <strong className="font-mono text-slate-700">Rp {averageSpendPerReceipt.toLocaleString("id-ID")}</strong>
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-1">
+              Rata-rata: <strong className="font-mono text-slate-700 dark:text-slate-200">Rp {averageSpendPerReceipt.toLocaleString("id-ID")}</strong>
             </p>
           </div>
         </div>
 
         {/* Card 3: Total Barang */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs space-y-3 hover:border-slate-300 transition-all text-left">
-          <div className="flex items-center justify-between text-slate-400 text-xs font-bold uppercase tracking-wider">
+        <div className="bg-white dark:bg-slate-900/90 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs dark:shadow-xl space-y-3 hover:border-slate-300 dark:hover:border-slate-700 transition-all text-left">
+          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
             <span>{isSubCategoryActive ? `Item ${selectedSubCategory}` : "Total Barang"}</span>
-            <div className="w-7 h-7 rounded-lg bg-purple-50 text-purple-700 flex items-center justify-center border border-purple-200/60">
+            <div className="w-7 h-7 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center border border-purple-500/20">
               <ShoppingBag className="w-4 h-4" />
             </div>
           </div>
           <div>
-            <p className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight font-mono">
-              {totalItemsCount} <span className="text-base font-bold text-slate-500">Item</span>
+            <p className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight font-mono">
+              {totalItemsCount} <span className="text-base font-bold text-slate-500 dark:text-slate-400">Item</span>
             </p>
-            <p className="text-xs font-medium text-purple-700 mt-1">Produk terdata di sistem</p>
+            <p className="text-xs font-medium text-purple-600 dark:text-purple-400 mt-1">Produk terdata di sistem</p>
           </div>
         </div>
 
         {/* Card 4: Kategori Dominan */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs space-y-3 hover:border-slate-300 transition-all text-left">
-          <div className="flex items-center justify-between text-slate-400 text-xs font-bold uppercase tracking-wider">
+        <div className="bg-white dark:bg-slate-900/90 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs dark:shadow-xl space-y-3 hover:border-slate-300 dark:hover:border-slate-700 transition-all text-left">
+          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
             <span>Beban Terbesar</span>
-            <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-200/60">
+            <div className="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center border border-amber-500/20">
               <TrendingUp className="w-4 h-4" />
             </div>
           </div>
           <div>
-            <p className="text-lg sm:text-xl font-black text-slate-900 truncate tracking-tight">
+            <p className="text-lg sm:text-xl font-black text-slate-900 dark:text-white truncate tracking-tight">
               {dominantCategoryName}
             </p>
-            <p className="text-xs font-mono font-bold text-amber-700 mt-1">
+            <p className="text-xs font-mono font-bold text-amber-600 dark:text-amber-400 mt-1">
               {maxSpend > 0 ? `Rp ${maxSpend.toLocaleString("id-ID")}` : "-"}
             </p>
           </div>
         </div>
       </div>
 
-      {/* HIGHLY USEFUL FINANCIAL ANALYTICS MODULE */}
+            {/* HIGHLY USEFUL FINANCIAL ANALYTICS MODULE */}
       {showCharts && (
-        <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/90 shadow-2xs space-y-5 transition-all duration-300">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+        <div className="bg-slate-900/90 p-5 sm:p-6 rounded-3xl border border-slate-800 shadow-2xl space-y-5 transition-all duration-300">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
             <div className="space-y-0.5">
-              <h3 className="font-black text-slate-900 text-base sm:text-lg flex items-center gap-2">
-                <BarChart3 className="w-5 h-5 text-emerald-600" />
+              <h3 className="font-black text-white text-base sm:text-lg flex items-center gap-2">
+                <BarChart3 className="w-5 h-5 text-emerald-400" />
                 Analitik Visual & Wawasan Keuangan
               </h3>
-              <p className="text-xs text-slate-500 font-semibold">
-                Grafik interaktif untuk menganalisis distribusi pengeluaran, tren harian, dan produk terboros.
+              <p className="text-xs text-slate-400 font-medium">
+                Grafik interaktif distribusi pengeluaran, tren harian, dan produk terboros.
               </p>
             </div>
 
-            <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200 text-xs font-bold w-fit self-start sm:self-auto flex-wrap">
+            <div className="flex bg-slate-950 p-1 rounded-2xl border border-slate-800 text-xs font-bold w-fit self-start sm:self-auto flex-wrap">
               <button
                 type="button"
                 onClick={() => setChartMode("category")}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition-all ${
-                  chartMode === "category" ? "bg-slate-900 text-white shadow-xs" : "text-slate-600 hover:text-slate-900"
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition-all cursor-pointer ${
+                  chartMode === "category" ? "bg-emerald-500 text-slate-950 font-black shadow-xs" : "text-slate-400 hover:text-white"
                 }`}
               >
                 <PieIcon className="w-3.5 h-3.5" /> Distribusi Kategori
@@ -2095,20 +2095,20 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
               <button
                 type="button"
                 onClick={() => setChartMode("daily")}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition-all ${
-                  chartMode === "daily" ? "bg-slate-900 text-white shadow-xs" : "text-slate-600 hover:text-slate-900"
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition-all cursor-pointer ${
+                  chartMode === "daily" ? "bg-emerald-500 text-slate-950 font-black shadow-xs" : "text-slate-400 hover:text-white"
                 }`}
               >
-                <LineIcon className="w-3.5 h-3.5 text-blue-400" /> Tren Harian
+                <LineIcon className="w-3.5 h-3.5" /> Tren Harian
               </button>
               <button
                 type="button"
                 onClick={() => setChartMode("topSubCategories")}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition-all ${
-                  chartMode === "topSubCategories" ? "bg-slate-900 text-white shadow-xs" : "text-slate-600 hover:text-slate-900"
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition-all cursor-pointer ${
+                  chartMode === "topSubCategories" ? "bg-emerald-500 text-slate-950 font-black shadow-xs" : "text-slate-400 hover:text-white"
                 }`}
               >
-                <Zap className="w-3.5 h-3.5 text-amber-400" /> Top 5 Sub-Kategori
+                <Zap className="w-3.5 h-3.5" /> Top 5 Sub-Kategori
               </button>
             </div>
           </div>
@@ -2117,16 +2117,16 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
             <div className="space-y-5 animate-in fade-in duration-200">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
                 <div className="lg:col-span-7 space-y-2">
-                  <span className="text-[11px] font-black text-slate-500 uppercase tracking-wider block">
+                  <span className="text-[11px] font-black text-slate-400 uppercase tracking-wider block">
                     Pengeluaran Bersih Per Kategori Utama (Rp)
                   </span>
                   <div className="h-64 w-full pt-2">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={categoryChartData} margin={{ top: 10, right: 10, left: 10, bottom: 20 }}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1e293b" />
                         <XAxis
                           dataKey="name"
-                          tick={{ fontSize: 11, fontWeight: 700, fill: "#334155" }}
+                          tick={{ fontSize: 11, fontWeight: 700, fill: "#94a3b8" }}
                           interval={0}
                         />
                         <YAxis
@@ -2136,13 +2136,13 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                         <Tooltip
                           formatter={(value: any) => [`Rp ${Number(value).toLocaleString("id-ID")}`, "Total Pengeluaran"]}
                           contentStyle={{
-                            backgroundColor: "#0f172a",
+                            backgroundColor: "#020617",
                             borderColor: "#334155",
                             borderRadius: "14px",
                             color: "#fff",
                             fontSize: "12px",
                             fontWeight: "bold",
-                            boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.3)",
+                            boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.5)",
                           }}
                         />
                         <Bar dataKey="value" fill="#10b981" radius={[8, 8, 0, 0]} barSize={40} />
@@ -2152,7 +2152,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                 </div>
 
                 <div className="lg:col-span-5 space-y-2">
-                  <span className="text-[11px] font-black text-slate-500 uppercase tracking-wider block text-center">
+                  <span className="text-[11px] font-black text-slate-400 uppercase tracking-wider block text-center">
                     Persentase Proporsi (%)
                   </span>
                   <div className="h-64 w-full flex items-center justify-center">
@@ -2174,7 +2174,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                         <Tooltip
                           formatter={(val: any) => [`Rp ${Number(val).toLocaleString("id-ID")}`, "Total"]}
                           contentStyle={{
-                            backgroundColor: "#0f172a",
+                            backgroundColor: "#020617",
                             borderColor: "#334155",
                             borderRadius: "14px",
                             color: "#fff",
@@ -2188,149 +2188,47 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                 </div>
               </div>
 
-              <div className="pt-3 border-t border-slate-100 space-y-2">
+              <div className="pt-3 border-t border-slate-800 space-y-2">
                 <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1">
-                  <Info className="w-3.5 h-3.5 text-blue-500" /> Ringkasan Persentase Kategori (Klik untuk rincian item):
+                  <Info className="w-3.5 h-3.5 text-emerald-400" /> Ringkasan Persentase Kategori (Klik untuk rincian item):
                 </span>
                 <div className="flex flex-wrap items-center gap-2">
                   {categoryChartData.map((item, idx) => (
                     <div
                       key={idx}
                       onClick={() => handleOpenSubCategoryBreakdown(item.name)}
-                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-emerald-50 border border-slate-200/80 hover:border-emerald-300 text-[11px] shadow-2xs cursor-pointer transition-all active:scale-95 group"
+                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-950 hover:bg-slate-850 border border-slate-800 hover:border-emerald-500/50 text-[11px] text-slate-300 shadow-2xs cursor-pointer transition-all active:scale-95 group"
                     >
-                      <span
-                        className="w-3 h-3 rounded-full shrink-0"
-                        style={{ backgroundColor: item.color }}
-                      />
-                      <span className="font-extrabold text-slate-800 group-hover:text-emerald-800">{item.name}:</span>
-                      <span className="font-mono text-slate-700 font-bold">
-                        Rp {item.value.toLocaleString("id-ID")} ({item.percentage}%)
-                      </span>
-                      <ChevronRight className="w-3 h-3 text-slate-400 group-hover:text-emerald-600" />
+                      <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
+                      <span className="font-bold text-white">{item.name}</span>
+                      <span className="font-mono text-emerald-400 font-bold">{item.percentage}%</span>
                     </div>
                   ))}
                 </div>
               </div>
-            </div>
-          )}
-
-          {chartMode === "daily" && (
-            <div className="space-y-4 animate-in fade-in duration-200">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-black text-slate-500 uppercase tracking-wider block">
-                  Grafik Fluktuasi Pengeluaran Harian (Tanggal vs Nominal Rp)
-                </span>
-                <span className="text-xs font-bold text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200">
-                  {dailyTrendData.length} Hari Transaksi
-                </span>
-              </div>
-
-              {dailyTrendData.length > 0 ? (
-                <div className="h-64 w-full pt-2">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={dailyTrendData} margin={{ top: 10, right: 10, left: 10, bottom: 20 }}>
-                      <defs>
-                        <linearGradient id="colorTrend" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.4} />
-                          <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                      <XAxis dataKey="displayDate" tick={{ fontSize: 11, fontWeight: 700, fill: "#334155" }} />
-                      <YAxis
-                        tick={{ fontSize: 10, fill: "#64748b" }}
-                        tickFormatter={(v) => `Rp ${(v / 1000).toLocaleString("id-ID")}k`}
-                      />
-                      <Tooltip
-                        formatter={(val: any) => [`Rp ${Number(val).toLocaleString("id-ID")}`, "Pengeluaran Harian"]}
-                        labelFormatter={(lbl: any, payload: any) => payload?.[0]?.payload?.date || lbl}
-                        contentStyle={{
-                          backgroundColor: "#0f172a",
-                          borderColor: "#334155",
-                          borderRadius: "14px",
-                          color: "#fff",
-                          fontSize: "12px",
-                          fontWeight: "bold",
-                        }}
-                      />
-                      <Area type="monotone" dataKey="total" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorTrend)" />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              ) : (
-                <p className="text-xs text-slate-400 italic text-center py-8">Belum ada data tren harian di kriteria ini.</p>
-              )}
-            </div>
-          )}
-
-          {chartMode === "topSubCategories" && (
-            <div className="space-y-4 animate-in fade-in duration-200">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-black text-slate-500 uppercase tracking-wider block">
-                  TOP 5 SUB-KATEGORI DENGAN PENGELUARAN NOMINAL TERTINGGI (KLIK UNTUK RINCIAN ITEM)
-                </span>
-                <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
-                  Sub-Kategori Terboros
-                </span>
-              </div>
-
-              {subCategoryChartData.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-3 pt-1">
-                  {subCategoryChartData.slice(0, 5).map((prod, idx) => (
-                    <div
-                      key={idx}
-                      onClick={() => handleOpenSubCategoryBreakdown(prod.name)}
-                      className="bg-slate-50 hover:bg-emerald-50/60 p-3.5 rounded-2xl border border-slate-200/90 hover:border-emerald-500/80 space-y-1.5 cursor-pointer transition-all shadow-2xs hover:shadow-md active:scale-95 group"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-black text-amber-700 bg-amber-100 px-2 py-0.5 rounded-md">
-                          Rank #{idx + 1}
-                        </span>
-                        <Eye className="w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-600 transition-colors" />
-                      </div>
-                      <h4 className="font-extrabold text-slate-900 text-xs truncate pt-1 group-hover:text-emerald-800 transition-colors">
-                        {prod.subCategory}
-                      </h4>
-                      <p className="text-sm font-black font-mono text-emerald-700">
-                        Rp {prod.value.toLocaleString("id-ID")}
-                      </p>
-                      <p className="text-[10px] text-slate-500 font-medium truncate">
-                        {prod.count} item • [{prod.category} / {prod.subCategory}]
-                      </p>
-                      <div className="pt-1 text-[10px] font-bold text-emerald-600 flex items-center gap-1 opacity-80 group-hover:opacity-100">
-                        <span>Rincian item penopang</span>
-                        <ChevronRight className="w-3 h-3" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-xs text-slate-400 italic text-center py-8">Belum ada data sub-kategori terboros di kriteria ini.</p>
-              )}
             </div>
           )}
         </div>
       )}
 
       {/* SEARCH & FILTER BAR DIRECTLY ABOVE RECEIPTS HISTORY */}
-      <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs space-y-4">
+      <div className="bg-white dark:bg-slate-900/90 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-xl space-y-4 transition-colors duration-200">
         <div className="flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-3">
           {/* Search Box Input */}
           <div className="relative flex-1">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-slate-400 dark:text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Cari toko, barang, atau metode bayar..."
-              className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-900 placeholder:text-slate-400 focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-all bg-slate-50/60"
+              className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all bg-slate-50 dark:bg-slate-950"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => setSearchQuery("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-1 cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -2340,15 +2238,15 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
           <div className="flex flex-wrap items-center gap-2.5">
             {/* DATE RANGE FILTER DROPDOWN */}
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-slate-600 flex items-center gap-1.5 shrink-0">
-                <Calendar className="w-3.5 h-3.5 text-slate-500" /> Periode:
+              <span className="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1.5 shrink-0">
+                <Calendar className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> Periode:
               </span>
 
               <div className="relative inline-block">
                 <select
                   value={dateRangeFilter}
                   onChange={(e) => setDateRangeFilter(e.target.value as any)}
-                  className="appearance-none pl-3 pr-8 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-800 bg-slate-50 hover:bg-white focus:border-slate-900 shadow-xs cursor-pointer transition-colors"
+                  className="appearance-none pl-3 pr-8 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-850 focus:border-emerald-500 shadow-xs cursor-pointer transition-colors"
                 >
                   <option value="all">Semua Waktu</option>
                   <option value="today">Hari Ini</option>
@@ -2356,21 +2254,21 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                   <option value="month">Bulan Ini</option>
                   <option value="custom">Kustom Tanggal...</option>
                 </select>
-                <ChevronDown className="w-3.5 h-3.5 text-slate-500 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
             </div>
 
             {/* SORT BY DROPDOWN */}
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-slate-600 flex items-center gap-1.5 shrink-0">
-                <ArrowUpDown className="w-3.5 h-3.5 text-slate-500" /> Urutkan:
+              <span className="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1.5 shrink-0">
+                <ArrowUpDown className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> Urutkan:
               </span>
 
               <div className="relative inline-block">
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value as any)}
-                  className="appearance-none pl-3 pr-8 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-800 bg-slate-50 hover:bg-white focus:border-slate-900 shadow-xs cursor-pointer transition-colors"
+                  className="appearance-none pl-3 pr-8 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-850 focus:border-emerald-500 shadow-xs cursor-pointer transition-colors"
                 >
                   <option value="date-desc">Tanggal Terbaru</option>
                   <option value="date-asc">Tanggal Terlama</option>
@@ -2379,35 +2277,35 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                   <option value="merchant-asc">Nama Toko (A - Z)</option>
                   <option value="merchant-desc">Nama Toko (Z - A)</option>
                 </select>
-                <ChevronDown className="w-3.5 h-3.5 text-slate-500 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
             </div>
           </div>
         </div>
 
         {dateRangeFilter === "custom" && (
-          <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-xl border border-slate-200 animate-in fade-in zoom-in-95 duration-150 w-fit">
+          <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-950 p-2 rounded-xl border border-slate-200 dark:border-slate-800 animate-in fade-in zoom-in-95 duration-150 w-fit">
             <input
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="px-2.5 py-1 rounded-lg border border-slate-200 text-xs font-bold text-slate-800 bg-white"
+              className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200 bg-white dark:bg-slate-900"
             />
-            <span className="text-xs text-slate-400 font-bold">s/d</span>
+            <span className="text-xs text-slate-400 dark:text-slate-500 font-bold">s/d</span>
             <input
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="px-2.5 py-1 rounded-lg border border-slate-200 text-xs font-bold text-slate-800 bg-white"
+              className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200 bg-white dark:bg-slate-900"
             />
           </div>
         )}
 
         {/* Parent Category Filter Tabs & Settings at right */}
-        <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
+        <div className="flex items-center justify-between gap-2 border-t border-slate-200 dark:border-slate-800 pt-3">
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-            <span className="text-xs font-bold text-slate-500 mr-1 shrink-0 flex items-center gap-1">
-              <Layers className="w-3.5 h-3.5 text-slate-500" /> Kategori:
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 mr-1 shrink-0 flex items-center gap-1">
+              <Layers className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> Kategori:
             </span>
             {parentTabs.map((cat) => (
               <button
@@ -2416,8 +2314,8 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                 onClick={() => handleSelectParentCategory(cat)}
                 className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 whitespace-nowrap active:scale-[0.98] cursor-pointer ${
                   selectedCategory === cat
-                    ? "bg-slate-900 text-white shadow-xs"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    ? "bg-emerald-500 text-slate-950 shadow-xs font-black"
+                    : "bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-850 border border-slate-200 dark:border-slate-800"
                 }`}
               >
                 {cat}
@@ -2432,14 +2330,14 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
               onClick={() => setShowStatusFilterPanel((prev) => !prev)}
               className={`relative p-2 rounded-xl transition-all border shadow-xs active:scale-[0.98] flex items-center justify-center shrink-0 cursor-pointer ${
                 showStatusFilterPanel || selectedStatusFilter !== "Semua Status" || selectedPersonFilter !== "Semua Penanggung Jawab" || selectedPaymentMethods.length > 0
-                  ? "bg-slate-900 text-emerald-400 border-slate-800"
-                  : "bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200"
+                  ? "bg-emerald-500 text-slate-950 border-emerald-400"
+                  : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-950 dark:hover:bg-slate-850 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800"
               }`}
               title="Filter Status & Metode Pembayaran"
             >
               <Filter className="w-4 h-4" />
               {(selectedStatusFilter !== "Semua Status" || selectedPersonFilter !== "Semua Penanggung Jawab" || selectedPaymentMethods.length > 0) && (
-                <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white animate-pulse" />
+                <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-950 animate-pulse" />
               )}
             </button>
 
@@ -2447,27 +2345,27 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
             <button
               type="button"
               onClick={() => setShowManageCategoryModal(true)}
-              className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all shrink-0 border border-slate-200 hover:border-slate-300 active:scale-[0.98] flex items-center justify-center cursor-pointer"
+              className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-950 dark:hover:bg-slate-850 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all shrink-0 border border-slate-200 dark:border-slate-800 active:scale-[0.98] flex items-center justify-center cursor-pointer"
               title="Kelola Master Kategori"
             >
-              <Settings className="w-4 h-4 text-slate-700" />
+              <Settings className="w-4 h-4" />
             </button>
           </div>
         </div>
 
         {/* Multi-Select Payment Methods Filter Bar */}
-        <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
+        <div className="flex items-center justify-between gap-2 border-t border-slate-200 dark:border-slate-800 pt-3">
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-            <span className="text-xs font-bold text-slate-500 mr-1 shrink-0 flex items-center gap-1">
-              <CreditCard className="w-3.5 h-3.5 text-slate-500" /> Metode:
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 mr-1 shrink-0 flex items-center gap-1">
+              <CreditCard className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> Metode:
             </span>
             <button
               type="button"
               onClick={handleClearPaymentMethods}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 whitespace-nowrap active:scale-[0.98] cursor-pointer ${
                 selectedPaymentMethods.length === 0
-                  ? "bg-slate-900 text-white shadow-xs"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  ? "bg-emerald-500 text-slate-950 font-black shadow-xs"
+                  : "bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-slate-800"
               }`}
             >
               Semua
@@ -2481,8 +2379,8 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                   onClick={() => handleTogglePaymentMethod(method)}
                   className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 whitespace-nowrap active:scale-[0.98] cursor-pointer ${
                     isSelected
-                      ? "bg-emerald-600 text-white shadow-xs"
-                      : "bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200/80"
+                      ? "bg-emerald-500 text-slate-950 font-black shadow-xs"
+                      : "bg-slate-100 dark:bg-slate-950 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-slate-800"
                   }`}
                   title={isSelected ? `Hapus filter ${method}` : `Filter ${method}`}
                 >
@@ -2495,13 +2393,13 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
 
           {selectedPaymentMethods.length > 0 && (
             <div className="flex items-center gap-2 shrink-0">
-              <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200">
+              <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-lg border border-emerald-500/20">
                 {selectedPaymentMethods.length} Terpilih
               </span>
               <button
                 type="button"
                 onClick={handleClearPaymentMethods}
-                className="text-xs font-bold text-red-600 hover:text-red-700 underline cursor-pointer"
+                className="text-xs font-bold text-rose-400 hover:text-rose-300 underline cursor-pointer"
               >
                 Reset
               </button>
@@ -2511,9 +2409,9 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
 
         {/* Dynamic Sub-Category Filter Pills */}
         {selectedCategory !== "Semua" && subCategoryOptions.length > 0 && (
-          <div className="flex items-center gap-1.5 overflow-x-auto pt-3 border-t border-slate-200/70 bg-emerald-50/40 p-3 rounded-2xl border border-emerald-100/60 transition-all duration-200">
-            <span className="text-[11px] font-black text-emerald-800 flex items-center gap-1 shrink-0 uppercase tracking-wider mr-1">
-              <ListFilter className="w-3.5 h-3.5 text-emerald-600" /> SUB-KATEGORI ({selectedCategory.toUpperCase()}):
+          <div className="flex items-center gap-1.5 overflow-x-auto pt-3 border-t border-slate-800 bg-slate-950/80 p-3 rounded-2xl border border-slate-800 transition-all duration-200">
+            <span className="text-[11px] font-black text-emerald-400 flex items-center gap-1 shrink-0 uppercase tracking-wider mr-1">
+              <ListFilter className="w-3.5 h-3.5 text-emerald-400" /> SUB-KATEGORI ({selectedCategory.toUpperCase()}):
             </span>
 
             {subCategoryOptions.map((subName) => (
@@ -2521,10 +2419,10 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                 key={subName}
                 type="button"
                 onClick={() => setSelectedSubCategory(subName)}
-                className={`px-3.5 py-1 rounded-full text-xs font-bold transition-all duration-150 whitespace-nowrap active:scale-95 ${
+                className={`px-3.5 py-1 rounded-full text-xs font-bold transition-all duration-150 whitespace-nowrap active:scale-95 cursor-pointer ${
                   selectedSubCategory === subName
-                    ? "bg-emerald-700 text-white shadow-xs"
-                    : "bg-white text-emerald-800 hover:bg-emerald-100 border border-emerald-200"
+                    ? "bg-emerald-500 text-slate-950 font-black shadow-xs"
+                    : "bg-slate-900 text-slate-300 hover:text-white border border-slate-800"
                 }`}
               >
                 {subName}
@@ -2750,7 +2648,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                 onChange={toggleSelectAll}
                 className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 cursor-pointer shrink-0"
               />
-              <span className="text-slate-800 text-xs font-extrabold">
+              <span className="text-white text-xs font-black">
                 {isAllSelected ? "Batal Pilih Semua" : `Pilih Semua (${paginatedReceipts.length} Struk Halaman Ini)`}
               </span>
             </label>
@@ -2759,7 +2657,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
               <button
                 type="button"
                 onClick={toggleSelectAllFiltered}
-                className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 px-2.5 py-1 rounded-lg transition-colors cursor-pointer shrink-0"
+                className="text-[11px] font-bold text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 px-2.5 py-1 rounded-xl transition-colors cursor-pointer shrink-0"
               >
                 {isAllFilteredSelected ? "Batal Semua Filter" : `Pilih Semua (${filteredReceipts.length} Struk)`}
               </button>
@@ -2769,13 +2667,13 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
 
         {/* STATIC TABLE HEADER BAR (FOR HORIZONTAL ROW COLUMN LANDMARKS) */}
         {!isInitialLoading && filteredReceipts.length > 0 && (
-          <div className="hidden lg:grid grid-cols-12 gap-3 px-4 py-2.5 bg-slate-100/80 rounded-xl border border-slate-200/90 text-[11px] font-black uppercase tracking-wider text-slate-500">
+          <div className="hidden lg:grid grid-cols-12 gap-3 px-4 py-2.5 bg-slate-100 dark:bg-slate-900/90 rounded-xl border border-slate-200 dark:border-slate-800 text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 transition-colors duration-200">
             <div className="col-span-2 flex items-center gap-2">
               <input
                 type="checkbox"
                 checked={isAllSelected}
                 onChange={toggleSelectAll}
-                className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 cursor-pointer"
+                className="w-4 h-4 rounded text-emerald-500 focus:ring-emerald-500 border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 cursor-pointer"
                 title="Pilih Semua Baris"
               />
               <span>TANGGAL</span>
@@ -2790,18 +2688,18 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
 
         {/* EMPTY STATE */}
         {isInitialLoading ? (
-          <div className="bg-white p-12 rounded-2xl border border-slate-200/90 text-center space-y-3">
-            <RefreshCw className="w-8 h-8 animate-spin text-emerald-600 mx-auto" />
-            <p className="text-xs font-bold text-slate-500">Memuat data nota...</p>
+          <div className="bg-white dark:bg-slate-900/90 p-12 rounded-2xl border border-slate-200 dark:border-slate-800 text-center space-y-3 shadow-xs">
+            <RefreshCw className="w-8 h-8 animate-spin text-emerald-500 dark:text-emerald-400 mx-auto" />
+            <p className="text-xs font-bold text-slate-500 dark:text-slate-400">Memuat data nota...</p>
           </div>
         ) : filteredReceipts.length === 0 ? (
-          <div className="bg-white p-12 rounded-2xl border border-slate-200/90 text-center space-y-4 shadow-xs transition-all duration-200">
-            <div className="w-14 h-14 rounded-2xl bg-slate-900 text-emerald-400 flex items-center justify-center mx-auto shadow-xs">
+          <div className="bg-white dark:bg-slate-900/90 p-12 rounded-2xl border border-slate-200 dark:border-slate-800 text-center space-y-4 shadow-sm dark:shadow-2xl transition-all duration-200">
+            <div className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-slate-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto border border-slate-200 dark:border-slate-800 shadow-xs">
               <ReceiptIcon className="w-7 h-7" />
             </div>
             <div className="space-y-1">
-              <h4 className="font-black text-slate-900 text-base">Belum Ada Nota</h4>
-              <p className="text-xs text-slate-500 max-w-sm mx-auto font-medium leading-relaxed">
+              <h4 className="font-black text-slate-900 dark:text-white text-base">Belum Ada Nota</h4>
+              <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto font-medium leading-relaxed">
                 Sesuaikan filter pencarian atau pindai nota baru untuk mulai mencatat pengeluaran.
               </p>
             </div>
@@ -2818,7 +2716,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                     setSelectedPaymentMethods([])
                     setDateRangeFilter("all")
                   }}
-                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-all border border-slate-200 active:scale-[0.98] cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-950 dark:hover:bg-slate-850 text-slate-700 dark:text-slate-300 font-bold text-xs transition-all border border-slate-200 dark:border-slate-800 active:scale-[0.98] cursor-pointer"
                 >
                   Reset Filter
                 </button>
@@ -2826,9 +2724,9 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
               <button
                 type="button"
                 onClick={onScanNewReceipt}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-black text-xs transition-all shadow-sm active:scale-[0.98] cursor-pointer"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs transition-all shadow-md shadow-emerald-500/20 active:scale-[0.98] cursor-pointer"
               >
-                <Sparkles className="w-4 h-4 text-emerald-400" />
+                <Sparkles className="w-4 h-4 text-slate-950" />
                 <span>Pindai Nota Baru</span>
               </button>
             </div>
@@ -2869,20 +2767,19 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                 <div
                   key={receipt.id}
                   onClick={() => setSelectedReceipt(receipt)}
-                  style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}
-                  className={`rounded-xl border transition-all duration-200 px-4 py-3.5 cursor-pointer ${
+                  className={`rounded-2xl border transition-all duration-200 px-4 py-3.5 cursor-pointer ${
                     pendingReq
-                      ? "border-amber-400 bg-amber-50/20 ring-1 ring-amber-400/40"
+                      ? "border-amber-500/50 bg-amber-500/10 ring-1 ring-amber-500/30"
                       : isSelected
-                      ? "border-emerald-500 bg-emerald-50/30"
-                      : "bg-white border-slate-200/90 hover:border-emerald-500 hover:bg-slate-50/70"
+                      ? "border-emerald-500 bg-emerald-500/10 shadow-lg"
+                      : "bg-white dark:bg-slate-900/90 border-slate-200/90 dark:border-slate-800 hover:border-emerald-500/50 hover:bg-slate-50 dark:hover:bg-slate-850 shadow-xs dark:shadow-none"
                   }`}
                 >
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-center text-xs">
                     {/* KOLOM 1: Checkbox & Tanggal */}
                     <div className="lg:col-span-2 flex items-center gap-2.5 min-w-0">
                       <label
-                        className="flex items-center gap-2 p-1 -m-1 rounded-lg hover:bg-slate-100/80 active:bg-slate-200/80 cursor-pointer select-none shrink-0"
+                        className="flex items-center gap-2 p-1 -m-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800/80 active:bg-slate-200 dark:active:bg-slate-700/80 cursor-pointer select-none shrink-0"
                         onClick={(e) => e.stopPropagation()}
                         title="Centang untuk memilih nota ini"
                       >
@@ -2890,9 +2787,9 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                           type="checkbox"
                           checked={isSelected}
                           onChange={() => toggleSelectRow(receipt.id)}
-                          className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 cursor-pointer shrink-0"
+                          className="w-4 h-4 rounded text-emerald-500 focus:ring-emerald-500 border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 cursor-pointer shrink-0"
                         />
-                        <span className="font-mono font-bold text-slate-800 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200/80 text-[11px] whitespace-nowrap">
+                        <span className="font-mono font-bold text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-800 text-[11px] whitespace-nowrap">
                           {formattedDateStr}
                         </span>
                       </label>
@@ -2901,15 +2798,15 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                     {/* KOLOM 2: Identitas Toko & Category Pill & Pending Badge */}
                     <div className="lg:col-span-2 space-y-0.5 min-w-0">
                       <div className="flex items-center gap-1.5">
-                        <Store className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                        <h4 className="font-black text-slate-900 text-sm truncate">{receipt.merchantName}</h4>
+                        <Store className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400 shrink-0" />
+                        <h4 className="font-black text-slate-900 dark:text-white text-sm truncate">{receipt.merchantName}</h4>
                       </div>
                       <div className="flex items-center gap-1 flex-wrap">
-                        <span className="inline-block px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 font-bold text-[10px] border border-emerald-200/60 truncate max-w-full">
+                        <span className="inline-block px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold text-[10px] border border-emerald-500/20 truncate max-w-full">
                           {categoryPill}
                         </span>
                         {isSubCategoryActive && (
-                          <span className="inline-block px-2 py-0.5 rounded-md bg-purple-50 text-purple-800 font-bold text-[10px] border border-purple-200/60 truncate max-w-full">
+                          <span className="inline-block px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-600 dark:text-purple-400 font-bold text-[10px] border border-purple-500/20 truncate max-w-full">
                             {selectedSubCategory}
                           </span>
                         )}
@@ -2920,9 +2817,9 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                               setExpandedApprovalId(pendingReq.id)
                               setShowApprovalModal(true)
                             }}
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500 hover:bg-amber-600 text-white font-extrabold text-[9.5px] border border-amber-600 shadow-2xs transition-colors cursor-pointer shrink-0"
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500 text-slate-950 font-black text-[9.5px] border border-amber-400 shadow-2xs transition-colors cursor-pointer shrink-0"
                           >
-                            <ShieldCheck className="w-3 h-3 text-amber-100 animate-pulse" />
+                            <ShieldCheck className="w-3 h-3 text-slate-950 animate-pulse" />
                             {pendingReq.actionType === "DELETE" && "Hapus Pending"}
                             {pendingReq.actionType === "BULK_DELETE" && "Hapus Massal Pending"}
                             {pendingReq.actionType === "EDIT" && "Edit Pending"}
@@ -2935,7 +2832,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                     {/* KOLOM 3: Ringkasan Produk (Truncated Single Line) */}
                     <div className="lg:col-span-3 min-w-0">
                       <p
-                        className="text-slate-600 font-medium truncate text-xs"
+                        className="text-slate-600 dark:text-slate-400 font-medium truncate text-xs"
                         title={productSummaryText}
                       >
                         {productSummaryText}
@@ -2944,21 +2841,21 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
 
                     {/* KOLOM 4: Metode Bayar */}
                     <div className="lg:col-span-1 text-left lg:text-center shrink-0">
-                      <span className="inline-block px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 font-bold text-[10px] whitespace-nowrap border border-slate-200">
+                      <span className="inline-block px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-950 text-slate-700 dark:text-slate-300 font-bold text-[10px] whitespace-nowrap border border-slate-200 dark:border-slate-800">
                         {receipt.paymentMethod || "Cash"}
                       </span>
                     </div>
 
-                    {/* KOLOM 5: Total Netto (Nominal Paling Menonjol TANPA ,00) */}
+                    {/* KOLOM 5: Total Netto (Nominal Paling Menonjol) */}
                     <div className="lg:col-span-2 text-left lg:text-right pr-1 shrink-0">
-                      <span className="text-[10px] uppercase font-bold text-slate-400 block lg:hidden">Total Netto:</span>
-                      <span className="font-black font-mono text-emerald-600 text-sm sm:text-base tracking-tight whitespace-nowrap">
+                      <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 block lg:hidden">Total Netto:</span>
+                      <span className="font-black font-mono text-emerald-600 dark:text-emerald-400 text-sm sm:text-base tracking-tight whitespace-nowrap">
                         Rp {Math.round(cardDisplayNetto).toLocaleString("id-ID")}
                       </span>
                     </div>
 
-                    {/* KOLOM 6: Action Buttons Group (Status, Lunasi, Edit & Hapus or Pending Review Badge) */}
-                    <div className="lg:col-span-2 flex items-center justify-end gap-1.5 border-t lg:border-t-0 border-slate-100 pt-2 lg:pt-0 mt-1 lg:mt-0 shrink-0">
+                    {/* KOLOM 6: Action Buttons Group */}
+                    <div className="lg:col-span-2 flex items-center justify-end gap-1.5 border-t lg:border-t-0 border-slate-100 dark:border-slate-800 pt-2 lg:pt-0 mt-1 lg:mt-0 shrink-0">
                       {pendingReq ? (
                         <button
                           type="button"
@@ -2967,10 +2864,10 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                             setExpandedApprovalId(pendingReq.id)
                             setShowApprovalModal(true)
                           }}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white font-extrabold text-[10.5px] transition-all shadow-xs animate-pulse cursor-pointer shrink-0"
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-[10.5px] transition-all shadow-xs animate-pulse cursor-pointer shrink-0"
                           title={`Nota ini sedang dalam peninjauan Dual-Control (${pendingReq.actionType}) oleh admin ${pendingReq.requestedBy}. Klik untuk verifikasi.`}
                         >
-                          <ShieldCheck className="w-3.5 h-3.5 text-amber-100" />
+                          <ShieldCheck className="w-3.5 h-3.5 text-slate-950" />
                           <span>Dalam Peninjauan</span>
                         </button>
                       ) : (
@@ -2982,7 +2879,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                                 e.stopPropagation()
                                 triggerSettleFlow(receipt)
                               }}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-emerald-700 text-white font-black text-[11px] transition-all shadow-2xs active:scale-95 shrink-0"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-[11px] transition-all shadow-2xs active:scale-95 shrink-0 cursor-pointer"
                               title="Tandai Nota Sudah Direimburse / Lunasi"
                             >
                               <CheckCircle2 className="w-3.5 h-3.5" /> Lunasi
@@ -2994,11 +2891,11 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                                 <span
                                   className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-bold text-[10px] border shrink-0 ${
                                     effSt === "Sudah Dilunasi"
-                                      ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                                      : "bg-green-50 text-green-800 border-green-200"
+                                      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                                      : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
                                   }`}
                                 >
-                                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                  <CheckCircle2 className="w-3 h-3 text-emerald-500 dark:text-emerald-400" />
                                   {effSt}
                                 </span>
                               )
@@ -3012,7 +2909,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                                 e.stopPropagation()
                                 onEditReceipt(receipt)
                               }}
-                              className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-600 transition-colors shrink-0"
+                              className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-sky-600 dark:text-sky-400 transition-colors shrink-0 cursor-pointer"
                               title="Edit Data Nota"
                             >
                               <Edit className="w-4 h-4" />
@@ -3025,7 +2922,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                               e.stopPropagation()
                               triggerDeleteConfirm(receipt)
                             }}
-                            className="p-1.5 rounded-lg hover:bg-red-50 text-red-500 transition-colors shrink-0"
+                            className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-rose-600 dark:text-rose-400 transition-colors shrink-0 cursor-pointer"
                             title="Hapus Nota"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -3040,10 +2937,10 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
           </div>
         )}
 
-        {/* PAGINATION COMPONENT (PAGE 1 OF X, PREV, NEXT, ITEMS PER PAGE) */}
+        {/* PAGINATION COMPONENT */}
         {!isInitialLoading && filteredReceipts.length > 0 && (
-          <div className="bg-white px-4 py-3 rounded-2xl border border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-            <div className="flex items-center gap-2 text-slate-600 font-semibold">
+          <div className="bg-white dark:bg-slate-900/90 px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs shadow-sm dark:shadow-none transition-colors duration-200">
+            <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400 font-medium">
               <span>Menampilkan {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, filteredReceipts.length)} dari {filteredReceipts.length} Nota</span>
               
               <div className="relative inline-block ml-2">
@@ -3053,38 +2950,39 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                     setItemsPerPage(Number(e.target.value))
                     setCurrentPage(1)
                   }}
-                  className="appearance-none pl-2.5 pr-6 py-1 rounded-lg border border-slate-300 text-xs font-bold text-slate-800 bg-white cursor-pointer"
+                  className="appearance-none pl-2 pr-6 py-1 rounded-lg border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-slate-950 cursor-pointer"
                 >
                   <option value={10}>10 / hal</option>
                   <option value={20}>20 / hal</option>
                   <option value={50}>50 / hal</option>
-                  <option value={100}>100 / hal</option>
                 </select>
-                <ChevronDown className="w-3 h-3 text-slate-500 absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <ChevronDown className="w-3 h-3 text-slate-400 dark:text-slate-500 absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
             </div>
 
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs text-slate-500 font-bold mr-2">
-                Halaman {currentPage} dari {totalPages}
-              </span>
-
+            <div className="flex items-center gap-2">
               <button
                 type="button"
                 disabled={currentPage === 1}
-                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-slate-300 font-bold text-slate-700 hover:bg-slate-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                className={`p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-700 dark:text-slate-300 font-bold transition-all ${
+                  currentPage === 1 ? "opacity-40 cursor-not-allowed" : "hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                }`}
               >
-                <ChevronLeft className="w-4 h-4" /> Prev
+                <ChevronLeft className="w-4 h-4" />
               </button>
-
+              <span className="font-mono font-bold text-slate-800 dark:text-slate-200 px-2">
+                Hal {currentPage} / {totalPages || 1}
+              </span>
               <button
                 type="button"
                 disabled={currentPage >= totalPages}
-                onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-slate-300 font-bold text-slate-700 hover:bg-slate-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                className={`p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-700 dark:text-slate-300 font-bold transition-all ${
+                  currentPage >= totalPages ? "opacity-40 cursor-not-allowed" : "hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                }`}
               >
-                Next <ChevronRight className="w-4 h-4" />
+                <ChevronRight className="w-4 h-4" />
               </button>
             </div>
           </div>

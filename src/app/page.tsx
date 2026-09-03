@@ -19,6 +19,7 @@ import { Camera, Receipt, History, ShieldCheck, CheckCircle2, Maximize2, LogOut,
 
 import { registerPushSubscription } from "@/lib/pwaNotification"
 import { useAppDialog } from "@/components/ui/app-dialog"
+import { ThemeToggle } from "@/lib/theme"
 
 export default function HomePage() {
   const { showAlert } = useAppDialog()
@@ -614,17 +615,17 @@ export default function HomePage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 text-slate-900 flex flex-col font-sans pb-16 sm:pb-0">
+    <main className="min-h-screen bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100 flex flex-col font-sans pb-16 sm:pb-0 antialiased selection:bg-emerald-500 selection:text-white transition-colors duration-200">
       {/* Toast Notification */}
       {batchToast && (
-        <div className="fixed top-20 right-4 z-50 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-2xl border border-emerald-500/40 flex items-center gap-2.5 text-xs font-bold animate-in fade-in slide-in-from-top-3 duration-200">
+        <div className="fixed top-20 right-4 z-50 bg-slate-900 dark:bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-2xl border border-emerald-500/40 flex items-center gap-2.5 text-xs font-bold animate-in fade-in slide-in-from-top-3 duration-200">
           <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
           <span>{batchToast}</span>
         </div>
       )}
 
       {/* Top Header Navbar with iOS Notch & Camera Hardware Safe Area Support */}
-      <header className="bg-slate-900 text-white sticky top-0 z-30 shadow-md pt-[env(safe-area-inset-top,0px)] border-b border-slate-800">
+      <header className="bg-white/95 text-slate-900 dark:bg-slate-900/95 dark:text-white sticky top-0 z-30 shadow-xs dark:shadow-md pt-[env(safe-area-inset-top,0px)] border-b border-slate-200 dark:border-slate-800 backdrop-blur-md transition-colors duration-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <img
@@ -633,10 +634,10 @@ export default function HomePage() {
               className="w-9 h-9 object-contain"
             />
             <div>
-              <h1 className="font-extrabold text-base sm:text-lg tracking-tight leading-tight flex items-center gap-2">
+              <h1 className="font-black text-base sm:text-lg tracking-tight leading-tight flex items-center gap-2">
                 {subscription?.studioProfile?.studioName || "Scota"}
               </h1>
-              <p className="text-[11px] text-slate-400 hidden sm:block">
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 hidden sm:block">
                 {subscription?.studioProfile?.tagline || "Digitalisasi Struk & Pembukuan Pengeluaran Usaha"}
               </p>
             </div>
@@ -644,7 +645,7 @@ export default function HomePage() {
 
           <div className="flex items-center gap-2">
             {/* Desktop Tab Selector */}
-            <div className="hidden sm:flex items-center bg-slate-800 p-1 rounded-xl border border-slate-700">
+            <div className="hidden sm:flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
               <button
                 type="button"
                 disabled={isProcessing}
@@ -658,8 +659,8 @@ export default function HomePage() {
                 }}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                   activeTab === "scan" && !imagePreviewUrl
-                    ? "bg-emerald-600 text-white shadow-sm"
-                    : "text-slate-300 hover:text-white"
+                    ? "bg-emerald-500 text-slate-950 font-black shadow-xs"
+                    : "text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
                 } ${isProcessing ? "opacity-40 cursor-not-allowed pointer-events-none" : ""}`}
               >
                 <Camera className="w-4 h-4" />
@@ -679,8 +680,8 @@ export default function HomePage() {
                 }}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                   activeTab === "history" && !imagePreviewUrl
-                    ? "bg-emerald-600 text-white shadow-sm"
-                    : "text-slate-300 hover:text-white"
+                    ? "bg-emerald-500 text-slate-950 font-black shadow-xs"
+                    : "text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
                 } ${isProcessing ? "opacity-40 cursor-not-allowed pointer-events-none" : ""}`}
               >
                 <History className="w-4 h-4" />
@@ -692,10 +693,10 @@ export default function HomePage() {
             <button
               type="button"
               onClick={() => setShowSubscriptionModal(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-emerald-500/40 text-emerald-400 text-xs font-bold transition-all cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800/90 hover:bg-slate-200 dark:hover:bg-slate-700 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs font-bold transition-all cursor-pointer"
               title="Kelola Paket & Profil Studio"
             >
-              <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+              <Sparkles className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400" />
               <span className="hidden md:inline">Paket:</span>
               <span className="uppercase text-[11px] font-black">
                 {subscription?.tier || "Trial"}
@@ -705,16 +706,16 @@ export default function HomePage() {
             {/* Superadmin Portal Link */}
             <Link
               href="/superadmin"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white text-xs font-bold transition-all cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800/90 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white text-xs font-bold transition-all cursor-pointer"
               title="Buka Portal Superadmin"
             >
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400" />
               <span className="hidden lg:inline">Superadmin</span>
             </Link>
 
             {/* Active Account Identity Badge */}
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 border border-slate-700 text-xs font-bold text-slate-200">
-              <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200">
+              <UserCheck className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400" />
               <span>
                 {adminUser.toLowerCase() === "karyawan"
                   ? `Karyawan (${staffName || "Staf"})`
@@ -731,12 +732,15 @@ export default function HomePage() {
                   window.history.replaceState(null, "", "?view=landing")
                 }
               }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white text-xs font-bold transition-all cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800/90 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white text-xs font-bold transition-all cursor-pointer"
               title="Lihat Halaman Pengenalan & Fitur SaaS"
             >
-              <Info className="w-3.5 h-3.5 text-emerald-400" />
+              <Info className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400" />
               <span className="hidden sm:inline">Info SaaS</span>
             </button>
+
+            {/* Dark/Light Mode Theme Toggle */}
+            <ThemeToggle />
 
             {/* Settings Gear Icon Button */}
             <button
@@ -746,12 +750,12 @@ export default function HomePage() {
                 if (isProcessing) return
                 setShowSettingsModal(true)
               }}
-              className={`inline-flex items-center justify-center p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-emerald-400 font-bold text-xs border border-slate-700 transition-all ml-1 cursor-pointer ${
+              className={`inline-flex items-center justify-center p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 active:bg-slate-300 dark:active:bg-slate-600 text-slate-700 dark:text-emerald-400 font-bold text-xs border border-slate-200 dark:border-slate-700 transition-all ml-1 cursor-pointer ${
                 isProcessing ? "opacity-40 cursor-not-allowed pointer-events-none" : "active:scale-95"
               }`}
               title={isProcessing ? "Sedang memproses scan..." : "Pengaturan & Keluar"}
             >
-              <Settings className="w-4 h-4 text-emerald-400" />
+              <Settings className="w-4 h-4 text-slate-700 dark:text-emerald-400" />
             </button>
           </div>
         </div>
@@ -784,10 +788,10 @@ export default function HomePage() {
         ) : activeTab === "scan" ? (
           <div className="space-y-6 animate-in fade-in duration-300">
             <div className="text-center max-w-xl mx-auto space-y-2">
-              <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+              <h2 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
                 Scan Nota & Struk
               </h2>
-              <p className="text-xs sm:text-sm text-slate-500 font-medium max-w-md mx-auto">
+              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium max-w-md mx-auto">
                 Unggah foto dari galeri atau kamera langsung.
               </p>
             </div>
@@ -815,7 +819,7 @@ export default function HomePage() {
 
       {/* STICKY BOTTOM NAVIGATION FOR MOBILE DEVICES (< sm) - Hidden during verification split screen */}
       {!imagePreviewUrl && (
-        <div className="fixed bottom-0 left-0 right-0 z-40 sm:hidden bg-slate-900 border-t border-slate-800 p-2 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))] flex items-center justify-around shadow-2xl">
+        <div className="fixed bottom-0 left-0 right-0 z-40 sm:hidden bg-white/95 text-slate-900 dark:bg-slate-900/95 dark:text-white border-t border-slate-200 dark:border-slate-800 p-2 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))] flex items-center justify-around shadow-2xl backdrop-blur-md transition-colors duration-200">
           <button
             type="button"
             disabled={isProcessing}
@@ -825,7 +829,7 @@ export default function HomePage() {
               setActiveTab("scan")
             }}
             className={`flex flex-col items-center gap-1 py-1 px-4 rounded-xl text-xs font-bold transition-all ${
-              activeTab === "scan" && !imagePreviewUrl ? "text-emerald-400 bg-slate-800" : "text-slate-400"
+              activeTab === "scan" && !imagePreviewUrl ? "text-emerald-500 font-black bg-slate-100 dark:bg-slate-800" : "text-slate-500 dark:text-slate-400"
             } ${isProcessing ? "opacity-40 cursor-not-allowed pointer-events-none" : ""}`}
           >
             <Camera className="w-5 h-5" />
@@ -841,7 +845,7 @@ export default function HomePage() {
               setActiveTab("history")
             }}
             className={`flex flex-col items-center gap-1 py-1 px-4 rounded-xl text-xs font-bold transition-all ${
-              activeTab === "history" && !imagePreviewUrl ? "text-emerald-400 bg-slate-800" : "text-slate-400"
+              activeTab === "history" && !imagePreviewUrl ? "text-emerald-500 font-black bg-slate-100 dark:bg-slate-800" : "text-slate-500 dark:text-slate-400"
             } ${isProcessing ? "opacity-40 cursor-not-allowed pointer-events-none" : ""}`}
           >
             <History className="w-5 h-5" />

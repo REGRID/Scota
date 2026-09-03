@@ -1888,38 +1888,39 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
         className="hidden"
       />
 
-      {/* TOP HEADER BANNER (COMPACT & SINGLE LINE FIT) */}
-      <div className="bg-white px-5 py-3.5 rounded-3xl border border-slate-200/90 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-3">
+      {/* TOP HEADER BANNER */}
+      <div className="bg-white px-5 py-4 rounded-2xl border border-slate-200/90 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs shrink-0">
-            <ReceiptIcon className="w-4 h-4" />
+          <div className="w-10 h-10 rounded-xl bg-slate-900 text-emerald-400 border border-slate-800 flex items-center justify-center shadow-xs shrink-0">
+            <ReceiptIcon className="w-5 h-5" />
           </div>
           <div>
             <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
-              Riwayat Nota
+              Riwayat & Laporan Nota
             </h2>
-            <p className="text-[11px] text-slate-500 font-semibold">
-              Rekapitulasi pengeluaran & laporan.
+            <p className="text-xs text-slate-500 font-medium">
+              Rekapitulasi pengeluaran usaha dan arsip bukti transaksi.
             </p>
           </div>
         </div>
 
         {/* Compact Actions Row */}
-        <div className="flex items-center gap-1.5 flex-wrap md:flex-nowrap shrink-0">
+        <div className="flex items-center gap-2 flex-wrap md:flex-nowrap shrink-0">
           {/* Dual-Admin Approval Requests Button */}
           <button
             type="button"
             onClick={() => setShowApprovalModal(true)}
-            className={`relative inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl font-extrabold text-xs transition-all border shadow-2xs active:scale-95 shrink-0 ${
+            className={`relative inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all border shadow-xs active:scale-[0.98] shrink-0 cursor-pointer ${
               pendingApprovals.length > 0
-                ? "bg-amber-500 text-slate-950 border-amber-600 animate-pulse font-black"
+                ? "bg-amber-500 text-slate-950 border-amber-600 font-black animate-pulse"
                 : "bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200"
             }`}
-            title="Verifikasi Persetujuan Admin (Empat Mata)"
+            title="Verifikasi Persetujuan Admin"
           >
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" /> Persetujuan
+            <ShieldCheck className="w-4 h-4 text-slate-700" />
+            <span>Persetujuan</span>
             {pendingApprovals.length > 0 && (
-              <span className="ml-0.5 px-1.5 py-0.5 bg-red-600 text-white rounded-full text-[10px] font-black leading-none">
+              <span className="ml-1 px-1.5 py-0.5 bg-slate-950 text-amber-300 rounded-full text-[10px] font-black leading-none">
                 {pendingApprovals.length}
               </span>
             )}
@@ -1929,129 +1930,141 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
           <button
             type="button"
             onClick={() => setShowNotificationsModal(true)}
-            className={`relative inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl font-extrabold text-xs transition-all border shadow-2xs active:scale-95 shrink-0 cursor-pointer ${
+            className={`relative inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all border shadow-xs active:scale-[0.98] shrink-0 cursor-pointer ${
               unreadNotificationCount > 0
-                ? "bg-slate-900 text-white border-slate-800 font-black"
+                ? "bg-slate-900 text-white border-slate-800"
                 : "bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200"
             }`}
-            title="Buka Pusat Notifikasi Aktivitas Admin"
+            title="Pusat Notifikasi Aktivitas"
           >
             <div className="relative flex items-center justify-center">
-              <Bell className="w-3.5 h-3.5 text-amber-400 fill-amber-400/20" />
+              <Bell className="w-4 h-4 text-amber-500" />
               {unreadNotificationCount > 0 && (
-                <span className="absolute -top-1 -right-1.5 flex h-2.5 w-2.5">
+                <span className="absolute -top-1 -right-1 flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500 border border-slate-900"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
                 </span>
               )}
             </div>
             <span>Notifikasi</span>
             {unreadNotificationCount > 0 && (
-              <span className="ml-0.5 px-1.5 py-0.5 bg-red-600 text-white rounded-full text-[10px] font-black leading-none shadow-xs">
+              <span className="ml-0.5 px-1.5 py-0.5 bg-red-600 text-white rounded-full text-[10px] font-black leading-none">
                 {unreadNotificationCount}
               </span>
             )}
           </button>
 
+          {/* CHARTS TOGGLE BUTTON */}
           <button
             type="button"
             onClick={() => setShowCharts(!showCharts)}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs transition-all border shadow-2xs active:scale-95 shrink-0 ${
+            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all border shadow-xs active:scale-[0.98] shrink-0 cursor-pointer ${
               showCharts
                 ? "bg-slate-900 text-white border-slate-800"
                 : "bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200"
             }`}
           >
-            <BarChart3 className="w-3.5 h-3.5 text-emerald-400" /> Grafik
+            <BarChart3 className="w-4 h-4 text-emerald-500" />
+            <span>Grafik</span>
           </button>
 
-          {/* COMBINED DATA & EXPORT BUTTON */}
+          {/* DATA OPTIONS BUTTON */}
           <button
             type="button"
             onClick={() => setShowDataOptionsModal(true)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-extrabold text-xs transition-all border border-slate-200 shadow-2xs active:scale-95 shrink-0 cursor-pointer"
-            title="Opsi Backup, Restore, dan Ekspor Excel"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-all border border-slate-200 shadow-xs active:scale-[0.98] shrink-0 cursor-pointer"
+            title="Opsi Backup, Restore, dan Ekspor"
           >
-            <Database className="w-3.5 h-3.5 text-emerald-600" /> Kelola Data
+            <Database className="w-4 h-4 text-slate-700" />
+            <span>Kelola Data</span>
           </button>
 
-          {/* PRINT OPTION DIRECTLY TRIGGERS BANK MANDIRI STYLE REKENING KORAN MODAL */}
+          {/* PRINT BUTTON */}
           <button
             type="button"
             onClick={() => setShowStatementPrintModal(true)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-black text-xs transition-all shadow-md shrink-0 active:scale-95"
-            title="Cetak Laporan Rekening Koran Standard Bank"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-black transition-all shadow-sm shrink-0 active:scale-[0.98] cursor-pointer"
+            title="Cetak Laporan Rekap"
           >
-            <Printer className="w-3.5 h-3.5 text-emerald-400" /> Print
+            <Printer className="w-4 h-4 text-emerald-400" />
+            <span>Cetak</span>
           </button>
         </div>
       </div>
 
       {/* TOP 4 KPI CARDS ROW */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Card 1: Total Pengeluaran Netto */}
-        <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs space-y-2 hover:border-slate-300 transition-all">
-          <div className="flex items-center justify-between text-slate-400 text-[11px] font-black uppercase tracking-wider">
+        {/* Card 1: Total Pengeluaran */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs space-y-3 hover:border-slate-300 transition-all text-left">
+          <div className="flex items-center justify-between text-slate-400 text-xs font-bold uppercase tracking-wider">
             <span>
-              {isSubCategoryActive ? `SUB-KATEGORI (${selectedSubCategory.toUpperCase()})` : "TOTAL PENGELUARAN"}
+              {isSubCategoryActive ? `Sub: ${selectedSubCategory}` : "Total Pengeluaran"}
             </span>
-            <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 font-mono font-black text-xs flex items-center justify-center">
-              Rp
-            </div>
+            <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 font-mono font-bold text-[11px] border border-emerald-200/60">
+              IDR
+            </span>
           </div>
-          <p className="text-2xl sm:text-3xl font-black font-mono text-slate-900 transition-all duration-200">
-            Rp {totalSpend.toLocaleString("id-ID")}
-          </p>
-          <p className="text-[11px] font-bold text-emerald-700 flex items-center gap-1">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-            {isSubCategoryActive ? selectedSubCategory : `${filteredReceipts.length} nota`}
-          </p>
+          <div>
+            <p className="text-2xl sm:text-3xl font-black font-mono text-slate-900 tracking-tight">
+              Rp {totalSpend.toLocaleString("id-ID")}
+            </p>
+            <p className="text-xs font-medium text-slate-500 mt-1 flex items-center gap-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+              <span>{isSubCategoryActive ? selectedSubCategory : `${filteredReceipts.length} transaksi nota`}</span>
+            </p>
+          </div>
         </div>
 
         {/* Card 2: Jumlah Nota */}
-        <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs space-y-2 hover:border-slate-300 transition-all">
-          <div className="flex items-center justify-between text-slate-400 text-[11px] font-black uppercase tracking-wider">
-            <span>JUMLAH NOTA</span>
-            <div className="w-8 h-8 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center">
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs space-y-3 hover:border-slate-300 transition-all text-left">
+          <div className="flex items-center justify-between text-slate-400 text-xs font-bold uppercase tracking-wider">
+            <span>Volume Transaksi</span>
+            <div className="w-7 h-7 rounded-lg bg-sky-50 text-sky-700 flex items-center justify-center border border-sky-200/60">
               <ReceiptIcon className="w-4 h-4" />
             </div>
           </div>
-          <p className="text-2xl sm:text-3xl font-black text-slate-900 transition-all duration-200">
-            {filteredReceipts.length} Struk
-          </p>
-          <p className="text-[11px] font-bold text-slate-500">
-            Rata-rata Rp {averageSpendPerReceipt.toLocaleString("id-ID")}
-          </p>
+          <div>
+            <p className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight font-mono">
+              {filteredReceipts.length} <span className="text-base font-bold text-slate-500">Struk</span>
+            </p>
+            <p className="text-xs font-medium text-slate-500 mt-1">
+              Rata-rata: <strong className="font-mono text-slate-700">Rp {averageSpendPerReceipt.toLocaleString("id-ID")}</strong>
+            </p>
+          </div>
         </div>
 
         {/* Card 3: Total Barang */}
-        <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs space-y-2 hover:border-slate-300 transition-all">
-          <div className="flex items-center justify-between text-slate-400 text-[11px] font-black uppercase tracking-wider">
-            <span>{isSubCategoryActive ? `ITEM ${selectedSubCategory.toUpperCase()}` : "TOTAL BARANG"}</span>
-            <div className="w-8 h-8 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center">
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs space-y-3 hover:border-slate-300 transition-all text-left">
+          <div className="flex items-center justify-between text-slate-400 text-xs font-bold uppercase tracking-wider">
+            <span>{isSubCategoryActive ? `Item ${selectedSubCategory}` : "Total Barang"}</span>
+            <div className="w-7 h-7 rounded-lg bg-purple-50 text-purple-700 flex items-center justify-center border border-purple-200/60">
               <ShoppingBag className="w-4 h-4" />
             </div>
           </div>
-          <p className="text-2xl sm:text-3xl font-black text-slate-900 transition-all duration-200">
-            {totalItemsCount} Item
-          </p>
-          <p className="text-[11px] font-bold text-purple-700">Produk terdata</p>
+          <div>
+            <p className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight font-mono">
+              {totalItemsCount} <span className="text-base font-bold text-slate-500">Item</span>
+            </p>
+            <p className="text-xs font-medium text-purple-700 mt-1">Produk terdata di sistem</p>
+          </div>
         </div>
 
         {/* Card 4: Kategori Dominan */}
-        <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs space-y-2 hover:border-slate-300 transition-all">
-          <div className="flex items-center justify-between text-slate-400 text-[11px] font-black uppercase tracking-wider">
-            <span>PENGELUARAN TERBANYAK</span>
-            <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs space-y-3 hover:border-slate-300 transition-all text-left">
+          <div className="flex items-center justify-between text-slate-400 text-xs font-bold uppercase tracking-wider">
+            <span>Beban Terbesar</span>
+            <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-200/60">
               <TrendingUp className="w-4 h-4" />
             </div>
           </div>
-          <p className="text-xl sm:text-2xl font-black text-slate-900 truncate transition-all duration-200">
-            {dominantCategoryName}
-          </p>
-          <p className="text-[11px] font-bold text-amber-700 font-mono">
-            {maxSpend > 0 ? `Rp ${maxSpend.toLocaleString("id-ID")}` : "-"}
-          </p>
+          <div>
+            <p className="text-lg sm:text-xl font-black text-slate-900 truncate tracking-tight">
+              {dominantCategoryName}
+            </p>
+            <p className="text-xs font-mono font-bold text-amber-700 mt-1">
+              {maxSpend > 0 ? `Rp ${maxSpend.toLocaleString("id-ID")}` : "-"}
+            </p>
+          </div>
         </div>
       </div>
 
@@ -2301,7 +2314,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
       )}
 
       {/* SEARCH & FILTER BAR DIRECTLY ABOVE RECEIPTS HISTORY */}
-      <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs space-y-4">
+      <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs space-y-4">
         <div className="flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-3">
           {/* Search Box Input */}
           <div className="relative flex-1">
@@ -2311,31 +2324,31 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Cari toko, barang, atau metode bayar..."
-              className="w-full pl-10 pr-4 py-2.5 rounded-2xl border border-slate-200 text-xs font-bold text-slate-900 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all bg-slate-50/50"
+              className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-900 placeholder:text-slate-400 focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-all bg-slate-50/60"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => setSearchQuery("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2.5">
             {/* DATE RANGE FILTER DROPDOWN */}
             <div className="flex items-center gap-2">
-              <span className="text-[11px] font-black text-slate-700 uppercase tracking-wider flex items-center gap-1.5 shrink-0">
-                <Calendar className="w-4 h-4 text-emerald-600" /> Periode:
+              <span className="text-xs font-bold text-slate-600 flex items-center gap-1.5 shrink-0">
+                <Calendar className="w-3.5 h-3.5 text-slate-500" /> Periode:
               </span>
 
               <div className="relative inline-block">
                 <select
                   value={dateRangeFilter}
                   onChange={(e) => setDateRangeFilter(e.target.value as any)}
-                  className="appearance-none pl-3.5 pr-8 py-2 rounded-xl border border-slate-300 text-xs font-extrabold text-slate-800 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 shadow-2xs cursor-pointer hover:border-slate-400 transition-colors"
+                  className="appearance-none pl-3 pr-8 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-800 bg-slate-50 hover:bg-white focus:border-slate-900 shadow-xs cursor-pointer transition-colors"
                 >
                   <option value="all">Semua Waktu</option>
                   <option value="today">Hari Ini</option>
@@ -2349,15 +2362,15 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
 
             {/* SORT BY DROPDOWN */}
             <div className="flex items-center gap-2">
-              <span className="text-[11px] font-black text-slate-700 uppercase tracking-wider flex items-center gap-1.5 shrink-0">
-                <ArrowUpDown className="w-4 h-4 text-emerald-600" /> Urutkan:
+              <span className="text-xs font-bold text-slate-600 flex items-center gap-1.5 shrink-0">
+                <ArrowUpDown className="w-3.5 h-3.5 text-slate-500" /> Urutkan:
               </span>
 
               <div className="relative inline-block">
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value as any)}
-                  className="appearance-none pl-3.5 pr-8 py-2 rounded-xl border border-slate-300 text-xs font-extrabold text-slate-800 bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 shadow-2xs cursor-pointer hover:border-slate-400 transition-colors"
+                  className="appearance-none pl-3 pr-8 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-800 bg-slate-50 hover:bg-white focus:border-slate-900 shadow-xs cursor-pointer transition-colors"
                 >
                   <option value="date-desc">Tanggal Terbaru</option>
                   <option value="date-asc">Tanggal Terlama</option>
@@ -2373,35 +2386,35 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
         </div>
 
         {dateRangeFilter === "custom" && (
-          <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-150 w-fit">
+          <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-xl border border-slate-200 animate-in fade-in zoom-in-95 duration-150 w-fit">
             <input
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="px-2.5 py-1 rounded-lg border border-slate-300 text-xs font-bold text-slate-800 bg-white"
+              className="px-2.5 py-1 rounded-lg border border-slate-200 text-xs font-bold text-slate-800 bg-white"
             />
             <span className="text-xs text-slate-400 font-bold">s/d</span>
             <input
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="px-2.5 py-1 rounded-lg border border-slate-300 text-xs font-bold text-slate-800 bg-white"
+              className="px-2.5 py-1 rounded-lg border border-slate-200 text-xs font-bold text-slate-800 bg-white"
             />
           </div>
         )}
 
-        {/* Parent Category Filter Tabs & KELOLA KATEGORI BUTTON AT FAR RIGHT */}
-        <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-3.5">
+        {/* Parent Category Filter Tabs & Settings at right */}
+        <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-            <span className="text-[11px] font-black text-slate-700 uppercase tracking-wider mr-1 shrink-0 flex items-center gap-1">
-              <Layers className="w-3.5 h-3.5 text-emerald-600" /> Kategori:
+            <span className="text-xs font-bold text-slate-500 mr-1 shrink-0 flex items-center gap-1">
+              <Layers className="w-3.5 h-3.5 text-slate-500" /> Kategori:
             </span>
             {parentTabs.map((cat) => (
               <button
                 key={cat}
                 type="button"
                 onClick={() => handleSelectParentCategory(cat)}
-                className={`px-4 py-1.5 rounded-full text-xs font-extrabold transition-all duration-150 whitespace-nowrap active:scale-95 ${
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 whitespace-nowrap active:scale-[0.98] cursor-pointer ${
                   selectedCategory === cat
                     ? "bg-slate-900 text-white shadow-xs"
                     : "bg-slate-100 text-slate-600 hover:bg-slate-200"
@@ -2413,11 +2426,11 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
           </div>
 
           <div className="flex items-center gap-1.5 shrink-0">
-            {/* Small Compact Icon Button: Filter Status */}
+            {/* Filter Status Button */}
             <button
               type="button"
               onClick={() => setShowStatusFilterPanel((prev) => !prev)}
-              className={`relative p-2 rounded-xl transition-all border shadow-2xs active:scale-95 flex items-center justify-center shrink-0 ${
+              className={`relative p-2 rounded-xl transition-all border shadow-xs active:scale-[0.98] flex items-center justify-center shrink-0 cursor-pointer ${
                 showStatusFilterPanel || selectedStatusFilter !== "Semua Status" || selectedPersonFilter !== "Semua Penanggung Jawab" || selectedPaymentMethods.length > 0
                   ? "bg-slate-900 text-emerald-400 border-slate-800"
                   : "bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200"
@@ -2426,32 +2439,32 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
             >
               <Filter className="w-4 h-4" />
               {(selectedStatusFilter !== "Semua Status" || selectedPersonFilter !== "Semua Penanggung Jawab" || selectedPaymentMethods.length > 0) && (
-                <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-amber-400 border-2 border-white animate-pulse" />
+                <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white animate-pulse" />
               )}
             </button>
 
-            {/* Small Compact Icon Button: Kelola Kategori */}
+            {/* Kelola Kategori Button */}
             <button
               type="button"
               onClick={() => setShowManageCategoryModal(true)}
-              className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all shrink-0 border border-slate-200 hover:border-slate-300 active:scale-95 flex items-center justify-center"
-              title="Kelola Kategori & Sub-Kategori"
+              className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all shrink-0 border border-slate-200 hover:border-slate-300 active:scale-[0.98] flex items-center justify-center cursor-pointer"
+              title="Kelola Master Kategori"
             >
               <Settings className="w-4 h-4 text-slate-700" />
             </button>
           </div>
         </div>
 
-        {/* Multi-Select Payment Methods Filter Bar (Bisa Gabung > 1 Metode) */}
+        {/* Multi-Select Payment Methods Filter Bar */}
         <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-            <span className="text-[11px] font-black text-slate-700 uppercase tracking-wider mr-1 shrink-0 flex items-center gap-1">
-              <CreditCard className="w-3.5 h-3.5 text-emerald-600" /> Metode Bayar:
+            <span className="text-xs font-bold text-slate-500 mr-1 shrink-0 flex items-center gap-1">
+              <CreditCard className="w-3.5 h-3.5 text-slate-500" /> Metode:
             </span>
             <button
               type="button"
               onClick={handleClearPaymentMethods}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-extrabold transition-all duration-150 whitespace-nowrap active:scale-95 ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 whitespace-nowrap active:scale-[0.98] cursor-pointer ${
                 selectedPaymentMethods.length === 0
                   ? "bg-slate-900 text-white shadow-xs"
                   : "bg-slate-100 text-slate-600 hover:bg-slate-200"
@@ -2466,12 +2479,12 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                   key={method}
                   type="button"
                   onClick={() => handleTogglePaymentMethod(method)}
-                  className={`inline-flex items-center gap-1 px-3.5 py-1.5 rounded-full text-xs font-extrabold transition-all duration-150 whitespace-nowrap active:scale-95 ${
+                  className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 whitespace-nowrap active:scale-[0.98] cursor-pointer ${
                     isSelected
-                      ? "bg-emerald-600 text-white shadow-xs ring-2 ring-emerald-500/40"
-                      : "bg-slate-100 text-slate-700 hover:bg-slate-200 hover:text-slate-900 border border-slate-200"
+                      ? "bg-emerald-600 text-white shadow-xs"
+                      : "bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200/80"
                   }`}
-                  title={isSelected ? `Hapus filter ${method}` : `Tambahkan filter ${method} (bisa digabung)`}
+                  title={isSelected ? `Hapus filter ${method}` : `Filter ${method}`}
                 >
                   {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
                   {method}
@@ -2481,15 +2494,14 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
           </div>
 
           {selectedPaymentMethods.length > 0 && (
-            <div className="flex items-center gap-1.5 shrink-0">
-              <span className="text-[11px] font-extrabold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200">
                 {selectedPaymentMethods.length} Terpilih
               </span>
               <button
                 type="button"
                 onClick={handleClearPaymentMethods}
-                className="text-[11px] font-bold text-red-600 hover:text-red-700 underline px-1"
-                title="Reset pilihan metode pembayaran"
+                className="text-xs font-bold text-red-600 hover:text-red-700 underline cursor-pointer"
               >
                 Reset
               </button>
@@ -2776,25 +2788,24 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
           </div>
         )}
 
-        {/* LOADING STATE */}
+        {/* EMPTY STATE */}
         {isInitialLoading ? (
-          <div className="bg-white p-12 rounded-2xl border border-slate-200 text-center space-y-3">
+          <div className="bg-white p-12 rounded-2xl border border-slate-200/90 text-center space-y-3">
             <RefreshCw className="w-8 h-8 animate-spin text-emerald-600 mx-auto" />
-            <p className="text-xs font-semibold text-slate-500">Memuat data...</p>
+            <p className="text-xs font-bold text-slate-500">Memuat data nota...</p>
           </div>
         ) : filteredReceipts.length === 0 ? (
-          /* EMPTY STATE */
-          <div className="bg-white p-12 rounded-2xl border border-slate-200 text-center space-y-4 transition-all duration-200">
-            <div className="w-16 h-16 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto">
-              <ReceiptIcon className="w-8 h-8" />
+          <div className="bg-white p-12 rounded-2xl border border-slate-200/90 text-center space-y-4 shadow-xs transition-all duration-200">
+            <div className="w-14 h-14 rounded-2xl bg-slate-900 text-emerald-400 flex items-center justify-center mx-auto shadow-xs">
+              <ReceiptIcon className="w-7 h-7" />
             </div>
             <div className="space-y-1">
-              <h4 className="font-extrabold text-slate-900 text-base">Belum Ada Nota Di Kriteria Ini</h4>
-              <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                Coba sesuaikan filter kategori, metode pembayaran, kata kunci pencarian, atau periode waktu Anda.
+              <h4 className="font-black text-slate-900 text-base">Belum Ada Nota</h4>
+              <p className="text-xs text-slate-500 max-w-sm mx-auto font-medium leading-relaxed">
+                Sesuaikan filter pencarian atau pindai nota baru untuk mulai mencatat pengeluaran.
               </p>
             </div>
-            <div className="flex items-center justify-center gap-2 flex-wrap">
+            <div className="flex items-center justify-center gap-2.5 flex-wrap pt-1">
               {(searchQuery || selectedCategory !== "Semua" || selectedStatusFilter !== "Semua Status" || selectedPersonFilter !== "Semua Penanggung Jawab" || selectedPaymentMethods.length > 0 || dateRangeFilter !== "all") && (
                 <button
                   type="button"
@@ -2807,17 +2818,18 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                     setSelectedPaymentMethods([])
                     setDateRangeFilter("all")
                   }}
-                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-all border border-slate-300 active:scale-95"
+                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-all border border-slate-200 active:scale-[0.98] cursor-pointer"
                 >
-                  Reset Semua Filter
+                  Reset Filter
                 </button>
               )}
               <button
                 type="button"
                 onClick={onScanNewReceipt}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs transition-all shadow-md shadow-emerald-600/20 active:scale-95"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-black text-xs transition-all shadow-sm active:scale-[0.98] cursor-pointer"
               >
-                <Sparkles className="w-4 h-4" /> Scan Struk Baru
+                <Sparkles className="w-4 h-4 text-emerald-400" />
+                <span>Pindai Nota Baru</span>
               </button>
             </div>
           </div>

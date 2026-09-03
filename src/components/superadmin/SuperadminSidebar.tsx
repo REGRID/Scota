@@ -129,16 +129,32 @@ export function SuperadminSidebar({ onCloseMobile }: SuperadminSidebarProps) {
           <p className="text-[10px] text-slate-500 leading-tight">PostgreSQL & AI Engine Online</p>
         </div>
 
-        <Link
-          href="/"
-          className="w-full py-2.5 px-3 rounded-xl bg-slate-900 hover:bg-slate-850 border border-slate-800 text-slate-300 hover:text-white text-xs font-bold transition-all flex items-center justify-between group"
-        >
-          <span className="flex items-center gap-2">
-            <ExternalLink className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Dashboard Tenant</span>
-          </span>
-          <ChevronRight className="w-3.5 h-3.5 text-slate-500 group-hover:translate-x-0.5 transition-transform" />
-        </Link>
+        <div className="space-y-1">
+          <Link
+            href="/"
+            className="w-full py-2 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white text-xs font-bold transition-all flex items-center justify-between group"
+          >
+            <span className="flex items-center gap-2">
+              <ExternalLink className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Workspace Aplikasi</span>
+            </span>
+            <ChevronRight className="w-3.5 h-3.5 text-slate-500 group-hover:translate-x-0.5 transition-transform" />
+          </Link>
+          <div className="grid grid-cols-2 gap-1 pt-1">
+            <Link
+              href="/?tab=scan"
+              className="py-1.5 px-2 rounded-lg bg-slate-900/60 hover:bg-slate-800 text-slate-400 hover:text-emerald-400 text-[10.5px] font-bold text-center border border-slate-800/80 transition-all"
+            >
+              Scan Nota
+            </Link>
+            <Link
+              href="/?tab=history"
+              className="py-1.5 px-2 rounded-lg bg-slate-900/60 hover:bg-slate-800 text-slate-400 hover:text-emerald-400 text-[10.5px] font-bold text-center border border-slate-800/80 transition-all"
+            >
+              Riwayat
+            </Link>
+          </div>
+        </div>
       </div>
     </aside>
   )

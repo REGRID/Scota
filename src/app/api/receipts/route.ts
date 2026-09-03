@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { supabase } from "@/lib/supabase"
+import { supabase, isSupabaseConfigured } from "@/lib/supabase"
 import { recordVerifiedReceiptLearning } from "@/lib/selfLearningEngine"
 import { getAdminUserFromRequest, getAdminRoleFromRequest, getStaffNameFromRequest } from "@/lib/authHelper"
 import { getOrSeedCategories } from "@/lib/categories"
@@ -78,19 +78,25 @@ export async function GET(req: NextRequest) {
       )
       receipts = pgRes.rows || []
     } catch (pgErr) {
-      console.warn("Direct PG query notice, falling back to Supabase JS:", pgErr)
-      let query = supabase
-        .from("receipts")
-        .select(RECEIPT_LIST_SELECT)
-        .order("createdAt", { ascending: false })
+      if (isSupabaseConfigured) {
+        try {
+          let query = supabase
+            .from("receipts")
+            .select(RECEIPT_LIST_SELECT)
+            .order("createdAt", { ascending: false })
 
-      if (limit) {
-        query = query.limit(limit)
+          if (limit) {
+            query = query.limit(limit)
+          }
+
+          const { data: rawReceipts, error } = await query
+          if (!error && rawReceipts) {
+            receipts = rawReceipts
+          }
+        } catch (sErr) {
+          console.warn("Supabase receipts query notice:", sErr)
+        }
       }
-
-      const { data: rawReceipts, error } = await query
-      if (error) throw new Error(error.message)
-      receipts = rawReceipts || []
     }
 
     // In-memory filter for complex relational search/category criteria

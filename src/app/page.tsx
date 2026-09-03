@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState, useEffect, useRef, useCallback } from "react"
+import Link from "next/link"
 import { extractTextFromReceipt } from "@/lib/ocr"
 import { ReceiptImageUpload, BatchFileItem } from "@/components/ReceiptImageUpload"
 import { VerificationSplitScreen } from "@/components/VerificationSplitScreen"
@@ -14,7 +15,7 @@ import { OnboardingWelcomeModal } from "@/components/OnboardingWelcomeModal"
 import { createSampleReceiptDataUrl } from "@/lib/sampleReceipt"
 import { SubscriptionInfo, SubscriptionTier } from "@/lib/subscription"
 import { ParsedReceiptResult } from "@/app/api/parse-receipt/route"
-import { Camera, Receipt, History, ShieldCheck, CheckCircle2, Maximize2, LogOut, UserCheck, Loader2, Settings, Sparkles, Info } from "lucide-react"
+import { Camera, Receipt, History, ShieldCheck, CheckCircle2, Maximize2, LogOut, UserCheck, Loader2, Settings, Sparkles, Info, ExternalLink } from "lucide-react"
 
 import { registerPushSubscription } from "@/lib/pwaNotification"
 import { useAppDialog } from "@/components/ui/app-dialog"
@@ -28,16 +29,29 @@ export default function HomePage() {
   const [authInitialMode, setAuthInitialMode] = useState<"login" | "register">("login")
   const [authInitialTier, setAuthInitialTier] = useState<SubscriptionTier>("trial")
   const [showLanding, setShowLanding] = useState<boolean>(true)
-
-  // Auto-register Web Push subscription in background if permission is granted
-  useEffect(() => {
-    if (isAuthenticated && typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
-      registerPushSubscription(adminUser, adminUser.toLowerCase() === "karyawan" ? "KARYAWAN" : "ADMIN")
-        .catch(() => {})
-    }
-  }, [isAuthenticated, adminUser])
-
   const [activeTab, setActiveTab] = useState<"scan" | "history">("scan")
+
+  // URL query parameter synchronization
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search)
+      const tabParam = params.get("tab")
+      const viewParam = params.get("view")
+      const authParam = params.get("auth")
+
+      if (viewParam === "landing") {
+        setShowLanding(true)
+      } else if (tabParam === "scan" || tabParam === "history") {
+        setShowLanding(false)
+        setActiveTab(tabParam)
+      }
+
+      if (authParam === "login" || authParam === "register") {
+        setShowLanding(false)
+        setAuthInitialMode(authParam)
+      }
+    }
+  }, [])
   const [showSettingsModal, setShowSettingsModal] = useState(false)
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(false)
@@ -638,8 +652,11 @@ export default function HomePage() {
                   if (isProcessing) return
                   setImagePreviewUrl(null)
                   setActiveTab("scan")
+                  if (typeof window !== "undefined") {
+                    window.history.replaceState(null, "", "?tab=scan")
+                  }
                 }}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                   activeTab === "scan" && !imagePreviewUrl
                     ? "bg-emerald-600 text-white shadow-sm"
                     : "text-slate-300 hover:text-white"
@@ -656,8 +673,11 @@ export default function HomePage() {
                   if (isProcessing) return
                   setImagePreviewUrl(null)
                   setActiveTab("history")
+                  if (typeof window !== "undefined") {
+                    window.history.replaceState(null, "", "?tab=history")
+                  }
                 }}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                   activeTab === "history" && !imagePreviewUrl
                     ? "bg-emerald-600 text-white shadow-sm"
                     : "text-slate-300 hover:text-white"
@@ -682,6 +702,16 @@ export default function HomePage() {
               </span>
             </button>
 
+            {/* Superadmin Portal Link */}
+            <Link
+              href="/superadmin"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white text-xs font-bold transition-all cursor-pointer"
+              title="Buka Portal Superadmin"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="hidden lg:inline">Superadmin</span>
+            </Link>
+
             {/* Active Account Identity Badge */}
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 border border-slate-700 text-xs font-bold text-slate-200">
               <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
@@ -695,7 +725,12 @@ export default function HomePage() {
             {/* Info / Introduction Showcase Button */}
             <button
               type="button"
-              onClick={() => setShowLanding(true)}
+              onClick={() => {
+                setShowLanding(true)
+                if (typeof window !== "undefined") {
+                  window.history.replaceState(null, "", "?view=landing")
+                }
+              }}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white text-xs font-bold transition-all cursor-pointer"
               title="Lihat Halaman Pengenalan & Fitur SaaS"
             >

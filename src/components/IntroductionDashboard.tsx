@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState, useRef, useEffect } from "react"
+import Link from "next/link"
 import {
   Sparkles,
   CheckCircle2,
@@ -346,6 +347,13 @@ export function IntroductionDashboard({
 
           {/* Action CTA */}
           <div className="flex items-center gap-2 sm:gap-3">
+            <Link
+              href="/superadmin"
+              className="hidden sm:inline-flex px-3 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-emerald-400 hover:bg-slate-900 transition-all"
+              title="Portal Khusus Superadmin"
+            >
+              Superadmin
+            </Link>
             <button
               onClick={() => onEnterApp({ mode: "login" })}
               className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-900 border border-transparent hover:border-slate-800 transition-all cursor-pointer"

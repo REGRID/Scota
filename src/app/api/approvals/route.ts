@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { supabase } from "@/lib/supabase"
+import { supabase, isSupabaseConfigured } from "@/lib/supabase"
 import { getAdminUserFromRequest } from "@/lib/authHelper"
 import { sendWebPushNotification } from "@/lib/serverPush"
 import { invalidateNotificationsCache } from "@/app/api/notifications/route"
@@ -29,6 +29,10 @@ export async function GET(req: NextRequest) {
       return cached
     }
 
+    if (!isSupabaseConfigured) {
+      return NextResponse.json([])
+    }
+
     let query = supabase
       .from("pending_approvals")
       .select(APPROVAL_SELECT)
@@ -42,7 +46,8 @@ export async function GET(req: NextRequest) {
     const { data: approvals, error } = await query
 
     if (error) {
-      throw new Error(error.message)
+      console.warn("GET Approvals notice:", error.message)
+      return NextResponse.json([])
     }
 
     let result = approvals || []

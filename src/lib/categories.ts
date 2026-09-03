@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase"
+import { supabase, isSupabaseConfigured } from "@/lib/supabase"
 
 export interface CategoryHierarchyItem {
   id: string
@@ -69,6 +69,14 @@ export async function getOrSeedCategories(): Promise<CategoryHierarchyItem[]> {
   const now = Date.now()
   if (cachedCategories && now - cacheTimestamp < CACHE_TTL_MS) {
     return cachedCategories
+  }
+
+  if (!isSupabaseConfigured) {
+    return DEFAULT_SEED_CATEGORIES.map((cat, idx) => ({
+      id: `default-${idx}`,
+      name: cat.name,
+      subCategories: cat.subs.map((s, sIdx) => ({ id: `default-sub-${idx}-${sIdx}`, name: s })),
+    }))
   }
 
   try {

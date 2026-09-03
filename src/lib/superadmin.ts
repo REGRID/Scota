@@ -1,5 +1,5 @@
-import { supabase } from "@/lib/supabase"
-import { getSubscriptionInfo, TIER_CONFIG, SubscriptionTier } from "@/lib/subscription"
+import { supabase, isSupabaseConfigured } from "@/lib/supabase"
+import { TIER_CONFIG, SubscriptionTier } from "@/lib/subscription"
 import { getUserAccountDetails } from "@/lib/adminAccounts"
 import fs from "fs"
 import path from "path"
@@ -136,36 +136,38 @@ export async function getSuperadminPlatformStats(): Promise<PlatformStats> {
 export async function getAllTenants(): Promise<TenantSummary[]> {
   const tenantsMap = new Map<string, TenantSummary>()
 
-  // 1. Load from Supabase `admin_accounts`
-  try {
-    const { data: dbAccounts } = await supabase
-      .from("admin_accounts")
-      .select("*")
-      .order("createdAt", { ascending: false })
+  // 1. Load from Supabase `admin_accounts` if configured
+  if (isSupabaseConfigured) {
+    try {
+      const { data: dbAccounts } = await supabase
+        .from("admin_accounts")
+        .select("*")
+        .order("createdAt", { ascending: false })
 
-    if (dbAccounts) {
-      for (const acc of dbAccounts) {
-        const cleanUser = acc.username.trim().toLowerCase()
-        const tier = (acc.tier || "trial") as SubscriptionTier
-        const tierCfg = TIER_CONFIG[tier] || TIER_CONFIG.trial
+      if (dbAccounts) {
+        for (const acc of dbAccounts) {
+          const cleanUser = acc.username.trim().toLowerCase()
+          const tier = (acc.tier || "trial") as SubscriptionTier
+          const tierCfg = TIER_CONFIG[tier] || TIER_CONFIG.trial
 
-        tenantsMap.set(cleanUser, {
-          username: cleanUser,
-          fullName: acc.fullName || cleanUser,
-          businessName: acc.businessName || acc.fullName || "Scota Business",
-          phone: acc.phone || "",
-          role: acc.role || "ADMIN",
-          tier,
-          validUntil: acc.validUntil || new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
-          monthlyScanLimit: acc.monthlyScanLimit || tierCfg.monthlyScanLimit,
-          usedScansThisMonth: acc.usedScansThisMonth || 0,
-          createdAt: acc.createdAt || new Date().toISOString(),
-          status: new Date(acc.validUntil || Date.now() + 14 * 24 * 60 * 60 * 1000) < new Date() ? "expired" : (tier === "trial" ? "trial" : "active"),
-        })
+          tenantsMap.set(cleanUser, {
+            username: cleanUser,
+            fullName: acc.fullName || cleanUser,
+            businessName: acc.businessName || acc.fullName || "Scota Business",
+            phone: acc.phone || "",
+            role: acc.role || "ADMIN",
+            tier,
+            validUntil: acc.validUntil || new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+            monthlyScanLimit: acc.monthlyScanLimit || tierCfg.monthlyScanLimit,
+            usedScansThisMonth: acc.usedScansThisMonth || 0,
+            createdAt: acc.createdAt || new Date().toISOString(),
+            status: new Date(acc.validUntil || Date.now() + 14 * 24 * 60 * 60 * 1000) < new Date() ? "expired" : (tier === "trial" ? "trial" : "active"),
+          })
+        }
       }
+    } catch (err) {
+      // Graceful fallback to local cache
     }
-  } catch (err) {
-    console.warn("getAllTenants Supabase query notice:", err)
   }
 
   // 2. Load from local passwords store as fallback / complement

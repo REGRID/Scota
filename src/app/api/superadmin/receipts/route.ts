@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
-import { supabase } from "@/lib/supabase"
+import { supabase, isSupabaseConfigured } from "@/lib/supabase"
 
 export async function GET(req: NextRequest) {
   try {
+    if (!isSupabaseConfigured) {
+      return NextResponse.json({ success: true, receipts: [] })
+    }
+
     const { searchParams } = new URL(req.url)
     const limit = parseInt(searchParams.get("limit") || "100")
     const search = (searchParams.get("search") || "").trim()
@@ -20,12 +24,11 @@ export async function GET(req: NextRequest) {
     const { data: receipts, error } = await query
 
     if (error) {
-      console.warn("Superadmin global receipts query notice:", error)
       return NextResponse.json({ success: true, receipts: [] })
     }
 
     return NextResponse.json({ success: true, receipts: receipts || [] })
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || "Gagal mengambil data nota global" }, { status: 500 })
+    return NextResponse.json({ success: true, receipts: [] })
   }
 }

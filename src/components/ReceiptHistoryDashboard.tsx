@@ -54,6 +54,7 @@ import {
   CreditCard,
   DollarSign,
   FileText,
+  MoreHorizontal,
 } from "lucide-react"
 import {
   ResponsiveContainer,
@@ -425,7 +426,20 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
   const [notifications, setNotifications] = useState<any[]>([])
   const [unreadNotificationCount, setUnreadNotificationCount] = useState<number>(0)
   const [showNotificationsModal, setShowNotificationsModal] = useState<boolean>(false)
+  const [showMoreMenu, setShowMoreMenu] = useState<boolean>(false)
   const notifiedIdsRef = useRef<Set<string>>(new Set())
+
+  // Listen for global navbar modal trigger events
+  useEffect(() => {
+    const handleOpenNotif = () => setShowNotificationsModal(true)
+    const handleOpenApproval = () => setShowApprovalModal(true)
+    window.addEventListener("open-notifications-modal", handleOpenNotif)
+    window.addEventListener("open-approval-modal", handleOpenApproval)
+    return () => {
+      window.removeEventListener("open-notifications-modal", handleOpenNotif)
+      window.removeEventListener("open-approval-modal", handleOpenApproval)
+    }
+  }, [])
 
   // Fetch Notifications & Trigger Native OS System Notifications
   const fetchNotifications = async () => {
@@ -1976,103 +1990,116 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
         className="hidden"
       />
 
-      {/* TOP HEADER BANNER */}
-      <div className="bg-white dark:bg-slate-900/90 px-5 py-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 transition-colors duration-200">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-950 text-emerald-600 dark:text-emerald-400 border border-slate-200 dark:border-slate-800 flex items-center justify-center shadow-xs shrink-0">
-            <ReceiptIcon className="w-5 h-5" />
-          </div>
-          <div>
-            <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
-              Riwayat & Laporan Nota
-            </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-              Rekapitulasi pengeluaran usaha dan arsip bukti transaksi.
-            </p>
-          </div>
+      {/* Sleek Open Page Title & Action Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1 pb-1">
+        <div>
+          <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+            <span>Riwayat & Laporan Pengeluaran</span>
+          </h2>
+          <p className="text-[11px] text-slate-500 dark:text-slate-400">
+            Rekapitulasi bukti transaksi dan laporan keuangan usaha
+          </p>
         </div>
 
-        {/* Compact Actions Row - Icon Only */}
-        <div className="flex items-center gap-1.5 shrink-0">
-          {/* Dual-Admin Approval Requests Button */}
-          <button
-            type="button"
-            onClick={() => setShowApprovalModal(true)}
-            className={`relative w-9 h-9 inline-flex items-center justify-center rounded-xl text-xs font-bold transition-all border shadow-xs active:scale-[0.98] shrink-0 cursor-pointer ${
-              pendingApprovals.length > 0
-                ? "bg-amber-500 text-slate-950 border-amber-400 font-black animate-pulse"
-                : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-950 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800"
-            }`}
-            title="Verifikasi Persetujuan Dual-Control"
-          >
-            <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-            {pendingApprovals.length > 0 && (
-              <span className="absolute -top-1 -right-1 flex h-4 min-w-4 px-1 items-center justify-center bg-rose-500 text-white rounded-full text-[9px] font-black leading-none shadow-2xs">
-                {pendingApprovals.length}
-              </span>
-            )}
-          </button>
+        {/* Minimalist Action Controls */}
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Pending Approval Badge (Only appears if pending > 0) */}
+          {pendingApprovals.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowApprovalModal(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-300 font-black text-xs shadow-2xs animate-pulse transition-all cursor-pointer"
+              title="Verifikasi Persetujuan Dual-Control"
+            >
+              <ShieldCheck className="w-4 h-4 text-amber-500" />
+              <span>{pendingApprovals.length} Pending</span>
+            </button>
+          )}
 
-          {/* NOTIFICATION BUTTON IN MAIN ACTION BAR */}
-          <button
-            type="button"
-            onClick={() => setShowNotificationsModal(true)}
-            className={`relative w-9 h-9 inline-flex items-center justify-center rounded-xl text-xs font-bold transition-all border shadow-xs active:scale-[0.98] shrink-0 cursor-pointer ${
-              unreadNotificationCount > 0
-                ? "bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-white border-amber-500/40"
-                : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-950 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800"
-            }`}
-            title="Pusat Notifikasi Aktivitas"
-          >
-            <div className="relative flex items-center justify-center">
-              <Bell className="w-4 h-4 text-amber-500 dark:text-amber-400" />
-              {unreadNotificationCount > 0 && (
-                <span className="absolute -top-1 -right-1 flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
-                </span>
-              )}
-            </div>
-            {unreadNotificationCount > 0 && (
-              <span className="absolute -top-1 -right-1 flex h-4 min-w-4 px-1 items-center justify-center bg-rose-600 text-white rounded-full text-[9px] font-black leading-none shadow-2xs">
-                {unreadNotificationCount}
-              </span>
-            )}
-          </button>
-
-          {/* CHARTS TOGGLE BUTTON */}
+          {/* Toggle Charts */}
           <button
             type="button"
             onClick={() => setShowCharts(!showCharts)}
-            className={`w-9 h-9 inline-flex items-center justify-center rounded-xl text-xs font-bold transition-all border shadow-xs active:scale-[0.98] shrink-0 cursor-pointer ${
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border shadow-2xs active:scale-95 cursor-pointer ${
               showCharts
-                ? "bg-emerald-500 text-slate-950 border-emerald-400 font-black"
-                : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-950 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800"
+                ? "bg-slate-900 text-white dark:bg-white dark:text-slate-950 border-slate-900 dark:border-white font-black"
+                : "bg-white hover:bg-slate-50 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800"
             }`}
             title={showCharts ? "Sembunyikan Grafik" : "Tampilkan Grafik"}
           >
-            <BarChart3 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+            <BarChart3 className="w-3.5 h-3.5 text-emerald-500" />
+            <span className="hidden sm:inline">Grafik</span>
           </button>
 
-          {/* DATA OPTIONS BUTTON */}
-          <button
-            type="button"
-            onClick={() => setShowDataOptionsModal(true)}
-            className="w-9 h-9 inline-flex items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-950 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold transition-all border border-slate-200 dark:border-slate-800 shadow-xs active:scale-[0.98] shrink-0 cursor-pointer"
-            title="Kelola Data (Backup, Restore, dan Ekspor)"
-          >
-            <Database className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-          </button>
-
-          {/* PRINT BUTTON */}
+          {/* Print Statement Button */}
           <button
             type="button"
             onClick={() => setShowStatementPrintModal(true)}
-            className="w-9 h-9 inline-flex items-center justify-center rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-black transition-all shadow-md shadow-emerald-500/20 shrink-0 active:scale-[0.98] cursor-pointer"
-            title="Cetak Laporan Rekap"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black transition-all shadow-xs active:scale-95 cursor-pointer"
+            title="Cetak Laporan Rekap Nota"
           >
-            <Printer className="w-4 h-4 text-slate-950" />
+            <Printer className="w-3.5 h-3.5" />
+            <span>Cetak Rekap</span>
           </button>
+
+          {/* More Options / Data Management Dropdown */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowMoreMenu(!showMoreMenu)}
+              className="w-8 h-8 inline-flex items-center justify-center rounded-xl bg-white hover:bg-slate-50 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 shadow-2xs active:scale-95 cursor-pointer transition-all"
+              title="Kelola Data & Opsi Lainnya"
+            >
+              <MoreHorizontal className="w-4 h-4" />
+            </button>
+
+            {showMoreMenu && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowMoreMenu(false)} />
+                <div className="absolute right-0 top-full mt-1.5 w-56 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2 z-50 animate-in fade-in zoom-in-95 duration-150 space-y-1">
+                  <div className="px-2.5 py-1 text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider">
+                    Opsi Data & Laporan
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowMoreMenu(false)
+                      setShowDataOptionsModal(true)
+                    }}
+                    className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                  >
+                    <Database className="w-4 h-4 text-slate-400" />
+                    <span>Cadangkan & Ekspor Data</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowMoreMenu(false)
+                      setShowNotificationsModal(true)
+                    }}
+                    className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                  >
+                    <Bell className="w-4 h-4 text-amber-500" />
+                    <span>Pusat Notifikasi</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowMoreMenu(false)
+                      setShowApprovalModal(true)
+                    }}
+                    className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                  >
+                    <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                    <span>Verifikasi Dual-Control</span>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
 

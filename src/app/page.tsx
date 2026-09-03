@@ -15,7 +15,7 @@ import { OnboardingWelcomeModal } from "@/components/OnboardingWelcomeModal"
 import { createSampleReceiptDataUrl } from "@/lib/sampleReceipt"
 import { SubscriptionInfo, SubscriptionTier } from "@/lib/subscription"
 import { ParsedReceiptResult } from "@/app/api/parse-receipt/route"
-import { Camera, Receipt, History, ShieldCheck, CheckCircle2, Maximize2, LogOut, UserCheck, Loader2, Settings, Sparkles, Info, ExternalLink } from "lucide-react"
+import { Camera, Receipt, History, ShieldCheck, CheckCircle2, Maximize2, LogOut, UserCheck, Loader2, Settings, Sparkles, Info, ExternalLink, ChevronDown, ArrowRight, Bell } from "lucide-react"
 
 import { registerPushSubscription } from "@/lib/pwaNotification"
 import { useAppDialog } from "@/components/ui/app-dialog"
@@ -32,6 +32,7 @@ export default function HomePage() {
   const [authInitialTier, setAuthInitialTier] = useState<SubscriptionTier>("trial")
   const [showLanding, setShowLanding] = useState<boolean>(true)
   const [activeTab, setActiveTab] = useState<"scan" | "history">("scan")
+  const [showProfileMenu, setShowProfileMenu] = useState<boolean>(false)
 
   // URL query parameter synchronization
   useEffect(() => {
@@ -633,137 +634,194 @@ export default function HomePage() {
 
       {/* Top Header Navbar with iOS Notch & Camera Hardware Safe Area Support */}
       <header className="bg-white/95 text-slate-900 dark:bg-slate-900/95 dark:text-white sticky top-0 z-30 shadow-xs dark:shadow-md pt-[env(safe-area-inset-top,0px)] border-b border-slate-200 dark:border-slate-800 backdrop-blur-md transition-colors duration-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-4">
+          {/* Brand Logo & Name */}
+          <div className="flex items-center gap-3 shrink-0">
             <img
               src="/scota-icon.png"
               alt="Scota"
-              className="w-9 h-9 object-contain"
+              className="w-8 h-8 sm:w-9 sm:h-9 object-contain"
             />
             <div>
               <h1 className="font-black text-base sm:text-lg tracking-tight leading-tight flex items-center gap-2">
-                {subscription?.studioProfile?.studioName || "Scota"}
+                {subscription?.studioProfile?.studioName || "Scota Business"}
               </h1>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 hidden sm:block">
-                {subscription?.studioProfile?.tagline || "Digitalisasi Struk & Pembukuan Pengeluaran Usaha"}
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 hidden lg:block">
+                {subscription?.studioProfile?.tagline || "Digitalisasi Struk & Pengeluaran Usaha"}
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            {/* Desktop Tab Selector */}
-            <div className="hidden sm:flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
-              <button
-                type="button"
-                disabled={isProcessing}
-                onClick={() => {
-                  if (isProcessing) return
-                  setImagePreviewUrl(null)
-                  setActiveTab("scan")
-                  if (typeof window !== "undefined") {
-                    window.history.replaceState(null, "", "?tab=scan")
-                  }
-                }}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                  activeTab === "scan" && !imagePreviewUrl
-                    ? "bg-emerald-500 text-slate-950 font-black shadow-xs"
-                    : "text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
-                } ${isProcessing ? "opacity-40 cursor-not-allowed pointer-events-none" : ""}`}
-              >
-                <Camera className="w-4 h-4" />
-                Scan Nota
-              </button>
-
-              <button
-                type="button"
-                disabled={isProcessing}
-                onClick={() => {
-                  if (isProcessing) return
-                  setImagePreviewUrl(null)
-                  setActiveTab("history")
-                  if (typeof window !== "undefined") {
-                    window.history.replaceState(null, "", "?tab=history")
-                  }
-                }}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                  activeTab === "history" && !imagePreviewUrl
-                    ? "bg-emerald-500 text-slate-950 font-black shadow-xs"
-                    : "text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
-                } ${isProcessing ? "opacity-40 cursor-not-allowed pointer-events-none" : ""}`}
-              >
-                <History className="w-4 h-4" />
-                Riwayat
-              </button>
-            </div>
-
-            {/* Subscription / Plan Quick Badge */}
-            <button
-              type="button"
-              onClick={() => setShowSubscriptionModal(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800/90 hover:bg-slate-200 dark:hover:bg-slate-700 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs font-bold transition-all cursor-pointer"
-              title="Kelola Paket & Profil Studio"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400" />
-              <span className="hidden md:inline">Paket:</span>
-              <span className="uppercase text-[11px] font-black">
-                {subscription?.tier || "Trial"}
-              </span>
-            </button>
-
-            {/* Superadmin Portal Link */}
-            <Link
-              href="/superadmin"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800/90 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white text-xs font-bold transition-all cursor-pointer"
-              title="Buka Portal Superadmin"
-            >
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400" />
-              <span className="hidden lg:inline">Superadmin</span>
-            </Link>
-
-            {/* Active Account Identity Badge */}
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200">
-              <UserCheck className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400" />
-              <span>
-                {adminUser.toLowerCase() === "karyawan"
-                  ? `Karyawan (${staffName || "Staf"})`
-                  : `Admin (${adminUser.toUpperCase()})`}
-              </span>
-            </div>
-
-            {/* Info / Introduction Showcase Button */}
-            <button
-              type="button"
-              onClick={() => {
-                setShowLanding(true)
-                if (typeof window !== "undefined") {
-                  window.history.replaceState(null, "", "?view=landing")
-                }
-              }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800/90 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white text-xs font-bold transition-all cursor-pointer"
-              title="Lihat Halaman Pengenalan & Fitur SaaS"
-            >
-              <Info className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400" />
-              <span className="hidden sm:inline">Info SaaS</span>
-            </button>
-
-            {/* Dark/Light Mode Theme Toggle */}
-            <ThemeToggle />
-
-            {/* Settings Gear Icon Button */}
+          {/* Center: Clean Primary Navigation Tabs */}
+          <div className="flex items-center bg-slate-100 dark:bg-slate-800/90 p-1 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs">
             <button
               type="button"
               disabled={isProcessing}
               onClick={() => {
                 if (isProcessing) return
-                setShowSettingsModal(true)
+                setImagePreviewUrl(null)
+                setActiveTab("scan")
+                if (typeof window !== "undefined") {
+                  window.history.replaceState(null, "", "?tab=scan")
+                }
               }}
-              className={`inline-flex items-center justify-center p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 active:bg-slate-300 dark:active:bg-slate-600 text-slate-700 dark:text-emerald-400 font-bold text-xs border border-slate-200 dark:border-slate-700 transition-all ml-1 cursor-pointer ${
-                isProcessing ? "opacity-40 cursor-not-allowed pointer-events-none" : "active:scale-95"
-              }`}
-              title={isProcessing ? "Sedang memproses scan..." : "Pengaturan & Keluar"}
+              className={`flex items-center gap-2 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                activeTab === "scan" && !imagePreviewUrl
+                  ? "bg-emerald-500 text-slate-950 font-black shadow-xs"
+                  : "text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
+              } ${isProcessing ? "opacity-40 cursor-not-allowed pointer-events-none" : ""}`}
             >
-              <Settings className="w-4 h-4 text-slate-700 dark:text-emerald-400" />
+              <Camera className="w-4 h-4" />
+              <span>Scan Nota</span>
             </button>
+
+            <button
+              type="button"
+              disabled={isProcessing}
+              onClick={() => {
+                if (isProcessing) return
+                setImagePreviewUrl(null)
+                setActiveTab("history")
+                if (typeof window !== "undefined") {
+                  window.history.replaceState(null, "", "?tab=history")
+                }
+              }}
+              className={`flex items-center gap-2 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                activeTab === "history" && !imagePreviewUrl
+                  ? "bg-emerald-500 text-slate-950 font-black shadow-xs"
+                  : "text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
+              } ${isProcessing ? "opacity-40 cursor-not-allowed pointer-events-none" : ""}`}
+            >
+              <History className="w-4 h-4" />
+              <span>Riwayat</span>
+            </button>
+          </div>
+
+          {/* Right: Notifications + Theme Toggle + Unified User Profile Menu */}
+          <div className="flex items-center gap-2 shrink-0 relative">
+            {/* Notification Bell Button */}
+            <button
+              type="button"
+              onClick={() => {
+                if (activeTab !== "history") {
+                  setActiveTab("history")
+                }
+                setTimeout(() => {
+                  window.dispatchEvent(new CustomEvent("open-notifications-modal"))
+                }, 50)
+              }}
+              className="p-2 rounded-xl text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer relative"
+              title="Pusat Notifikasi Aktivitas"
+            >
+              <Bell className="w-4 h-4 text-slate-600 dark:text-slate-300" />
+            </button>
+
+            <ThemeToggle />
+
+            {/* Unified Account / Profile Pill */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowProfileMenu(!showProfileMenu)}
+                className="flex items-center gap-2 pl-1.5 pr-2.5 py-1 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700/80 border border-slate-200/80 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-slate-100 transition-all cursor-pointer active:scale-95 shadow-2xs"
+                title="Menu Akun & Pengaturan"
+              >
+                <div className="w-6 h-6 rounded-full bg-emerald-500 text-slate-950 flex items-center justify-center font-black text-[11px] uppercase shrink-0">
+                  {adminUser ? adminUser[0].toUpperCase() : "A"}
+                </div>
+                <span className="capitalize hidden sm:inline">{adminUser}</span>
+                <span className="px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[10px] font-black uppercase">
+                  {subscription?.tier || "Trial"}
+                </span>
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+              </button>
+
+              {/* Profile Dropdown Popover */}
+              {showProfileMenu && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowProfileMenu(false)} />
+                  <div className="absolute right-0 top-full mt-2 w-64 z-50 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2.5 space-y-2 animate-in fade-in zoom-in-95 duration-150">
+                    {/* User Info Header */}
+                    <div className="px-3 py-2 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-100 dark:border-slate-800">
+                      <p className="text-xs font-black text-slate-900 dark:text-white capitalize">
+                        {adminUser.toLowerCase() === "karyawan" ? `Karyawan (${staffName || "Staf"})` : `Admin (${adminUser})`}
+                      </p>
+                      <div className="flex items-center justify-between mt-1 text-[11px]">
+                        <span className="text-slate-500 dark:text-slate-400">Status Paket:</span>
+                        <span className="font-bold text-emerald-600 dark:text-emerald-400 uppercase">
+                          {subscription?.tier || "Trial"}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Subscription Quick Action */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowProfileMenu(false)
+                        setShowSubscriptionModal(true)
+                      }}
+                      className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 transition-colors cursor-pointer"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>Kelola / Upgrade Paket</span>
+                      </span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+
+                    <div className="border-t border-slate-100 dark:border-slate-800 my-1" />
+
+                    {/* Menu Actions */}
+                    <div className="space-y-0.5">
+                      <Link
+                        href="/settings"
+                        onClick={() => setShowProfileMenu(false)}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                      >
+                        <Settings className="w-4 h-4 text-slate-400" />
+                        <span>Pengaturan & Notifikasi</span>
+                      </Link>
+
+                      <Link
+                        href="/superadmin"
+                        onClick={() => setShowProfileMenu(false)}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                      >
+                        <ShieldCheck className="w-4 h-4 text-slate-400" />
+                        <span>Portal Superadmin</span>
+                      </Link>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowProfileMenu(false)
+                          setShowLanding(true)
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                      >
+                        <Info className="w-4 h-4 text-slate-400" />
+                        <span>Panduan & Info SaaS</span>
+                      </button>
+                    </div>
+
+                    <div className="border-t border-slate-100 dark:border-slate-800 my-1" />
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowProfileMenu(false)
+                        handleLogout()
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors cursor-pointer"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      <span>Keluar (Logout)</span>
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </header>

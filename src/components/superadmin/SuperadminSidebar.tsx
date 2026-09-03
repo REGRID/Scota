@@ -9,12 +9,11 @@ import {
   Layers,
   CreditCard,
   ShieldCheck,
-  Cpu,
   Receipt,
   ExternalLink,
   ChevronRight,
-  ShieldAlert,
-  X
+  X,
+  Sparkles,
 } from "lucide-react"
 
 interface SuperadminSidebarProps {
@@ -39,6 +38,12 @@ const MENU_ITEMS = [
     href: "/superadmin/receipts",
     icon: Receipt,
     badge: null,
+  },
+  {
+    name: "Integrasi AI & OCR",
+    href: "/superadmin/ai-settings",
+    icon: Sparkles,
+    badge: "AI",
   },
   {
     name: "Master Plans & Paket",

@@ -4,18 +4,17 @@ import React, { useState, useEffect } from "react"
 import Link from "next/link"
 import {
   Users,
-  Receipt,
   TrendingUp,
-  Zap,
-  CheckCircle2,
-  Sparkles,
-  ArrowUpRight,
-  AlertTriangle,
-  ArrowRight,
-  Building2,
+  CreditCard,
   Clock,
+  ArrowRight,
+  ShieldCheck,
+  AlertTriangle,
+  Building2,
+  Phone,
+  Sparkles,
   RefreshCw,
-  Eye
+  Eye,
 } from "lucide-react"
 import {
   ResponsiveContainer,
@@ -28,23 +27,11 @@ import {
   Tooltip,
   CartesianGrid,
 } from "recharts"
-import { SubscriptionTier, TIER_CONFIG } from "@/lib/subscription"
-
-interface PlatformStats {
-  totalTenants: number
-  activeTenants: number
-  totalReceipts: number
-  totalSubscriptionRevenue: number
-  monthlyRecurringRevenue: number
-  paidTenantsCount: number
-  tierBreakdown: {
-    trial: number
-    starter: number
-    pro: number
-    enterprise: number
-  }
-  recentRegistrations: any[]
-}
+import { StatCard } from "@/components/superadmin/StatCard"
+import { ChartCard } from "@/components/superadmin/ChartCard"
+import { StatusBadge } from "@/components/superadmin/StatusBadge"
+import { EmptyState } from "@/components/superadmin/EmptyState"
+import { PlatformStats, TenantSummary } from "@/lib/superadmin"
 
 export default function SuperadminOverviewPage() {
   const [stats, setStats] = useState<PlatformStats | null>(null)
@@ -71,20 +58,26 @@ export default function SuperadminOverviewPage() {
 
   // Sample historical data for charts
   const mrrTrendData = [
-    { month: "Jan", mrr: 150000, tenants: 4 },
-    { month: "Feb", mrr: 350000, tenants: 7 },
-    { month: "Mar", mrr: 590000, tenants: 12 },
-    { month: "Apr", mrr: 890000, tenants: 18 },
-    { month: "Mei", mrr: 1450000, tenants: 26 },
-    { month: "Jun", mrr: stats?.monthlyRecurringRevenue || 1980000, tenants: stats?.totalTenants || 35 },
+    { month: "Jan", mrr: 850000, tenants: 6 },
+    { month: "Feb", mrr: 1450000, tenants: 11 },
+    { month: "Mar", mrr: 2100000, tenants: 18 },
+    { month: "Apr", mrr: 2890000, tenants: 24 },
+    { month: "Mei", mrr: 3150000, tenants: 29 },
+    {
+      month: "Jun",
+      mrr: stats?.monthlyRecurringRevenue || 3450000,
+      tenants: stats?.totalTenants || 35,
+    },
   ]
 
   const tierChartData = [
-    { name: "Trial", count: stats?.tierBreakdown.trial || 0, fill: "#64748b" },
-    { name: "Starter", count: stats?.tierBreakdown.starter || 0, fill: "#14b8a6" },
+    { name: "Trial", count: stats?.tierBreakdown.trial || 0, fill: "#38bdf8" },
+    { name: "Starter", count: stats?.tierBreakdown.starter || 0, fill: "#2dd4bf" },
     { name: "Pro Usaha", count: stats?.tierBreakdown.pro || 0, fill: "#10b981" },
     { name: "Enterprise", count: stats?.tierBreakdown.enterprise || 0, fill: "#a855f7" },
   ]
+
+  const expiringList = stats?.expiringSoonTenants || []
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
@@ -95,228 +88,222 @@ export default function SuperadminOverviewPage() {
             Ringkasan Platform & Analytics
           </h1>
           <p className="text-xs sm:text-sm text-slate-400">
-            Pemantauan performa bisnis SaaS Scota, tren pendapatan langganan (MRR), dan aktivitas tenant.
+            Pemantauan performa bisnis SaaS Scota, tren pendapatan berulang (MRR), dan aktivitas tenant.
           </p>
         </div>
 
-        <button
-          onClick={fetchStats}
-          disabled={isLoading}
-          className="self-start sm:self-auto px-4 py-2 rounded-2xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white text-xs font-bold transition-all flex items-center gap-2 cursor-pointer"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin text-emerald-400" : ""}`} />
-          <span>Refresh Data</span>
-        </button>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/superadmin/tenants"
+            className="px-4 py-2.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-black transition-all shadow-md shadow-emerald-500/20 flex items-center gap-2 cursor-pointer"
+          >
+            <span>Kelola Tenant</span>
+            <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
       </div>
 
-      {/* 4 Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Card 1: Total Tenants */}
-        <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-5 space-y-3 shadow-xl relative overflow-hidden">
-          <div className="flex items-center justify-between text-slate-400 text-xs font-bold">
-            <span>Total Tenant Bisnis</span>
-            <Users className="w-4 h-4 text-emerald-400" />
-          </div>
-          <div className="text-3xl font-black text-white">{stats?.totalTenants || 0}</div>
-          <div className="text-[11px] text-emerald-400 font-semibold flex items-center gap-1">
-            <CheckCircle2 className="w-3.5 h-3.5" />
-            <span>{stats?.activeTenants || 0} Akun Aktif</span>
-          </div>
-        </div>
+      {/* Top 4 StatCards Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+        <StatCard
+          title="Total Tenant"
+          value={stats?.totalTenants ?? 0}
+          icon={Users}
+          iconColor="text-sky-400 bg-sky-500/10 border-sky-500/20"
+          trend={{ value: "+18%", isPositive: true, label: "bulan ini" }}
+          description="Tenant bisnis terdaftar"
+          loading={isLoading}
+        />
 
-        {/* Card 2: MRR */}
-        <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-5 space-y-3 shadow-xl relative overflow-hidden">
-          <div className="flex items-center justify-between text-slate-400 text-xs font-bold">
-            <span>Pendapatan Langganan (MRR)</span>
-            <TrendingUp className="w-4 h-4 text-emerald-400" />
-          </div>
-          <div className="text-2xl sm:text-3xl font-black text-emerald-400 font-mono">
-            Rp {(stats?.monthlyRecurringRevenue || 0).toLocaleString("id-ID")}
-          </div>
-          <div className="text-[11px] text-emerald-400/90 font-medium">
-            Dari {stats?.paidTenantsCount || 0} langganan aktif
-          </div>
-        </div>
+        <StatCard
+          title="Tenant Aktif"
+          value={stats?.activeTenants ?? 0}
+          icon={ShieldCheck}
+          iconColor="text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+          trend={{ value: `${stats?.paidTenantsCount ?? 0} Berbayar`, isPositive: true }}
+          description="Status langganan aktif & berjalan"
+          loading={isLoading}
+        />
 
-        {/* Card 3: Receipts Scanned */}
-        <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-5 space-y-3 shadow-xl relative overflow-hidden">
-          <div className="flex items-center justify-between text-slate-400 text-xs font-bold">
-            <span>Total Nota Terpindai</span>
-            <Receipt className="w-4 h-4 text-teal-400" />
-          </div>
-          <div className="text-3xl font-black text-white">{stats?.totalReceipts || 0}</div>
-          <div className="text-[11px] text-slate-400">Diproses OCR Multi-Tenant</div>
-        </div>
+        <StatCard
+          title="Monthly Recurring Revenue"
+          value={`Rp ${(stats?.monthlyRecurringRevenue ?? 0).toLocaleString("id-ID")}`}
+          icon={TrendingUp}
+          iconColor="text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+          trend={{ value: "+24.5%", isPositive: true, label: "vs bln lalu" }}
+          description="Estimasi omset bulanan SaaS"
+          loading={isLoading}
+        />
 
-        {/* Card 4: AI Status */}
-        <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-5 space-y-3 shadow-xl relative overflow-hidden">
-          <div className="flex items-center justify-between text-slate-400 text-xs font-bold">
-            <span>AI Engine Status</span>
-            <Sparkles className="w-4 h-4 text-emerald-400" />
-          </div>
-          <div className="text-xl font-black text-white flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
-            <span>Gemini Flash Active</span>
-          </div>
-          <div className="text-[11px] text-emerald-400 font-semibold">Kecepatan ~1.4s per nota</div>
-        </div>
+        <StatCard
+          title="Tenant Trial / Expiring"
+          value={stats?.tierBreakdown.trial ?? 0}
+          icon={Clock}
+          iconColor="text-amber-400 bg-amber-500/10 border-amber-500/20"
+          trend={{
+            value: `${expiringList.length} Expiring Soon`,
+            isPositive: expiringList.length === 0,
+          }}
+          description="Trial 14 hari & hampir habis"
+          loading={isLoading}
+        />
       </div>
 
       {/* Analytics Charts Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* MRR & Tenant Growth Chart (2 cols) */}
-        <div className="lg:col-span-2 bg-slate-900/80 border border-slate-800 rounded-3xl p-6 space-y-4 shadow-xl">
-          <div className="flex items-center justify-between">
-            <div>
-              <strong className="text-sm font-black text-white block">Tren Pertumbuhan Pendapatan (MRR)</strong>
-              <span className="text-xs text-slate-400">Akumulasi estimasi omzet langganan SaaS</span>
-            </div>
-            <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-bold flex items-center gap-1">
-              <ArrowUpRight className="w-3.5 h-3.5" /> +24% bln ini
-            </span>
-          </div>
-
-          <div className="h-64 w-full pt-4">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={mrrTrendData}>
+        {/* MRR Trend Area Chart (2 Cols) */}
+        <div className="lg:col-span-2">
+          <ChartCard
+            title="Tren Pertumbuhan MRR & Tenant"
+            subtitle="Estimasi pendapatan berlangganan SaaS dalam 6 bulan terakhir"
+            badge="Live Aggregated"
+          >
+            <ResponsiveContainer width="100%" height={260}>
+              <AreaChart data={mrrTrendData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                 <defs>
-                  <linearGradient id="mrrGradient" x1="0" y1="0" x2="0" y2="1">
+                  <linearGradient id="mrrColor" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                <XAxis dataKey="month" stroke="#64748b" textAnchor="end" fontSize={11} />
-                <YAxis stroke="#64748b" fontSize={11} tickFormatter={(val) => `Rp${(val / 1000).toFixed(0)}k`} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                <XAxis dataKey="month" stroke="#64748b" fontSize={11} tickLine={false} />
+                <YAxis
+                  stroke="#64748b"
+                  fontSize={11}
+                  tickLine={false}
+                  tickFormatter={(val) => `Rp ${(val / 1000).toFixed(0)}k`}
+                />
                 <Tooltip
                   contentStyle={{
                     backgroundColor: "#0f172a",
                     borderColor: "#334155",
-                    borderRadius: "1rem",
-                    color: "#fff",
+                    borderRadius: "16px",
+                    color: "#f8fafc",
                     fontSize: "12px",
                   }}
-                  formatter={(val: any) => [`Rp ${Number(val).toLocaleString("id-ID")}`, "Estimasi MRR"]}
+                  formatter={(val: any) => [`Rp ${Number(val).toLocaleString("id-ID")}`, "MRR"]}
                 />
-                <Area type="monotone" dataKey="mrr" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#mrrGradient)" />
+                <Area
+                  type="monotone"
+                  dataKey="mrr"
+                  stroke="#10b981"
+                  strokeWidth={2.5}
+                  fillOpacity={1}
+                  fill="url(#mrrColor)"
+                />
               </AreaChart>
             </ResponsiveContainer>
-          </div>
+          </ChartCard>
         </div>
 
-        {/* Plan Distribution Bar Chart (1 col) */}
-        <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 space-y-4 shadow-xl flex flex-col justify-between">
-          <div>
-            <strong className="text-sm font-black text-white block">Distribusi Paket Tenant</strong>
-            <span className="text-xs text-slate-400">Sebaran akun aktif berdasarkan tier</span>
-          </div>
-
-          <div className="h-52 w-full pt-2">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={tierChartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                <XAxis dataKey="name" stroke="#64748b" fontSize={11} />
-                <YAxis stroke="#64748b" fontSize={11} allowDecimals={false} />
+        {/* Plan Distribution Bar Chart (1 Col) */}
+        <div className="lg:col-span-1">
+          <ChartCard
+            title="Distribusi Paket Tenant"
+            subtitle="Porsi pelanggan per tier paket langganan"
+            badge="Paket Aktif"
+          >
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart data={tierChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                <XAxis dataKey="name" stroke="#64748b" fontSize={11} tickLine={false} />
+                <YAxis stroke="#64748b" fontSize={11} tickLine={false} allowDecimals={false} />
                 <Tooltip
                   contentStyle={{
                     backgroundColor: "#0f172a",
                     borderColor: "#334155",
-                    borderRadius: "1rem",
-                    color: "#fff",
+                    borderRadius: "16px",
+                    color: "#f8fafc",
                     fontSize: "12px",
                   }}
                 />
-                <Bar dataKey="count" fill="#10b981" radius={[8, 8, 0, 0]} />
+                <Bar dataKey="count" radius={[8, 8, 0, 0]} fill="#10b981" />
               </BarChart>
             </ResponsiveContainer>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-slate-800">
-            <div className="flex items-center gap-1.5 text-slate-300">
-              <span className="w-2.5 h-2.5 rounded-full bg-slate-500" />
-              <span>Trial ({stats?.tierBreakdown.trial || 0})</span>
-            </div>
-            <div className="flex items-center gap-1.5 text-teal-400">
-              <span className="w-2.5 h-2.5 rounded-full bg-teal-500" />
-              <span>Starter ({stats?.tierBreakdown.starter || 0})</span>
-            </div>
-            <div className="flex items-center gap-1.5 text-emerald-400">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-              <span>Pro ({stats?.tierBreakdown.pro || 0})</span>
-            </div>
-            <div className="flex items-center gap-1.5 text-purple-400">
-              <span className="w-2.5 h-2.5 rounded-full bg-purple-500" />
-              <span>Enterprise ({stats?.tierBreakdown.enterprise || 0})</span>
-            </div>
-          </div>
+          </ChartCard>
         </div>
       </div>
 
-      {/* Recent Registrations Table */}
-      <div className="bg-slate-900/80 border border-slate-800 rounded-3xl overflow-hidden shadow-xl">
-        <div className="p-5 border-b border-slate-800 flex items-center justify-between">
-          <div>
-            <strong className="text-sm font-black text-white block">Pendaftaran Tenant Terbaru</strong>
-            <span className="text-xs text-slate-400">10 akun bisnis terakhir yang mendaftar di Scota</span>
+      {/* Attention Required Table: Expiring & Need Action */}
+      <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="space-y-0.5">
+            <h3 className="text-base font-black text-white flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-400" />
+              <span>Perlu Perhatian (Expired Dalam 7 Hari)</span>
+            </h3>
+            <p className="text-xs text-slate-400">
+              Tenant yang memerlukan perpanjangan manual atau follow-up konversi dari tim sales/support.
+            </p>
           </div>
-
           <Link
             href="/superadmin/tenants"
-            className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+            className="text-xs font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-1"
           >
             <span>Lihat Semua Tenant</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-950 text-slate-400 uppercase font-bold text-[10.5px]">
-              <tr>
-                <th className="py-3.5 px-4">Nama Usaha / Pemilik</th>
-                <th className="py-3.5 px-4">Username</th>
-                <th className="py-3.5 px-4">Paket</th>
-                <th className="py-3.5 px-4">Masa Berlaku</th>
-                <th className="py-3.5 px-4 text-right">Aksi</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/60 font-medium">
-              {!stats?.recentRegistrations || stats.recentRegistrations.length === 0 ? (
+        {expiringList.length === 0 ? (
+          <EmptyState
+            title="Tidak Ada Tenant yang Akan Expired"
+            description="Semua langganan tenant saat ini masih dalam masa aktif yang aman."
+            icon={ShieldCheck}
+          />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-950 text-slate-400 border-b border-slate-800 uppercase tracking-wider font-bold text-[10.5px]">
                 <tr>
-                  <td colSpan={5} className="py-8 text-center text-slate-500">
-                    Belum ada data pendaftaran tenant.
-                  </td>
+                  <th className="py-3 px-4">Nama Usaha / Tenant</th>
+                  <th className="py-3 px-4">Paket</th>
+                  <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-4">Berakhir Pada</th>
+                  <th className="py-3 px-4 text-right">Aksi</th>
                 </tr>
-              ) : (
-                stats.recentRegistrations.map((t: any) => (
+              </thead>
+              <tbody className="divide-y divide-slate-800/60 font-medium">
+                {expiringList.map((t) => (
                   <tr key={t.username} className="hover:bg-slate-800/40 transition-colors">
                     <td className="py-3.5 px-4">
-                      <strong className="text-white font-bold block">{t.businessName || t.fullName}</strong>
-                      <span className="text-[11px] text-slate-400">{t.fullName}</span>
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-xs font-bold text-slate-200">
+                          {t.username.substring(0, 2).toUpperCase()}
+                        </div>
+                        <div>
+                          <strong className="text-white block">{t.businessName || t.fullName}</strong>
+                          <span className="text-[11px] text-slate-500 font-mono">@{t.username}</span>
+                        </div>
+                      </div>
                     </td>
-                    <td className="py-3.5 px-4 font-mono text-emerald-400">{t.username}</td>
+                    <td className="py-3.5 px-4 uppercase font-bold text-slate-300">{t.tier}</td>
                     <td className="py-3.5 px-4">
-                      <span className="px-2.5 py-0.5 rounded-full text-[10.5px] font-black uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                        {t.tier}
-                      </span>
+                      <StatusBadge status={t.status} />
                     </td>
-                    <td className="py-3.5 px-4 font-mono text-slate-300">
-                      {new Date(t.validUntil).toLocaleDateString("id-ID", { dateStyle: "medium" })}
+                    <td className="py-3.5 px-4 text-amber-400 font-mono">
+                      {new Date(t.validUntil).toLocaleDateString("id-ID", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })}
                     </td>
                     <td className="py-3.5 px-4 text-right">
                       <Link
-                        href={`/superadmin/tenants`}
-                        className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-emerald-600 hover:text-white text-slate-300 text-[11px] font-bold transition-all"
+                        href={`/superadmin/tenants/${t.username}`}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-emerald-500 hover:text-slate-950 text-slate-300 text-xs font-bold transition-all"
                       >
-                        Kelola
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>Detail</span>
                       </Link>
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   )

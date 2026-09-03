@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getAllTenants, updateTenantSubscription, isSuperadminUser } from "@/lib/superadmin"
+import {
+  getAllTenants,
+  updateTenantSubscription,
+  toggleTenantStatus,
+  createTenantManual,
+} from "@/lib/superadmin"
 import { updateAdminPassword } from "@/lib/adminAccounts"
 
 export async function GET(req: NextRequest) {
@@ -11,9 +16,22 @@ export async function GET(req: NextRequest) {
   }
 }
 
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json()
+    const result = await createTenantManual(body)
+    if (!result.success) {
+      return NextResponse.json({ error: result.message }, { status: 400 })
+    }
+    return NextResponse.json({ success: true, message: result.message })
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message || "Gagal mendaftarkan tenant baru" }, { status: 500 })
+  }
+}
+
 export async function PUT(req: NextRequest) {
   try {
-    const { username, action, tier, durationDays, newPassword } = await req.json()
+    const { username, action, tier, durationDays, newPassword, status } = await req.json()
 
     if (!username) {
       return NextResponse.json({ error: "Username tenant harus diisi" }, { status: 400 })
@@ -24,6 +42,14 @@ export async function PUT(req: NextRequest) {
         tier: tier || "pro",
         durationDays: durationDays || 30,
       })
+      if (!result.success) {
+        return NextResponse.json({ error: result.message }, { status: 400 })
+      }
+      return NextResponse.json({ success: true, message: result.message })
+    }
+
+    if (action === "toggle_status") {
+      const result = await toggleTenantStatus(username, status === "suspended" ? "suspended" : "active")
       if (!result.success) {
         return NextResponse.json({ error: result.message }, { status: 400 })
       }

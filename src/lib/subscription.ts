@@ -22,17 +22,16 @@ export interface SubscriptionInfo {
   activeLicenseKey?: string
 }
 
-export const TIER_CONFIG: Record<
-  SubscriptionTier,
-  {
-    name: string
-    monthlyScanLimit: number
-    priceMonthly: number
-    priceYearly: number
-    maxUsers: number
-    features: string[]
-  }
-> = {
+export interface TierConfig {
+  name: string
+  monthlyScanLimit: number
+  priceMonthly: number
+  priceYearly: number
+  maxUsers: number
+  features: string[]
+}
+
+export const TIER_CONFIG: Record<SubscriptionTier, TierConfig> = {
   trial: {
     name: "Trial / Percobaan",
     monthlyScanLimit: 30,

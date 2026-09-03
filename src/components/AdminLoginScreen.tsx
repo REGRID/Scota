@@ -85,7 +85,7 @@ export function AdminLoginScreen({ onLoginSuccess, onBackToLanding }: AdminLogin
           </div>
           <div>
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900">
-              Nota
+              Scota
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 font-semibold mt-1">
               Digitalisasi Struk & Pembukuan Usaha

@@ -43,7 +43,7 @@ export function SubscriptionModal({
   const [isSavingProfile, setIsSavingProfile] = useState(false)
 
   // Studio Profile Form State
-  const [studioName, setStudioName] = useState(subscription?.studioProfile?.studioName || "Nota Photo Studio")
+  const [studioName, setStudioName] = useState(subscription?.studioProfile?.studioName || "Scota Business")
   const [tagline, setTagline] = useState(subscription?.studioProfile?.tagline || "Creative Photography & Digital Imaging")
   const [address, setAddress] = useState(subscription?.studioProfile?.address || "")
   const [phone, setPhone] = useState(subscription?.studioProfile?.phone || "")
@@ -140,7 +140,7 @@ export function SubscriptionModal({
     const price = billingCycle === "yearly" ? plan.priceYearly : plan.priceMonthly
     const cycleText = billingCycle === "yearly" ? "Tahunan (Hemat 2 Bulan)" : "Bulanan"
     const message = encodeURIComponent(
-      `Halo Tim Nota, saya ingin berlangganan paket *${plan.name}* (${cycleText}) seharga Rp ${price.toLocaleString("id-ID")} untuk Usaha kami (${studioName}). Mohon info rekening / QRIS pembayaran.`
+      `Halo Tim Scota, saya ingin berlangganan paket *${plan.name}* (${cycleText}) seharga Rp ${price.toLocaleString("id-ID")} untuk Usaha kami (${studioName}). Mohon info rekening / QRIS pembayaran.`
     )
     window.open(`https://wa.me/6281234567890?text=${message}`, "_blank")
   }

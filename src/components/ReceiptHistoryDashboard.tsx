@@ -1381,7 +1381,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
           doc.setFontSize(8)
           doc.setTextColor(148, 163, 184)
           doc.text(
-            `Halaman ${data.pageNumber} dari ${totalPages} — Dokumen Laporan Rekapitulasi Pembukuan Nota Photo`,
+            `Halaman ${data.pageNumber} dari ${totalPages} — Dokumen Laporan Rekapitulasi Pembukuan Scota`,
             pageWidth / 2,
             pageHeight - 6,
             { align: "center" }

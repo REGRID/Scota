@@ -12,7 +12,7 @@ import { SubscriptionBanner } from "@/components/SubscriptionBanner"
 import { IntroductionDashboard } from "@/components/IntroductionDashboard"
 import { SubscriptionInfo } from "@/lib/subscription"
 import { ParsedReceiptResult } from "@/app/api/parse-receipt/route"
-import { Camera, History, ShieldCheck, CheckCircle2, Maximize2, LogOut, UserCheck, Loader2, Settings, Sparkles, Info } from "lucide-react"
+import { Camera, Receipt, History, ShieldCheck, CheckCircle2, Maximize2, LogOut, UserCheck, Loader2, Settings, Sparkles, Info } from "lucide-react"
 
 import { registerPushSubscription } from "@/lib/pwaNotification"
 import { useAppDialog } from "@/components/ui/app-dialog"
@@ -563,15 +563,15 @@ export default function HomePage() {
       <header className="bg-slate-900 text-white sticky top-0 z-30 shadow-md pt-[env(safe-area-inset-top,0px)] border-b border-slate-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500 flex items-center justify-center text-slate-950 font-black shadow-md shadow-emerald-500/20">
-              <Camera className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center text-slate-950 font-black shadow-md shadow-emerald-500/20">
+              <Receipt className="w-5 h-5 text-slate-950" />
             </div>
             <div>
               <h1 className="font-extrabold text-base sm:text-lg tracking-tight leading-tight flex items-center gap-2">
-                {subscription?.studioProfile?.studioName || "Nota Photo"}
+                {subscription?.studioProfile?.studioName || "Scota"}
               </h1>
               <p className="text-[11px] text-slate-400 hidden sm:block">
-                {subscription?.studioProfile?.tagline || "Digitalisasi Struk & Pembukuan Studio Foto"}
+                {subscription?.studioProfile?.tagline || "Digitalisasi Struk & Pembukuan Pengeluaran Usaha"}
               </p>
             </div>
           </div>

@@ -124,7 +124,7 @@ export function IntroductionDashboard({
   const faqs = [
     {
       q: "Apakah bisa digunakan untuk semua jenis bisnis dan usaha?",
-      a: "Tentu saja! Nota dirancang universal untuk segala jenis usaha: Toko Ritel, Kantor/Perusahaan, Resto & Cafe, Agensi & Studio Kreatif, Bengkel, Kontraktor, Ekspedisi, hingga UMKM & Freelancer.",
+      a: "Tentu saja! Scota dirancang universal untuk segala jenis usaha: Toko Ritel, Kantor/Perusahaan, Resto & Cafe, Agensi & Studio Kreatif, Bengkel, Kontraktor, Ekspedisi, hingga UMKM & Freelancer.",
     },
     {
       q: "Apakah sistem dapat membaca bon tulisan tangan atau struk kasir thermal?",
@@ -149,7 +149,7 @@ export function IntroductionDashboard({
     const price = billingCycle === "yearly" ? plan.priceYearly : plan.priceMonthly
     const cycleText = billingCycle === "yearly" ? "Tahunan (Hemat 17%)" : "Bulanan"
     const message = encodeURIComponent(
-      `Halo Tim Nota, saya ingin berlangganan paket *${plan.name}* (${cycleText}) seharga Rp ${price.toLocaleString("id-ID")}. Mohon info prosedur aktivasi lisensi untuk usaha kami.`
+      `Halo Tim Scota, saya ingin berlangganan paket *${plan.name}* (${cycleText}) seharga Rp ${price.toLocaleString("id-ID")}. Mohon info prosedur aktivasi lisensi untuk usaha kami.`
     )
     window.open(`https://wa.me/6281234567890?text=${message}`, "_blank")
   }
@@ -297,7 +297,7 @@ export function IntroductionDashboard({
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-black text-base sm:text-lg tracking-tight text-white">
-                  Nota
+                  Scota
                 </span>
                 <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                   SaaS Pembukuan
@@ -843,7 +843,7 @@ export function IntroductionDashboard({
                     </div>
                     <div>
                       <strong className="block text-sm sm:text-base font-black text-white">
-                        Platform Nota Digital
+                        Platform Scota
                       </strong>
                       <span className="text-[11px] text-emerald-400 font-bold">Otomatisasi 100% Cepat & Terproteksi</span>
                     </div>
@@ -1137,12 +1137,12 @@ export function IntroductionDashboard({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-xs">
-              NP
+              SC
             </div>
             <div>
-              <span className="font-bold text-white">Nota Platform</span>
+              <span className="font-bold text-white">Scota Platform</span>
               <p className="text-[11px] text-slate-500">
-                © {new Date().getFullYear()} Nota Platform. Solusi pembukuan untuk semua jenis bisnis.
+                © {new Date().getFullYear()} Scota Platform. Solusi pembukuan untuk semua jenis bisnis.
               </p>
             </div>
           </div>

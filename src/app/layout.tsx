@@ -17,13 +17,13 @@ export const viewport: Viewport = {
 }
 
 export const metadata: Metadata = {
-  title: "Nota — Digitalisasi Struk & Pembukuan Semua Jenis Usaha",
-  description: "Platform Digitalisasi Struk, Faktur, & Pembukuan Pengeluaran Otomatis untuk Semua Jenis Bisnis, Toko, Kantor & UMKM",
+  title: "Scota — Digitalisasi Struk & Pembukuan Semua Jenis Usaha",
+  description: "Platform Scota - Digitalisasi Struk, Faktur, & Pembukuan Pengeluaran Otomatis untuk Semua Jenis Bisnis, Toko, Kantor & UMKM",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Nota",
+    title: "Scota",
   },
   verification: {
     google: "us2F4BU3Hm51-MI_cnTqBGnFRQpcjrTOzPOMmbKGePE",

@@ -92,7 +92,7 @@ export const TIER_CONFIG: Record<
 }
 
 export const DEFAULT_STUDIO_PROFILE: StudioProfile = {
-  studioName: "Nota Bisnis & Pembukuan",
+  studioName: "Scota Business",
   tagline: "Digitalisasi Struk & Pengeluaran Usaha",
   address: "Jl. Bisnis No. 1, Jakarta",
   phone: "0812-3456-7890",

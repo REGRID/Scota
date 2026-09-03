@@ -20,6 +20,7 @@ import { Camera, Receipt, History, ShieldCheck, CheckCircle2, Maximize2, LogOut,
 import { registerPushSubscription } from "@/lib/pwaNotification"
 import { useAppDialog } from "@/components/ui/app-dialog"
 import { ThemeToggle } from "@/lib/theme"
+import { ApiKeyModal } from "@/components/ApiKeyModal"
 
 export default function HomePage() {
   const { showAlert } = useAppDialog()
@@ -127,6 +128,7 @@ export default function HomePage() {
   const [parsedResult, setParsedResult] = useState<ParsedReceiptResult | null>(null)
   const [parsingMode, setParsingMode] = useState<string>("gemini_multimodal_vision")
   const [quotaError, setQuotaError] = useState<string | null>(null)
+  const [showApiKeyModal, setShowApiKeyModal] = useState<boolean>(false)
 
   // Saved Receipt Editing State
   const [editingReceiptId, setEditingReceiptId] = useState<string | null>(null)
@@ -265,14 +267,10 @@ export default function HomePage() {
             setBatchIndex(draft.batchIndex || 0)
           }
 
-          // If session was closed mid-scan without parsedResult, re-trigger extraction automatically
-          if (draft.isProcessing && !draft.parsedResult && draft.imagePreviewUrl) {
-            const queueToUse = draft.batchQueue && draft.batchQueue.length > 0
-              ? draft.batchQueue
-              : [{ file: null, base64: draft.imagePreviewUrl }]
-            setTimeout(() => {
-              processBatchItem(draft.batchIndex || 0, queueToUse)
-            }, 300)
+          // If session was closed mid-scan without parsedResult, clean up stale processing state to avoid retry loops
+          if (draft.isProcessing && !draft.parsedResult) {
+            clearVerificationDraft(cleanUser)
+            setIsProcessing(false)
           }
         }
       }
@@ -439,6 +437,10 @@ export default function HomePage() {
       }
 
       if (!response.ok) {
+        if (data.error === "INVALID_API_KEY") {
+          setShowApiKeyModal(true)
+          throw new Error("KUNCI_API_DIPERLUKAN")
+        }
         if (response.status === 429 || data.error === "QUOTA_EXCEEDED") {
           const limitMsg =
             data.message ||
@@ -462,10 +464,15 @@ export default function HomePage() {
         return
       }
       console.error("Scanning Error:", err)
-      if (!quotaError) {
+      clearVerificationDraft(adminUser)
+      setBatchQueue([])
+      setBatchIndex(0)
+      setImagePreviewUrl(null)
+      if (err.message === "KUNCI_API_DIPERLUKAN") {
+        // ApiKeyModal is opened, do not show duplicate alert popup
+      } else if (!quotaError) {
         showAlert({ title: "Gagal Memproses Nota", description: `Gagal memproses nota #${index + 1}: ${err.message || "Kesalahan server"}`, variant: "destructive" })
       }
-      setImagePreviewUrl(null)
     } finally {
       setIsProcessing(false)
       fetchQuota()
@@ -882,6 +889,17 @@ export default function HomePage() {
           onTrySample={handleTrySample}
         />
       )}
+
+      {/* Google Gemini API Key Configuration Modal */}
+      <ApiKeyModal
+        isOpen={showApiKeyModal}
+        onClose={() => setShowApiKeyModal(false)}
+        onSaved={() => {
+          if (batchQueue.length > 0 && batchIndex < batchQueue.length) {
+            processBatchItem(batchIndex, batchQueue)
+          }
+        }}
+      />
     </main>
   )
 }

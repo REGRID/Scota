@@ -75,6 +75,8 @@ import { requestNotificationPermission, sendNativeOSNotification } from "@/lib/p
 import { compressImageBase64 } from "@/lib/ocr"
 import { useAppDialog } from "@/components/ui/app-dialog"
 import { toast } from "sonner"
+import { CalendarRangeSelect } from "@/components/ui/calendar-range-select"
+import { type DateRange } from "react-day-picker"
 
 export interface ReceiptItem {
   id: string
@@ -293,13 +295,43 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
 
   // Filters State
   const [searchQuery, setSearchQuery] = useState("")
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [selectedCategory, setSelectedCategory] = useState("Semua")
   const [selectedSubCategory, setSelectedSubCategory] = useState("Semua Sub-Kategori")
+  const [activeFilterPopover, setActiveFilterPopover] = useState<"kategori" | "metode" | "status" | "periode" | "urutan" | null>(null)
 
   // Date Range Filter State
   const [dateRangeFilter, setDateRangeFilter] = useState<"all" | "today" | "7days" | "month" | "custom">("all")
   const [startDate, setStartDate] = useState("")
   const [endDate, setEndDate] = useState("")
+
+  // Convert startDate and endDate to DateRange object for CalendarRangeSelect
+  const currentDateRange: DateRange | undefined = useMemo(() => {
+    if (!startDate) return undefined
+    const [sy, sm, sd] = startDate.split("-").map(Number)
+    const from = new Date(sy, sm - 1, sd)
+    if (!endDate) return { from, to: from }
+    const [ey, em, ed] = endDate.split("-").map(Number)
+    const to = new Date(ey, em - 1, ed)
+    return { from, to }
+  }, [startDate, endDate])
+
+  const handleApplyCustomDateRange = (range: DateRange | undefined) => {
+    if (!range || !range.from) {
+      setStartDate("")
+      setEndDate("")
+      setDateRangeFilter("all")
+    } else {
+      const pad = (n: number) => String(n).padStart(2, "0")
+      const fromStr = `${range.from.getFullYear()}-${pad(range.from.getMonth() + 1)}-${pad(range.from.getDate())}`
+      const toDate = range.to || range.from
+      const toStr = `${toDate.getFullYear()}-${pad(toDate.getMonth() + 1)}-${pad(toDate.getDate())}`
+      setStartDate(fromStr)
+      setEndDate(toStr)
+      setDateRangeFilter("custom")
+    }
+    setActiveFilterPopover(null)
+  }
 
   // Sort Option State
   const [sortBy, setSortBy] = useState<"date-desc" | "date-asc" | "amount-desc" | "amount-asc" | "merchant-asc" | "merchant-desc">("date-desc")
@@ -324,9 +356,10 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
   const [isBulkDeleting, setIsBulkDeleting] = useState(false)
   const [isBulkSettling, setIsBulkSettling] = useState(false)
 
-  // Status Filter Panel Toggle & Filter States
+  // Status Filter Panel Toggle & Multi-Select Status Filter States
   const [showStatusFilterPanel, setShowStatusFilterPanel] = useState<boolean>(false)
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>("Semua Status")
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([])
 
   // Sub-Status / Penanggung Jawab Filter State
   const [selectedPersonFilter, setSelectedPersonFilter] = useState<string>("Semua Penanggung Jawab")
@@ -784,11 +817,44 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
     ? ["Semua Sub-Kategori", ...activeParentObj.subCategories.map((s) => s.name)]
     : []
 
+  // Multi-select toggle for categories
+  const handleToggleCategory = (catName: string) => {
+    if (catName === "Semua") {
+      setSelectedCategories([])
+      setSelectedCategory("Semua")
+      setSelectedSubCategory("Semua Sub-Kategori")
+    } else {
+      setSelectedCategories((prev) => {
+        const next = prev.includes(catName) ? prev.filter((c) => c !== catName) : [...prev, catName]
+        setSelectedCategory(next.length === 1 ? next[0] : next.length > 1 ? `${next.length} Kategori` : "Semua")
+        if (next.length !== 1) {
+          setSelectedSubCategory("Semua Sub-Kategori")
+        }
+        return next
+      })
+    }
+    setCurrentPage(1)
+  }
+
+  // Multi-select toggle for statuses
+  const handleToggleStatus = (statusVal: string) => {
+    if (statusVal === "Semua Status") {
+      setSelectedStatuses([])
+      setSelectedStatusFilter("Semua Status")
+      setSelectedPersonFilter("Semua Penanggung Jawab")
+    } else {
+      setSelectedStatuses((prev) => {
+        const next = prev.includes(statusVal) ? prev.filter((s) => s !== statusVal) : [...prev, statusVal]
+        setSelectedStatusFilter(next.length === 1 ? next[0] : next.length > 1 ? `${next.length} Status` : "Semua Status")
+        return next
+      })
+    }
+    setCurrentPage(1)
+  }
+
   // Reset Sub-Category filter seamlessly when Parent Category changes
   const handleSelectParentCategory = (cat: string) => {
-    setSelectedCategory(cat)
-    setSelectedSubCategory("Semua Sub-Kategori")
-    setCurrentPage(1)
+    handleToggleCategory(cat)
   }
 
   // Check if a specific sub-category filter is active
@@ -867,8 +933,18 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
         })
         if (!hasSubItem) return false
       }
-      // 4. Parent Category Filter
-      else if (selectedCategory && selectedCategory !== "Semua") {
+      // 4. Parent Categories Filter (Multi-select OR single)
+      else if (selectedCategories.length > 0) {
+        const hasCatItem = r.items.some((item) => {
+          const cat = (item.category || "").toLowerCase()
+          const sub = (item.subCategory || "").toLowerCase()
+          return selectedCategories.some((selected) => {
+            const catQ = selected.toLowerCase().split("/")[0].trim()
+            return cat.includes(catQ) || sub.includes(catQ)
+          })
+        })
+        if (!hasCatItem) return false
+      } else if (selectedCategory && selectedCategory !== "Semua") {
         const catQ = selectedCategory.toLowerCase().split("/")[0].trim()
         const hasCatItem = r.items.some((item) => {
           const cat = (item.category || "").toLowerCase()
@@ -878,14 +954,26 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
         if (!hasCatItem) return false
       }
 
-      // 5. Payment Status Filter
-      const effectiveStatus = getEffectivePaymentStatus(r)
-      if (selectedStatusFilter === "Lunas") {
-        if (effectiveStatus !== "Lunas") return false
-      } else if (selectedStatusFilter === "Sudah Dilunasi") {
-        if (effectiveStatus !== "Sudah Dilunasi") return false
-      } else if (selectedStatusFilter === "Belum Direimburse / Tempo") {
-        if (isReceiptSettled(r.paymentStatus)) return false
+      // 5. Payment Status Filter (Multi-select OR single)
+      if (selectedStatuses.length > 0) {
+        const effectiveStatus = getEffectivePaymentStatus(r)
+        const isSettled = isReceiptSettled(r.paymentStatus)
+        const matchesAnyStatus = selectedStatuses.some((st) => {
+          if (st === "Lunas" && effectiveStatus === "Lunas") return true
+          if (st === "Sudah Dilunasi" && effectiveStatus === "Sudah Dilunasi") return true
+          if (st === "Belum Direimburse / Tempo" && !isSettled) return true
+          return false
+        })
+        if (!matchesAnyStatus) return false
+      } else if (selectedStatusFilter !== "Semua Status") {
+        const effectiveStatus = getEffectivePaymentStatus(r)
+        if (selectedStatusFilter === "Lunas") {
+          if (effectiveStatus !== "Lunas") return false
+        } else if (selectedStatusFilter === "Sudah Dilunasi") {
+          if (effectiveStatus !== "Sudah Dilunasi") return false
+        } else if (selectedStatusFilter === "Belum Direimburse / Tempo") {
+          if (isReceiptSettled(r.paymentStatus)) return false
+        }
       }
 
       // 6. Sub-Status (Penanggung Jawab / Talangan) Filter
@@ -1904,23 +1992,22 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
           </div>
         </div>
 
-        {/* Compact Actions Row */}
-        <div className="flex items-center gap-2 flex-wrap md:flex-nowrap shrink-0">
+        {/* Compact Actions Row - Icon Only */}
+        <div className="flex items-center gap-1.5 shrink-0">
           {/* Dual-Admin Approval Requests Button */}
           <button
             type="button"
             onClick={() => setShowApprovalModal(true)}
-            className={`relative inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all border shadow-xs active:scale-[0.98] shrink-0 cursor-pointer ${
+            className={`relative w-9 h-9 inline-flex items-center justify-center rounded-xl text-xs font-bold transition-all border shadow-xs active:scale-[0.98] shrink-0 cursor-pointer ${
               pendingApprovals.length > 0
                 ? "bg-amber-500 text-slate-950 border-amber-400 font-black animate-pulse"
                 : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-950 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800"
             }`}
-            title="Verifikasi Persetujuan Admin"
+            title="Verifikasi Persetujuan Dual-Control"
           >
             <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-            <span>Persetujuan</span>
             {pendingApprovals.length > 0 && (
-              <span className="ml-1 px-1.5 py-0.5 bg-slate-950 text-amber-300 rounded-full text-[10px] font-black leading-none">
+              <span className="absolute -top-1 -right-1 flex h-4 min-w-4 px-1 items-center justify-center bg-rose-500 text-white rounded-full text-[9px] font-black leading-none shadow-2xs">
                 {pendingApprovals.length}
               </span>
             )}
@@ -1930,7 +2017,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
           <button
             type="button"
             onClick={() => setShowNotificationsModal(true)}
-            className={`relative inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all border shadow-xs active:scale-[0.98] shrink-0 cursor-pointer ${
+            className={`relative w-9 h-9 inline-flex items-center justify-center rounded-xl text-xs font-bold transition-all border shadow-xs active:scale-[0.98] shrink-0 cursor-pointer ${
               unreadNotificationCount > 0
                 ? "bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-white border-amber-500/40"
                 : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-950 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800"
@@ -1946,9 +2033,8 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                 </span>
               )}
             </div>
-            <span>Notifikasi</span>
             {unreadNotificationCount > 0 && (
-              <span className="ml-0.5 px-1.5 py-0.5 bg-rose-600 text-white rounded-full text-[10px] font-black leading-none">
+              <span className="absolute -top-1 -right-1 flex h-4 min-w-4 px-1 items-center justify-center bg-rose-600 text-white rounded-full text-[9px] font-black leading-none shadow-2xs">
                 {unreadNotificationCount}
               </span>
             )}
@@ -1958,36 +2044,34 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
           <button
             type="button"
             onClick={() => setShowCharts(!showCharts)}
-            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all border shadow-xs active:scale-[0.98] shrink-0 cursor-pointer ${
+            className={`w-9 h-9 inline-flex items-center justify-center rounded-xl text-xs font-bold transition-all border shadow-xs active:scale-[0.98] shrink-0 cursor-pointer ${
               showCharts
                 ? "bg-emerald-500 text-slate-950 border-emerald-400 font-black"
                 : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-950 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800"
             }`}
+            title={showCharts ? "Sembunyikan Grafik" : "Tampilkan Grafik"}
           >
             <BarChart3 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-            <span>Grafik</span>
           </button>
 
           {/* DATA OPTIONS BUTTON */}
           <button
             type="button"
             onClick={() => setShowDataOptionsModal(true)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-950 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold transition-all border border-slate-200 dark:border-slate-800 shadow-xs active:scale-[0.98] shrink-0 cursor-pointer"
-            title="Opsi Backup, Restore, dan Ekspor"
+            className="w-9 h-9 inline-flex items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-950 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold transition-all border border-slate-200 dark:border-slate-800 shadow-xs active:scale-[0.98] shrink-0 cursor-pointer"
+            title="Kelola Data (Backup, Restore, dan Ekspor)"
           >
             <Database className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-            <span>Kelola Data</span>
           </button>
 
           {/* PRINT BUTTON */}
           <button
             type="button"
             onClick={() => setShowStatementPrintModal(true)}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-black transition-all shadow-md shadow-emerald-500/20 shrink-0 active:scale-[0.98] cursor-pointer"
+            className="w-9 h-9 inline-flex items-center justify-center rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-black transition-all shadow-md shadow-emerald-500/20 shrink-0 active:scale-[0.98] cursor-pointer"
             title="Cetak Laporan Rekap"
           >
             <Printer className="w-4 h-4 text-slate-950" />
-            <span>Cetak</span>
           </button>
         </div>
       </div>
@@ -2211,218 +2295,497 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
         </div>
       )}
 
-      {/* SEARCH & FILTER BAR DIRECTLY ABOVE RECEIPTS HISTORY */}
-      <div className="bg-white dark:bg-slate-900/90 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-xl space-y-4 transition-colors duration-200">
-        <div className="flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-3">
+      {/* SEARCH & FILTER BAR DIRECTLY ABOVE RECEIPTS HISTORY (100% UNIFIED 1-ROW TOOLBAR WITH CHECKLIST DROPDOWNS) */}
+      <div className="relative bg-white dark:bg-slate-900/90 p-3 sm:p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-xl space-y-2.5 transition-colors duration-200 z-20">
+        {/* ROW 1: THE UNIFIED 1-ROW TOOLBAR */}
+        <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-2">
           {/* Search Box Input */}
-          <div className="relative flex-1">
-            <Search className="w-4 h-4 text-slate-400 dark:text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="w-4 h-4 text-slate-400 dark:text-slate-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Cari toko, barang, atau metode bayar..."
-              className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all bg-slate-50 dark:bg-slate-950"
+              placeholder="Cari toko, barang, nominal..."
+              className="w-full pl-9 pr-8 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all bg-slate-50 dark:bg-slate-950"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => setSearchQuery("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-1 cursor-pointer"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 cursor-pointer"
+                title="Hapus pencarian"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5">
-            {/* DATE RANGE FILTER DROPDOWN */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1.5 shrink-0">
-                <Calendar className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> Periode:
-              </span>
-
-              <div className="relative inline-block">
-                <select
-                  value={dateRangeFilter}
-                  onChange={(e) => setDateRangeFilter(e.target.value as any)}
-                  className="appearance-none pl-3 pr-8 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-850 focus:border-emerald-500 shadow-xs cursor-pointer transition-colors"
-                >
-                  <option value="all">Semua Waktu</option>
-                  <option value="today">Hari Ini</option>
-                  <option value="7days">7 Hari Terakhir</option>
-                  <option value="month">Bulan Ini</option>
-                  <option value="custom">Kustom Tanggal...</option>
-                </select>
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-              </div>
-            </div>
-
-            {/* SORT BY DROPDOWN */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1.5 shrink-0">
-                <ArrowUpDown className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> Urutkan:
-              </span>
-
-              <div className="relative inline-block">
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as any)}
-                  className="appearance-none pl-3 pr-8 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-850 focus:border-emerald-500 shadow-xs cursor-pointer transition-colors"
-                >
-                  <option value="date-desc">Tanggal Terbaru</option>
-                  <option value="date-asc">Tanggal Terlama</option>
-                  <option value="amount-desc">Nominal Tertinggi</option>
-                  <option value="amount-asc">Nominal Terendah</option>
-                  <option value="merchant-asc">Nama Toko (A - Z)</option>
-                  <option value="merchant-desc">Nama Toko (Z - A)</option>
-                </select>
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {dateRangeFilter === "custom" && (
-          <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-950 p-2 rounded-xl border border-slate-200 dark:border-slate-800 animate-in fade-in zoom-in-95 duration-150 w-fit">
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200 bg-white dark:bg-slate-900"
-            />
-            <span className="text-xs text-slate-400 dark:text-slate-500 font-bold">s/d</span>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200 bg-white dark:bg-slate-900"
-            />
-          </div>
-        )}
-
-        {/* Parent Category Filter Tabs & Settings at right */}
-        <div className="flex items-center justify-between gap-2 border-t border-slate-200 dark:border-slate-800 pt-3">
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 mr-1 shrink-0 flex items-center gap-1">
-              <Layers className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> Kategori:
-            </span>
-            {parentTabs.map((cat) => (
+          {/* Quick Checklist Dropdown Controls */}
+          <div className="flex items-center gap-1.5 flex-wrap sm:flex-nowrap shrink-0">
+            {/* 1. KATEGORI CHECKLIST DROPDOWN (MULTI-SELECT) */}
+            <div className="relative">
               <button
-                key={cat}
                 type="button"
-                onClick={() => handleSelectParentCategory(cat)}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 whitespace-nowrap active:scale-[0.98] cursor-pointer ${
-                  selectedCategory === cat
-                    ? "bg-emerald-500 text-slate-950 shadow-xs font-black"
-                    : "bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-850 border border-slate-200 dark:border-slate-800"
+                onClick={() => setActiveFilterPopover(activeFilterPopover === "kategori" ? null : "kategori")}
+                className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold shadow-2xs transition-all cursor-pointer active:scale-95 ${
+                  selectedCategories.length > 0
+                    ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 font-black"
+                    : "bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-850 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-800"
                 }`}
+                title="Pilih Kategori (Bisa Pilih > 1)"
               >
-                {cat}
+                <Layers className={`w-3.5 h-3.5 ${selectedCategories.length > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400 dark:text-slate-500"}`} />
+                <span className="max-w-[120px] truncate">
+                  {selectedCategories.length === 0
+                    ? "Kategori"
+                    : selectedCategories.length === 1
+                    ? selectedCategories[0]
+                    : `Kategori (${selectedCategories.length})`}
+                </span>
+                <ChevronDown className="w-3 h-3 text-slate-400 dark:text-slate-500 shrink-0" />
               </button>
-            ))}
-          </div>
 
-          <div className="flex items-center gap-1.5 shrink-0">
-            {/* Filter Status Button */}
-            <button
-              type="button"
-              onClick={() => setShowStatusFilterPanel((prev) => !prev)}
-              className={`relative p-2 rounded-xl transition-all border shadow-xs active:scale-[0.98] flex items-center justify-center shrink-0 cursor-pointer ${
-                showStatusFilterPanel || selectedStatusFilter !== "Semua Status" || selectedPersonFilter !== "Semua Penanggung Jawab" || selectedPaymentMethods.length > 0
-                  ? "bg-emerald-500 text-slate-950 border-emerald-400"
-                  : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-950 dark:hover:bg-slate-850 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800"
-              }`}
-              title="Filter Status & Metode Pembayaran"
-            >
-              <Filter className="w-4 h-4" />
-              {(selectedStatusFilter !== "Semua Status" || selectedPersonFilter !== "Semua Penanggung Jawab" || selectedPaymentMethods.length > 0) && (
-                <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-950 animate-pulse" />
+              {activeFilterPopover === "kategori" && (
+                <>
+                  <div className="fixed inset-0 z-30" onClick={() => setActiveFilterPopover(null)} />
+                  <div className="absolute left-0 sm:right-auto sm:left-0 top-full mt-1.5 w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2.5 space-y-1 z-40 animate-in fade-in zoom-in-95 duration-150">
+                    <div className="flex items-center justify-between px-2 py-1 text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 pb-1.5">
+                      <span>Kategori</span>
+                      {selectedCategories.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => handleToggleCategory("Semua")}
+                          className="text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer normal-case font-bold"
+                        >
+                          Reset
+                        </button>
+                      )}
+                    </div>
+                    <div className="max-h-56 overflow-y-auto space-y-0.5 scrollbar-thin py-0.5">
+                      {/* Option: Semua Kategori */}
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => handleToggleCategory("Semua")}
+                        className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold cursor-pointer transition-colors select-none ${
+                          selectedCategories.length === 0
+                            ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 font-bold"
+                            : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                        }`}
+                      >
+                        <div
+                          className={`w-4 h-4 rounded-md flex items-center justify-center shrink-0 transition-all ${
+                            selectedCategories.length === 0
+                              ? "bg-emerald-600 text-white shadow-2xs"
+                              : "border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900"
+                          }`}
+                        >
+                          {selectedCategories.length === 0 && <Check className="w-3 h-3 stroke-[3]" />}
+                        </div>
+                        <span>Semua Kategori</span>
+                      </div>
+
+                      {hierarchy.map((cat) => {
+                        const isChecked = selectedCategories.includes(cat.name)
+                        return (
+                          <div
+                            key={cat.id || cat.name}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => handleToggleCategory(cat.name)}
+                            className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold cursor-pointer transition-colors select-none ${
+                              isChecked
+                                ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 font-bold"
+                                : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                            }`}
+                          >
+                            <div
+                              className={`w-4 h-4 rounded-md flex items-center justify-center shrink-0 transition-all ${
+                                isChecked
+                                  ? "bg-emerald-600 text-white shadow-2xs"
+                                  : "border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900"
+                              }`}
+                            >
+                              {isChecked && <Check className="w-3 h-3 stroke-[3]" />}
+                            </div>
+                            <span className="truncate">{cat.name}</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                    <div className="pt-1.5 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => setActiveFilterPopover(null)}
+                        className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all cursor-pointer"
+                      >
+                        Selesai
+                      </button>
+                    </div>
+                  </div>
+                </>
               )}
-            </button>
+            </div>
 
-            {/* Kelola Kategori Button */}
+            {/* 2. METODE PEMBAYARAN CHECKLIST DROPDOWN (MULTI-SELECT) */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setActiveFilterPopover(activeFilterPopover === "metode" ? null : "metode")}
+                className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold shadow-2xs transition-all cursor-pointer active:scale-95 ${
+                  selectedPaymentMethods.length > 0
+                    ? "bg-sky-500/10 text-sky-700 dark:text-sky-300 border-sky-500/30 font-black"
+                    : "bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-850 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-800"
+                }`}
+                title="Pilih Metode Pembayaran (Bisa Pilih > 1)"
+              >
+                <CreditCard className={`w-3.5 h-3.5 ${selectedPaymentMethods.length > 0 ? "text-sky-600 dark:text-sky-400" : "text-slate-400 dark:text-slate-500"}`} />
+                <span className="max-w-[120px] truncate">
+                  {selectedPaymentMethods.length === 0
+                    ? "Metode"
+                    : selectedPaymentMethods.length === 1
+                    ? selectedPaymentMethods[0]
+                    : `Metode (${selectedPaymentMethods.length})`}
+                </span>
+                <ChevronDown className="w-3 h-3 text-slate-400 dark:text-slate-500 shrink-0" />
+              </button>
+
+              {activeFilterPopover === "metode" && (
+                <>
+                  <div className="fixed inset-0 z-30" onClick={() => setActiveFilterPopover(null)} />
+                  <div className="absolute left-0 sm:right-auto sm:left-0 top-full mt-1.5 w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2.5 space-y-1 z-40 animate-in fade-in zoom-in-95 duration-150">
+                    <div className="flex items-center justify-between px-2 py-1 text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 pb-1.5">
+                      <span>Metode Bayar</span>
+                      {selectedPaymentMethods.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={handleClearPaymentMethods}
+                          className="text-sky-600 dark:text-sky-400 hover:underline cursor-pointer normal-case font-bold"
+                        >
+                          Reset
+                        </button>
+                      )}
+                    </div>
+                    <div className="max-h-56 overflow-y-auto space-y-0.5 scrollbar-thin py-0.5">
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        onClick={handleClearPaymentMethods}
+                        className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold cursor-pointer transition-colors select-none ${
+                          selectedPaymentMethods.length === 0
+                            ? "bg-sky-50 dark:bg-sky-950/40 text-sky-800 dark:text-sky-300 font-bold"
+                            : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                        }`}
+                      >
+                        <div
+                          className={`w-4 h-4 rounded-md flex items-center justify-center shrink-0 transition-all ${
+                            selectedPaymentMethods.length === 0
+                              ? "bg-sky-600 text-white shadow-2xs"
+                              : "border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900"
+                          }`}
+                        >
+                          {selectedPaymentMethods.length === 0 && <Check className="w-3 h-3 stroke-[3]" />}
+                        </div>
+                        <span>Semua Metode</span>
+                      </div>
+
+                      {availablePaymentMethods.map((method) => {
+                        const isChecked = selectedPaymentMethods.includes(method)
+                        return (
+                          <div
+                            key={method}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => handleTogglePaymentMethod(method)}
+                            className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold cursor-pointer transition-colors select-none ${
+                              isChecked
+                                ? "bg-sky-50 dark:bg-sky-950/40 text-sky-800 dark:text-sky-300 font-bold"
+                                : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                            }`}
+                          >
+                            <div
+                              className={`w-4 h-4 rounded-md flex items-center justify-center shrink-0 transition-all ${
+                                isChecked
+                                  ? "bg-sky-600 text-white shadow-2xs"
+                                  : "border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900"
+                              }`}
+                            >
+                              {isChecked && <Check className="w-3 h-3 stroke-[3]" />}
+                            </div>
+                            <span className="truncate">{method}</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                    <div className="pt-1.5 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => setActiveFilterPopover(null)}
+                        className="px-3 py-1 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold transition-all cursor-pointer"
+                      >
+                        Selesai
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* 3. STATUS PELUNASAN CHECKLIST DROPDOWN (MULTI-SELECT) */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setActiveFilterPopover(activeFilterPopover === "status" ? null : "status")}
+                className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold shadow-2xs transition-all cursor-pointer active:scale-95 ${
+                  selectedStatuses.length > 0 || selectedStatusFilter !== "Semua Status"
+                    ? "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30 font-black"
+                    : "bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-850 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-800"
+                }`}
+                title="Pilih Status Pelunasan (Bisa Pilih > 1)"
+              >
+                <CheckSquare className={`w-3.5 h-3.5 ${selectedStatuses.length > 0 || selectedStatusFilter !== "Semua Status" ? "text-amber-600 dark:text-amber-400" : "text-slate-400 dark:text-slate-500"}`} />
+                <span className="max-w-[120px] truncate">
+                  {selectedStatuses.length === 0
+                    ? "Status"
+                    : selectedStatuses.length === 1
+                    ? selectedStatuses[0] === "Belum Direimburse / Tempo"
+                      ? "Belum Lunas"
+                      : selectedStatuses[0]
+                    : `Status (${selectedStatuses.length})`}
+                </span>
+                <ChevronDown className="w-3 h-3 text-slate-400 dark:text-slate-500 shrink-0" />
+              </button>
+
+              {activeFilterPopover === "status" && (
+                <>
+                  <div className="fixed inset-0 z-30" onClick={() => setActiveFilterPopover(null)} />
+                  <div className="absolute left-0 sm:right-auto sm:left-0 top-full mt-1.5 w-60 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2.5 space-y-1 z-40 animate-in fade-in zoom-in-95 duration-150">
+                    <div className="flex items-center justify-between px-2 py-1 text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 pb-1.5">
+                      <span>Status Pelunasan</span>
+                      {selectedStatuses.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => handleToggleStatus("Semua Status")}
+                          className="text-amber-600 dark:text-amber-400 hover:underline cursor-pointer normal-case font-bold"
+                        >
+                          Reset
+                        </button>
+                      )}
+                    </div>
+                    <div className="space-y-0.5 py-0.5">
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => handleToggleStatus("Semua Status")}
+                        className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold cursor-pointer transition-colors select-none ${
+                          selectedStatuses.length === 0
+                            ? "bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 font-bold"
+                            : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                        }`}
+                      >
+                        <div
+                          className={`w-4 h-4 rounded-md flex items-center justify-center shrink-0 transition-all ${
+                            selectedStatuses.length === 0
+                              ? "bg-amber-600 text-white shadow-2xs"
+                              : "border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900"
+                          }`}
+                        >
+                          {selectedStatuses.length === 0 && <Check className="w-3 h-3 stroke-[3]" />}
+                        </div>
+                        <span>Semua Status</span>
+                      </div>
+
+                      {[
+                        { label: "Lunas", value: "Lunas" },
+                        { label: "Sudah Dilunasi", value: "Sudah Dilunasi" },
+                        { label: "Belum Lunas / Tempo", value: "Belum Direimburse / Tempo" },
+                      ].map((item) => {
+                        const isChecked = selectedStatuses.includes(item.value)
+                        return (
+                          <div
+                            key={item.value}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => handleToggleStatus(item.value)}
+                            className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold cursor-pointer transition-colors select-none ${
+                              isChecked
+                                ? "bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 font-bold"
+                                : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                            }`}
+                          >
+                            <div
+                              className={`w-4 h-4 rounded-md flex items-center justify-center shrink-0 transition-all ${
+                                isChecked
+                                  ? "bg-amber-600 text-white shadow-2xs"
+                                  : "border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900"
+                              }`}
+                            >
+                              {isChecked && <Check className="w-3 h-3 stroke-[3]" />}
+                            </div>
+                            <span>{item.label}</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                    <div className="pt-1.5 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => setActiveFilterPopover(null)}
+                        className="px-3 py-1 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold transition-all cursor-pointer"
+                      >
+                        Selesai
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* 4. PERIODE CHECKLIST DROPDOWN & INTERACTIVE CALENDAR RANGE SELECT */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setActiveFilterPopover(activeFilterPopover === "periode" ? null : "periode")}
+                className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold shadow-2xs transition-all cursor-pointer active:scale-95 ${
+                  dateRangeFilter !== "all"
+                    ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 font-black"
+                    : "bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-850 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-800"
+                }`}
+                title="Pilih Rentang Waktu"
+              >
+                <Calendar className={`w-3.5 h-3.5 ${dateRangeFilter !== "all" ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400 dark:text-slate-500"}`} />
+                <span className="max-w-[120px] truncate">
+                  {dateRangeFilter === "all"
+                    ? "Periode"
+                    : dateRangeFilter === "today"
+                    ? "Hari Ini"
+                    : dateRangeFilter === "7days"
+                    ? "7 Hari"
+                    : dateRangeFilter === "month"
+                    ? "Bulan Ini"
+                    : startDate && endDate
+                    ? `${startDate.split("-").slice(1).reverse().join("/")} - ${endDate.split("-").slice(1).reverse().join("/")}`
+                    : "Kustom"}
+                </span>
+                <ChevronDown className="w-3 h-3 text-slate-400 dark:text-slate-500 shrink-0" />
+              </button>
+
+              {activeFilterPopover === "periode" && (
+                <>
+                  <div className="fixed inset-0 z-30" onClick={() => setActiveFilterPopover(null)} />
+                  <div className="absolute right-0 sm:left-0 sm:right-auto top-full mt-1.5 w-[245px] sm:w-[250px] z-40 animate-in fade-in zoom-in-95 duration-150">
+                    <CalendarRangeSelect
+                      dateRange={currentDateRange}
+                      onApply={(range) => handleApplyCustomDateRange(range)}
+                      onClose={() => setActiveFilterPopover(null)}
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* 5. URUTKAN CHECKLIST DROPDOWN */}
+            <div className="relative hidden xl:block">
+              <button
+                type="button"
+                onClick={() => setActiveFilterPopover(activeFilterPopover === "urutan" ? null : "urutan")}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold shadow-2xs transition-all cursor-pointer active:scale-95 bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-850 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-800"
+                title="Urutan Transaksi"
+              >
+                <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
+                <span className="max-w-[90px] truncate">
+                  {sortBy === "date-desc"
+                    ? "Terbaru"
+                    : sortBy === "date-asc"
+                    ? "Terlama"
+                    : sortBy === "amount-desc"
+                    ? "Tertinggi"
+                    : sortBy === "amount-asc"
+                    ? "Terendah"
+                    : "Nama"}
+                </span>
+                <ChevronDown className="w-3 h-3 text-slate-400 dark:text-slate-500 shrink-0" />
+              </button>
+
+              {activeFilterPopover === "urutan" && (
+                <>
+                  <div className="fixed inset-0 z-30" onClick={() => setActiveFilterPopover(null)} />
+                  <div className="absolute right-0 top-full mt-1.5 w-52 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2.5 space-y-1 z-40 animate-in fade-in zoom-in-95 duration-150">
+                    <div className="px-2 py-1 text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 pb-1.5">
+                      Urutan
+                    </div>
+                    <div className="space-y-0.5 py-0.5">
+                      {[
+                        { label: "Tanggal Terbaru", value: "date-desc" },
+                        { label: "Tanggal Terlama", value: "date-asc" },
+                        { label: "Nominal Tertinggi", value: "amount-desc" },
+                        { label: "Nominal Terendah", value: "amount-asc" },
+                        { label: "Nama Toko (A - Z)", value: "merchant-asc" },
+                        { label: "Nama Toko (Z - A)", value: "merchant-desc" },
+                      ].map((item) => {
+                        const isChecked = sortBy === item.value
+                        return (
+                          <div
+                            key={item.value}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => {
+                              setSortBy(item.value as any)
+                              setActiveFilterPopover(null)
+                            }}
+                            className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold cursor-pointer transition-colors select-none ${
+                              isChecked
+                                ? "bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white font-bold"
+                                : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-850"
+                            }`}
+                          >
+                            <div
+                              className={`w-4 h-4 rounded-md flex items-center justify-center shrink-0 transition-all ${
+                                isChecked
+                                  ? "bg-emerald-600 text-white shadow-2xs"
+                                  : "border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900"
+                              }`}
+                            >
+                              {isChecked && <Check className="w-3 h-3 stroke-[3]" />}
+                            </div>
+                            <span>{item.label}</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* 6. KELOLA MASTER KATEGORI BUTTON */}
             <button
               type="button"
               onClick={() => setShowManageCategoryModal(true)}
-              className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-950 dark:hover:bg-slate-850 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all shrink-0 border border-slate-200 dark:border-slate-800 active:scale-[0.98] flex items-center justify-center cursor-pointer"
-              title="Kelola Master Kategori"
+              className="p-2 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-850 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-all shrink-0 border border-slate-200 dark:border-slate-800 active:scale-95 flex items-center justify-center cursor-pointer"
+              title="Kelola Master Kategori & Sub-Kategori"
             >
               <Settings className="w-4 h-4" />
             </button>
           </div>
         </div>
 
-        {/* Multi-Select Payment Methods Filter Bar */}
-        <div className="flex items-center justify-between gap-2 border-t border-slate-200 dark:border-slate-800 pt-3">
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 mr-1 shrink-0 flex items-center gap-1">
-              <CreditCard className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> Metode:
+        {/* SUB-CATEGORY CHIPS (ONLY SHOWN WHEN A SINGLE PARENT CATEGORY WITH SUB-CATEGORIES IS ACTIVE) */}
+        {selectedCategories.length === 1 && subCategoryOptions.length > 0 && (
+          <div className="flex items-center gap-1.5 overflow-x-auto pt-1.5 border-t border-slate-100 dark:border-slate-800 scrollbar-none">
+            <span className="text-[11px] font-black text-slate-500 dark:text-slate-400 flex items-center gap-1 shrink-0 uppercase tracking-wider mr-1">
+              <ListFilter className="w-3 h-3 text-emerald-600 dark:text-emerald-400" /> Sub:
             </span>
-            <button
-              type="button"
-              onClick={handleClearPaymentMethods}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 whitespace-nowrap active:scale-[0.98] cursor-pointer ${
-                selectedPaymentMethods.length === 0
-                  ? "bg-emerald-500 text-slate-950 font-black shadow-xs"
-                  : "bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-slate-800"
-              }`}
-            >
-              Semua
-            </button>
-            {availablePaymentMethods.map((method) => {
-              const isSelected = selectedPaymentMethods.includes(method)
-              return (
-                <button
-                  key={method}
-                  type="button"
-                  onClick={() => handleTogglePaymentMethod(method)}
-                  className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 whitespace-nowrap active:scale-[0.98] cursor-pointer ${
-                    isSelected
-                      ? "bg-emerald-500 text-slate-950 font-black shadow-xs"
-                      : "bg-slate-100 dark:bg-slate-950 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-slate-800"
-                  }`}
-                  title={isSelected ? `Hapus filter ${method}` : `Filter ${method}`}
-                >
-                  {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
-                  {method}
-                </button>
-              )
-            })}
-          </div>
-
-          {selectedPaymentMethods.length > 0 && (
-            <div className="flex items-center gap-2 shrink-0">
-              <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-lg border border-emerald-500/20">
-                {selectedPaymentMethods.length} Terpilih
-              </span>
-              <button
-                type="button"
-                onClick={handleClearPaymentMethods}
-                className="text-xs font-bold text-rose-400 hover:text-rose-300 underline cursor-pointer"
-              >
-                Reset
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Dynamic Sub-Category Filter Pills */}
-        {selectedCategory !== "Semua" && subCategoryOptions.length > 0 && (
-          <div className="flex items-center gap-1.5 overflow-x-auto pt-3 border-t border-slate-800 bg-slate-950/80 p-3 rounded-2xl border border-slate-800 transition-all duration-200">
-            <span className="text-[11px] font-black text-emerald-400 flex items-center gap-1 shrink-0 uppercase tracking-wider mr-1">
-              <ListFilter className="w-3.5 h-3.5 text-emerald-400" /> SUB-KATEGORI ({selectedCategory.toUpperCase()}):
-            </span>
-
             {subCategoryOptions.map((subName) => (
               <button
                 key={subName}
                 type="button"
                 onClick={() => setSelectedSubCategory(subName)}
-                className={`px-3.5 py-1 rounded-full text-xs font-bold transition-all duration-150 whitespace-nowrap active:scale-95 cursor-pointer ${
+                className={`px-2.5 py-0.5 rounded-lg text-xs font-bold transition-all duration-150 whitespace-nowrap active:scale-95 cursor-pointer ${
                   selectedSubCategory === subName
-                    ? "bg-emerald-500 text-slate-950 font-black shadow-xs"
-                    : "bg-slate-900 text-slate-300 hover:text-white border border-slate-800"
+                    ? "bg-emerald-500 text-slate-950 font-black shadow-2xs"
+                    : "bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-slate-800"
                 }`}
               >
                 {subName}
@@ -2431,125 +2794,111 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
           </div>
         )}
 
-        {/* Dedicated Payment Status, Metode Pembayaran & Sub-Status Filter Panel */}
-        {(showStatusFilterPanel || selectedStatusFilter !== "Semua Status" || selectedPersonFilter !== "Semua Penanggung Jawab" || selectedPaymentMethods.length > 0) && (
-          <div className="space-y-3 pt-3 border-t border-slate-200/70 animate-in fade-in duration-200">
-            {/* Status Pembayaran Row */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-black text-slate-700 uppercase tracking-wider flex items-center gap-1">
-                  <CheckSquare className="w-3.5 h-3.5 text-emerald-600" /> STATUS PEMBAYARAN:
-                </span>
+        {/* ACTIVE FILTER BADGES ROW (CLEAR CHIPS) */}
+        {(selectedCategories.length > 0 || (selectedCategory !== "Semua" && selectedCategories.length === 0) || selectedSubCategory !== "Semua Sub-Kategori" || selectedStatuses.length > 0 || (selectedStatusFilter !== "Semua Status" && selectedStatuses.length === 0) || selectedPersonFilter !== "Semua Penanggung Jawab" || selectedPaymentMethods.length > 0 || dateRangeFilter !== "all" || searchQuery.trim() !== "") && (
+          <div className="flex items-center gap-1.5 flex-wrap pt-1.5 border-t border-slate-100 dark:border-slate-800 text-xs">
+            <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 shrink-0">Filter:</span>
 
-                {(selectedStatusFilter !== "Semua Status" || selectedPersonFilter !== "Semua Penanggung Jawab" || selectedPaymentMethods.length > 0) && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedStatusFilter("Semua Status")
-                      setSelectedPersonFilter("Semua Penanggung Jawab")
-                      setSelectedPaymentMethods([])
-                    }}
-                    className="text-[11px] font-bold text-red-600 hover:text-red-700 underline"
-                  >
-                    Reset Semua Filter Status & Metode
-                  </button>
-                )}
-              </div>
+            {searchQuery.trim() !== "" && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium">
+                "{searchQuery}"
+                <button type="button" onClick={() => setSearchQuery("")} className="hover:text-rose-500 cursor-pointer ml-0.5" title="Hapus">
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
 
-              <div className="flex items-center gap-1.5 overflow-x-auto">
-                {["Semua Status", "Lunas", "Sudah Dilunasi", "Belum Direimburse / Tempo"].map((statusOpt) => (
-                  <button
-                    key={statusOpt}
-                    type="button"
-                    onClick={() => {
-                      setSelectedStatusFilter(statusOpt)
-                      if (statusOpt === "Sudah Dilunasi" || statusOpt === "Lunas") {
-                        setSelectedPersonFilter("Semua Penanggung Jawab")
-                      }
-                    }}
-                    className={`px-3.5 py-1 rounded-full text-xs font-bold transition-all duration-150 whitespace-nowrap active:scale-95 ${
-                      selectedStatusFilter === statusOpt
-                        ? "bg-slate-900 text-white shadow-xs"
-                        : "bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200"
-                    }`}
-                  >
-                    {statusOpt}
-                  </button>
-                ))}
-              </div>
-            </div>
+            {/* Selected Categories Badges */}
+            {selectedCategories.map((cat) => (
+              <span key={cat} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 font-bold">
+                {cat}
+                <button type="button" onClick={() => handleToggleCategory(cat)} className="hover:text-rose-500 cursor-pointer ml-0.5" title="Hapus">
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            ))}
 
-            {/* Metode Pembayaran Multi-Select Inside Panel */}
-            <div className="space-y-1.5 pt-2 border-t border-slate-200/50">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-black text-slate-700 uppercase tracking-wider flex items-center gap-1">
-                  <CreditCard className="w-3.5 h-3.5 text-emerald-600" /> METODE PEMBAYARAN (BISA GABUNG &gt; 1):
-                </span>
-                {selectedPaymentMethods.length > 0 && (
-                  <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                    {selectedPaymentMethods.length} Metode Aktif
-                  </span>
-                )}
-              </div>
-              <p className="text-[10px] text-slate-500 font-medium">
-                Klik beberapa tombol di bawah untuk menggabungkan (contoh: <strong>QRIS</strong> + <strong>Transfer Bank</strong>, atau hanya <strong>Cash</strong>):
-              </p>
-              <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+            {selectedSubCategory !== "Semua Sub-Kategori" && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-700 dark:text-purple-400 border border-purple-500/20 font-bold">
+                {selectedSubCategory}
+                <button type="button" onClick={() => setSelectedSubCategory("Semua Sub-Kategori")} className="hover:text-rose-500 cursor-pointer ml-0.5" title="Hapus">
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {/* Selected Payment Methods Badges */}
+            {selectedPaymentMethods.map((m) => (
+              <span key={m} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-sky-500/10 text-sky-700 dark:text-sky-400 border border-sky-500/20 font-bold">
+                {m}
+                <button type="button" onClick={() => handleTogglePaymentMethod(m)} className="hover:text-rose-500 cursor-pointer ml-0.5" title="Hapus">
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            ))}
+
+            {/* Selected Statuses Badges */}
+            {selectedStatuses.map((st) => (
+              <span key={st} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 font-bold">
+                {st === "Belum Direimburse / Tempo" ? "Belum Lunas" : st}
+                <button type="button" onClick={() => handleToggleStatus(st)} className="hover:text-rose-500 cursor-pointer ml-0.5" title="Hapus">
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            ))}
+
+            {selectedPersonFilter !== "Semua Penanggung Jawab" && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 font-bold">
+                {selectedPersonFilter}
+                <button type="button" onClick={() => setSelectedPersonFilter("Semua Penanggung Jawab")} className="hover:text-rose-500 cursor-pointer ml-0.5" title="Hapus">
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {dateRangeFilter !== "all" && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 font-bold">
+                {dateRangeFilter === "today"
+                  ? "Hari Ini"
+                  : dateRangeFilter === "7days"
+                  ? "7 Hari"
+                  : dateRangeFilter === "month"
+                  ? "Bulan Ini"
+                  : `${startDate} s/d ${endDate}`}
                 <button
                   type="button"
-                  onClick={handleClearPaymentMethods}
-                  className={`px-3 py-1 rounded-full text-xs font-bold transition-all duration-150 whitespace-nowrap active:scale-95 ${
-                    selectedPaymentMethods.length === 0
-                      ? "bg-slate-900 text-white shadow-xs"
-                      : "bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200"
-                  }`}
+                  onClick={() => {
+                    setDateRangeFilter("all")
+                    setStartDate("")
+                    setEndDate("")
+                  }}
+                  className="hover:text-rose-500 cursor-pointer ml-0.5"
+                  title="Hapus"
                 >
-                  Semua Metode
+                  <X className="w-3 h-3" />
                 </button>
-                {availablePaymentMethods.map((method) => {
-                  const isSelected = selectedPaymentMethods.includes(method)
-                  return (
-                    <button
-                      key={method}
-                      type="button"
-                      onClick={() => handleTogglePaymentMethod(method)}
-                      className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold transition-all duration-150 whitespace-nowrap active:scale-95 ${
-                        isSelected
-                          ? "bg-emerald-600 text-white shadow-xs ring-2 ring-emerald-500/40"
-                          : "bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200"
-                      }`}
-                    >
-                      {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
-                      {method}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-
-            {/* Sub-Status: Penanggung Jawab / Talangan (Only shown if NOT filtered by Lunas/Sudah Dilunasi) */}
-            {selectedStatusFilter !== "Sudah Dilunasi" && selectedStatusFilter !== "Lunas" && availablePersonNames.length > 0 && (
-              <div className="flex items-center gap-1.5 overflow-x-auto pt-1 bg-amber-50/60 p-2.5 rounded-2xl border border-amber-200/70 transition-all animate-in fade-in duration-150">
-                <span className="text-[11px] font-black text-amber-900 flex items-center gap-1 shrink-0 uppercase tracking-wider mr-1">
-                  <User className="w-3.5 h-3.5 text-amber-600" /> SUB-STATUS (TALANGAN):
-                </span>
-
-                {["Semua Penanggung Jawab", ...availablePersonNames].map((personName) => (
-                  <button
-                    key={personName}
-                    type="button"
-                    onClick={() => setSelectedPersonFilter(personName)}
-                    className={`px-3 py-1 rounded-full text-xs font-bold transition-all duration-150 whitespace-nowrap active:scale-95 ${
-                      selectedPersonFilter === personName
-                        ? "bg-amber-600 text-white shadow-xs"
-                        : "bg-white text-amber-900 hover:bg-amber-100 border border-amber-200"
-                    }`}
-                  >
-                    {personName === "Semua Penanggung Jawab" ? "Semua Orang" : personName}
-                  </button>
-                ))}
-              </div>
+              </span>
             )}
+
+            <button
+              type="button"
+              onClick={() => {
+                setSearchQuery("")
+                setSelectedCategories([])
+                setSelectedCategory("Semua")
+                setSelectedSubCategory("Semua Sub-Kategori")
+                setSelectedStatuses([])
+                setSelectedStatusFilter("Semua Status")
+                setSelectedPersonFilter("Semua Penanggung Jawab")
+                setSelectedPaymentMethods([])
+                setDateRangeFilter("all")
+                setStartDate("")
+                setEndDate("")
+              }}
+              className="text-[11px] font-bold text-rose-500 hover:text-rose-600 dark:text-rose-400 hover:underline cursor-pointer ml-auto shrink-0"
+            >
+              Reset
+            </button>
           </div>
         )}
       </div>
@@ -2559,12 +2908,12 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
         {/* Header Bar + Bulk Action Toolbar */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="font-extrabold text-slate-900 text-base sm:text-lg flex items-center gap-2">
-              <ReceiptIcon className="w-5 h-5 text-emerald-600" />
-              Daftar Nota ({filteredReceipts.length})
+            <h3 className="font-extrabold text-slate-900 dark:text-white text-base sm:text-lg flex items-center gap-2">
+              <ReceiptIcon className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+              <span>Daftar Nota ({filteredReceipts.length})</span>
             </h3>
             {selectedReceiptIds.length > 0 && (
-              <span className="text-xs font-extrabold text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-200">
+              <span className="text-xs font-extrabold text-emerald-800 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/60 px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
                 {selectedReceiptIds.length} Dipilih
               </span>
             )}
@@ -2577,14 +2926,14 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                 className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
                   isAllSelected
                     ? "bg-emerald-600 text-white border-emerald-600 shadow-2xs"
-                    : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50 active:bg-slate-100"
+                    : "bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 active:bg-slate-100"
                 }`}
                 title="Pilih atau batalkan pilih semua nota pada halaman ini"
               >
                 {isAllSelected ? (
                   <CheckSquare className="w-3.5 h-3.5 text-white" />
                 ) : (
-                  <Square className="w-3.5 h-3.5 text-slate-400" />
+                  <Square className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
                 )}
                 <span>{isAllSelected ? "Batal Pilih Semua" : "Pilih Semua (Hal. Ini)"}</span>
               </button>
@@ -2621,7 +2970,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                 type="button"
                 onClick={handleBulkDelete}
                 disabled={isBulkDeleting || isBulkSettling}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs transition-colors shadow-xs disabled:opacity-50 cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs transition-colors shadow-xs disabled:opacity-50 cursor-pointer"
               >
                 {isBulkDeleting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                 Hapus Terpilih ({selectedReceiptIds.length})
@@ -2630,7 +2979,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
               <button
                 type="button"
                 onClick={() => setSelectedReceiptIds([])}
-                className="px-3 py-1.5 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs transition-colors cursor-pointer"
+                className="px-3 py-1.5 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs transition-colors cursor-pointer"
               >
                 Batal Pilih
               </button>

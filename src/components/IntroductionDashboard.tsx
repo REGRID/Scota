@@ -2,7 +2,6 @@
 
 import React, { useState, useRef, useEffect } from "react"
 import Link from "next/link"
-import { ThemeToggle } from "@/lib/theme"
 import {
   Sparkles,
   CheckCircle2,
@@ -316,8 +315,8 @@ export function IntroductionDashboard({
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-emerald-500 selection:text-white">
       {/* 1. TOP NAVBAR */}
       <nav className="sticky top-0 z-40 bg-slate-950/80 backdrop-blur-xl border-b border-slate-800/80">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-3 z-10">
             <img
               src="/scota-logo-dark.png"
               alt="Scota"
@@ -325,8 +324,8 @@ export function IntroductionDashboard({
             />
           </div>
 
-          {/* Nav Links (Desktop) with Dynamic Active Scrollspy */}
-          <div className="hidden md:flex items-center gap-1.5 text-xs">
+          {/* Nav Links (Desktop) with Dynamic Active Scrollspy - Absolutely Centered */}
+          <div className="hidden md:flex absolute left-1/2 -translate-x-1/2 items-center gap-1.5 text-xs z-10">
             {navItems.map((item) => {
               const isActive = activeSection === item.id
               return (
@@ -347,15 +346,7 @@ export function IntroductionDashboard({
           </div>
 
           {/* Action CTA */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            <Link
-              href="/superadmin"
-              className="hidden sm:inline-flex px-3 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-emerald-400 hover:bg-slate-900 transition-all"
-              title="Portal Khusus Superadmin"
-            >
-              Superadmin
-            </Link>
-            <ThemeToggle />
+          <div className="flex items-center gap-2 sm:gap-3 z-10">
             <button
               onClick={() => onEnterApp({ mode: "login" })}
               className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-900 border border-transparent hover:border-slate-800 transition-all cursor-pointer"

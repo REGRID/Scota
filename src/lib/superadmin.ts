@@ -47,7 +47,9 @@ export interface PlatformStats {
   totalTenants: number
   activeTenants: number
   totalReceipts: number
-  totalTransactionVolume: number
+  totalSubscriptionRevenue: number
+  monthlyRecurringRevenue: number
+  paidTenantsCount: number
   tierBreakdown: {
     trial: number
     starter: number
@@ -65,23 +67,21 @@ export async function getSuperadminPlatformStats(): Promise<PlatformStats> {
   const now = new Date()
 
   let totalReceipts = 0
-  let totalTransactionVolume = 0
 
-  // 1. Calculate receipts stats from Supabase
+  // 1. Calculate receipts count from Supabase
   try {
     const { data: receipts } = await supabase
       .from("receipts")
-      .select("totalAmount")
+      .select("id")
     
     if (receipts && receipts.length > 0) {
       totalReceipts = receipts.length
-      totalTransactionVolume = receipts.reduce((sum, r) => sum + (Number(r.totalAmount) || 0), 0)
     }
   } catch (err) {
     console.warn("Superadmin receipts query notice:", err)
   }
 
-  // 2. Count tier breakdown
+  // 2. Count tier breakdown & calculate actual SaaS subscription earnings (Revenue & MRR)
   const tierBreakdown = {
     trial: 0,
     starter: 0,
@@ -90,6 +90,9 @@ export async function getSuperadminPlatformStats(): Promise<PlatformStats> {
   }
 
   let activeTenants = 0
+  let paidTenantsCount = 0
+  let totalSubscriptionRevenue = 0
+  let monthlyRecurringRevenue = 0
 
   for (const t of tenants) {
     const tTier = t.tier || "trial"
@@ -99,8 +102,19 @@ export async function getSuperadminPlatformStats(): Promise<PlatformStats> {
       tierBreakdown.trial++
     }
 
-    if (new Date(t.validUntil) >= now) {
+    const isActive = new Date(t.validUntil) >= now
+    if (isActive) {
       activeTenants++
+    }
+
+    // Calculate revenue from paid tiers
+    if (tTier !== "trial") {
+      paidTenantsCount++
+      const cfg = TIER_CONFIG[tTier]
+      if (cfg) {
+        monthlyRecurringRevenue += cfg.priceMonthly
+        totalSubscriptionRevenue += cfg.priceMonthly
+      }
     }
   }
 
@@ -108,7 +122,9 @@ export async function getSuperadminPlatformStats(): Promise<PlatformStats> {
     totalTenants: tenants.length,
     activeTenants: activeTenants || tenants.length,
     totalReceipts,
-    totalTransactionVolume,
+    totalSubscriptionRevenue,
+    monthlyRecurringRevenue,
+    paidTenantsCount,
     tierBreakdown,
     recentRegistrations: tenants.slice(0, 10),
   }

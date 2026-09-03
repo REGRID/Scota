@@ -51,7 +51,9 @@ interface PlatformStats {
   totalTenants: number
   activeTenants: number
   totalReceipts: number
-  totalTransactionVolume: number
+  totalSubscriptionRevenue: number
+  monthlyRecurringRevenue: number
+  paidTenantsCount: number
   tierBreakdown: {
     trial: number
     starter: number
@@ -326,13 +328,15 @@ export default function SuperadminDashboardPage() {
 
               <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-5 space-y-3 shadow-xl">
                 <div className="flex items-center justify-between text-slate-400 text-xs font-bold">
-                  <span>Total Nilai Transaksi (GMV)</span>
-                  <TrendingUp className="w-4 h-4 text-amber-400" />
+                  <span>Pendapatan Langganan (MRR)</span>
+                  <TrendingUp className="w-4 h-4 text-emerald-400" />
                 </div>
                 <div className="text-2xl sm:text-3xl font-black text-emerald-400 font-mono">
-                  Rp {(stats?.totalTransactionVolume || 0).toLocaleString("id-ID")}
+                  Rp {(stats?.monthlyRecurringRevenue || 0).toLocaleString("id-ID")}
                 </div>
-                <div className="text-[11px] text-slate-400">Akumulasi pengeluaran terekam</div>
+                <div className="text-[11px] text-emerald-400/90 font-medium">
+                  Dari {stats?.paidTenantsCount || 0} akun berbayar aktif
+                </div>
               </div>
 
               <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-5 space-y-3 shadow-xl">

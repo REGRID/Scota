@@ -24,6 +24,7 @@ import {
 import { rotateImageBase64, compressImageBase64 } from "@/lib/ocr"
 import { ImageInteractiveLightbox } from "@/components/ImageInteractiveLightbox"
 import { useAppDialog } from "@/components/ui/app-dialog"
+import { createSampleReceiptDataUrl } from "@/lib/sampleReceipt"
 
 export interface BatchFileItem {
   file: File
@@ -200,6 +201,27 @@ export function ReceiptImageUpload({
   }
 
   const isQuotaReached = (quotaInfo && !quotaInfo.allowed) || Boolean(quotaError)
+
+  const handleLoadSampleReceipt = () => {
+    if (isProcessing || isQuotaReached) return
+    const dataUrl = createSampleReceiptDataUrl()
+    if (!dataUrl) return
+    setSelectedBase64(dataUrl)
+    setRotationDegrees(0)
+    
+    // Convert dataUrl to File
+    const arr = dataUrl.split(',')
+    const mime = arr[0].match(/:(.*?);/)![1]
+    const bstr = atob(arr[1])
+    let n = bstr.length
+    const u8arr = new Uint8Array(n)
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n)
+    }
+    const file = new File([u8arr], "sample-nota-toko-kemasan.jpg", { type: mime })
+    setSelectedFiles([file])
+    setBatchBase64s([])
+  }
 
   return (
     <div className="w-full max-w-2xl mx-auto space-y-4">
@@ -561,6 +583,18 @@ export function ReceiptImageUpload({
               >
                 <Camera className="w-4 h-4 text-white" />
                 Ambil Foto
+              </button>
+            </div>
+
+            <div className="pt-2">
+              <button
+                type="button"
+                disabled={isQuotaReached || isProcessing}
+                onClick={handleLoadSampleReceipt}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold border border-emerald-200 transition-all cursor-pointer shadow-xs active:scale-95"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Coba dengan Nota Sampel (1-Klik)</span>
               </button>
             </div>
 

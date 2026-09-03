@@ -51,11 +51,60 @@ export function SubscriptionModal({
     subscription?.studioProfile?.invoiceFooter || "Terima kasih atas kerja sama Anda dengan Studio Foto kami."
   )
 
+  const [selectedCheckoutPlan, setSelectedCheckoutPlan] = useState<SubscriptionTier | null>(null)
+  const [isSimulatingPayment, setIsSimulatingPayment] = useState(false)
+  const [copiedVa, setCopiedVa] = useState(false)
+
   if (!isOpen) return null
 
   const currentTier = subscription?.tier || "trial"
   const currentExpiry = subscription?.validUntil ? new Date(subscription.validUntil) : new Date()
   const daysRemaining = Math.max(0, Math.ceil((currentExpiry.getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+
+  const handleSimulatePaymentSuccess = async (tier: SubscriptionTier) => {
+    setIsSimulatingPayment(true)
+    try {
+      // Direct license upgrade call
+      const durationDays = billingCycle === "yearly" ? 365 : 30
+      const expiry = new Date()
+      expiry.setDate(expiry.getDate() + durationDays)
+      
+      const res = await fetch("/api/subscription", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "activate_license",
+          licenseKey: `NP-${tier.toUpperCase()}-${durationDays}D-AUTO-SIMULATION`,
+        }),
+      })
+
+      const data = await res.json()
+      toast.success(`Pembayaran Berhasil! Paket Anda aktif sebagai ${TIER_CONFIG[tier].name}.`)
+      setSelectedCheckoutPlan(null)
+      if (data.sub) {
+        onSubscriptionUpdated(data.sub)
+      } else {
+        onSubscriptionUpdated({
+          tier,
+          status: "active",
+          validUntil: expiry.toISOString(),
+          monthlyScanLimit: TIER_CONFIG[tier].monthlyScanLimit,
+          usedScansThisMonth: 0,
+          studioProfile: subscription?.studioProfile || {
+            studioName,
+            tagline,
+            address,
+            phone,
+            invoiceFooter,
+          },
+        })
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Gagal memproses upgrade")
+    } finally {
+      setIsSimulatingPayment(false)
+    }
+  }
 
   const handleActivateLicense = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -290,31 +339,121 @@ export function SubscriptionModal({
                         </div>
                       </div>
 
-                      <div className="pt-6">
+                      <div className="pt-6 space-y-2">
                         <button
-                          onClick={() => handleOrderPlan(tierKey)}
+                          onClick={() => setSelectedCheckoutPlan(tierKey)}
                           className={`w-full py-2.5 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
                             isCurrent
                               ? "bg-slate-700 text-slate-300 cursor-default"
                               : isPro
                               ? "bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black shadow-lg shadow-emerald-500/20 active:scale-98"
-                              : "bg-slate-800 hover:bg-slate-700 text-white border border-slate-700"
+                              : "bg-emerald-600 hover:bg-emerald-500 text-white font-bold"
                           }`}
                         >
-                          <MessageCircle className="w-3.5 h-3.5" />
-                          {isCurrent ? "Paket Anda Saat Ini" : "Pilih Paket Ini"}
+                          <Zap className="w-3.5 h-3.5" />
+                          {isCurrent ? "Paket Anda Saat Ini" : "Bayar Instan QRIS / VA"}
                         </button>
+
+                        {!isCurrent && (
+                          <button
+                            onClick={() => handleOrderPlan(tierKey)}
+                            className="w-full py-2 px-3 rounded-xl bg-slate-800/80 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-700/60 text-[11px] font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                          >
+                            <MessageCircle className="w-3.5 h-3.5 text-emerald-400" />
+                            <span>Pesan via WhatsApp</span>
+                          </button>
+                        )}
                       </div>
                     </div>
                   )
                 })}
               </div>
 
+              {/* Interactive Checkout Modal Overlay if Selected */}
+              {selectedCheckoutPlan && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in">
+                  <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-md space-y-5 shadow-2xl text-slate-100 relative">
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                      <div className="flex items-center gap-2">
+                        <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                          <CreditCard className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <strong className="text-sm font-black text-white block">Checkout {TIER_CONFIG[selectedCheckoutPlan].name}</strong>
+                          <span className="text-[11px] text-slate-400">Total: Rp {(billingCycle === "yearly" ? TIER_CONFIG[selectedCheckoutPlan].priceYearly : TIER_CONFIG[selectedCheckoutPlan].priceMonthly).toLocaleString("id-ID")}</span>
+                        </div>
+                      </div>
+                      <button onClick={() => setSelectedCheckoutPlan(null)} className="text-slate-400 hover:text-white cursor-pointer">
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {/* QRIS Display Box */}
+                    <div className="bg-white rounded-2xl p-4 text-center space-y-2 text-slate-950 shadow-inner">
+                      <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                        <span className="font-black text-xs tracking-wider">QRIS STANDAR PEMBAYARAN</span>
+                        <span className="text-[10px] font-bold text-slate-500">NMID: ID102026889912</span>
+                      </div>
+
+                      {/* Mock QR Code Pattern */}
+                      <div className="w-44 h-44 mx-auto bg-slate-950 rounded-xl p-2.5 flex items-center justify-center">
+                        <div className="w-full h-full bg-white rounded-lg p-2 grid grid-cols-6 gap-1">
+                          {Array.from({ length: 36 }).map((_, idx) => (
+                            <div
+                              key={idx}
+                              className={`rounded-xs ${
+                                idx % 2 === 0 || idx % 5 === 0 ? "bg-slate-950" : "bg-transparent"
+                              }`}
+                            />
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="text-[11px] text-slate-600 font-semibold">
+                        Scan menggunakan BCA Mobile, GoPay, OVO, Dana, ShopeePay
+                      </div>
+                    </div>
+
+                    {/* Virtual Account Options */}
+                    <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 space-y-2 text-xs">
+                      <div className="flex items-center justify-between text-slate-400">
+                        <span>BCA Virtual Account:</span>
+                        <strong className="text-emerald-400 font-mono select-all">8801 2938 4819 029</strong>
+                      </div>
+                      <div className="flex items-center justify-between text-slate-400">
+                        <span>Mandiri Virtual Account:</span>
+                        <strong className="text-teal-400 font-mono select-all">8910 8827 1029 384</strong>
+                      </div>
+                    </div>
+
+                    {/* Auto Simulator Confirmation Button */}
+                    <button
+                      type="button"
+                      disabled={isSimulatingPayment}
+                      onClick={() => handleSimulatePaymentSuccess(selectedCheckoutPlan)}
+                      className="w-full py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs transition-all shadow-lg shadow-emerald-500/20 cursor-pointer flex items-center justify-center gap-2"
+                    >
+                      {isSimulatingPayment ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>Memverifikasi Pembayaran...</span>
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>Simulasi Konfirmasi Pembayaran Berhasil</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Guarantees / Security note */}
               <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800 flex items-center gap-3 text-xs text-slate-400">
                 <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0" />
                 <span>
-                  Pembayaran resmi via Transfer Bank / QRIS otomatis dengan aktivasi instan menggunakan Kunci Lisensi.
+                  Pembayaran resmi via Transfer Bank / QRIS otomatis dengan aktivasi instan 24/7.
                 </span>
               </div>
             </div>

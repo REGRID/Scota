@@ -10,6 +10,8 @@ import { SettingsModal } from "@/components/SettingsModal"
 import { SubscriptionModal } from "@/components/SubscriptionModal"
 import { SubscriptionBanner } from "@/components/SubscriptionBanner"
 import { IntroductionDashboard } from "@/components/IntroductionDashboard"
+import { OnboardingWelcomeModal } from "@/components/OnboardingWelcomeModal"
+import { createSampleReceiptDataUrl } from "@/lib/sampleReceipt"
 import { SubscriptionInfo, SubscriptionTier } from "@/lib/subscription"
 import { ParsedReceiptResult } from "@/app/api/parse-receipt/route"
 import { Camera, Receipt, History, ShieldCheck, CheckCircle2, Maximize2, LogOut, UserCheck, Loader2, Settings, Sparkles, Info } from "lucide-react"
@@ -51,7 +53,35 @@ export default function HomePage() {
   })
   const [showSettingsModal, setShowSettingsModal] = useState(false)
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false)
+  const [showOnboarding, setShowOnboarding] = useState(false)
   const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null)
+
+  useEffect(() => {
+    if (isAuthenticated && typeof window !== "undefined") {
+      const seen = localStorage.getItem("nota_seen_onboarding")
+      if (!seen) {
+        setShowOnboarding(true)
+      }
+    }
+  }, [isAuthenticated])
+
+  const handleTrySample = () => {
+    setShowOnboarding(false)
+    localStorage.setItem("nota_seen_onboarding", "true")
+    const dataUrl = createSampleReceiptDataUrl()
+    if (!dataUrl) return
+    const arr = dataUrl.split(',')
+    const mime = arr[0].match(/:(.*?);/)![1]
+    const bstr = atob(arr[1])
+    let n = bstr.length
+    const u8arr = new Uint8Array(n)
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n)
+    }
+    const file = new File([u8arr], "sample-nota-toko-kemasan.jpg", { type: mime })
+    setActiveTab("scan")
+    handleImageSelected(file, dataUrl)
+  }
 
   // Fetch active subscription & studio profile on mount
   const fetchSubscription = useCallback(() => {
@@ -793,6 +823,19 @@ export default function HomePage() {
         subscription={subscription}
         onSubscriptionUpdated={(updated) => setSubscription(updated)}
       />
+
+      {/* First-Time Onboarding Welcome Modal */}
+      {showOnboarding && (
+        <OnboardingWelcomeModal
+          userName={adminUser}
+          businessName={subscription?.studioProfile.studioName || "Bisnis Anda"}
+          onClose={() => {
+            setShowOnboarding(false)
+            localStorage.setItem("nota_seen_onboarding", "true")
+          }}
+          onTrySample={handleTrySample}
+        />
+      )}
     </main>
   )
 }

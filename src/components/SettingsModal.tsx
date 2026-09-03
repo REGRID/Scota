@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect } from "react"
-import { Settings, X, KeyRound, UserCheck, LogOut, Eye, EyeOff, ShieldCheck, CheckCircle2, AlertCircle, Loader2, Bell, Zap, Lock, Key, Boxes, Store, Warehouse, RefreshCw, Layers } from "lucide-react"
+import { Settings, X, KeyRound, UserCheck, LogOut, Eye, EyeOff, ShieldCheck, CheckCircle2, AlertCircle, Loader2, Bell, Zap, Lock, Key, Boxes, Store, Warehouse, RefreshCw, Layers, Users, UserPlus, Trash2 } from "lucide-react"
 import {
   getNotificationPermissionStatus,
   getNotificationSettings,
@@ -28,7 +28,12 @@ interface SettingsModalProps {
 export function SettingsModal({ isOpen, onClose, currentAdminUser, onLogout }: SettingsModalProps) {
   const { showAlert } = useAppDialog()
   const isKaryawan = currentAdminUser.trim().toLowerCase() === "karyawan"
-  const [activeTab, setActiveTab] = useState<"notification" | "pos" | "password" | "info">("notification")
+  const [activeTab, setActiveTab] = useState<"notification" | "pos" | "password" | "team" | "info">("notification")
+  const [staffList, setStaffList] = useState<{ id: string; name: string; pin: string; role: string }[]>([
+    { id: "1", name: "Kasir 1", pin: "1234", role: "KASIR" },
+  ])
+  const [newStaffName, setNewStaffName] = useState("")
+  const [newStaffPin, setNewStaffPin] = useState("")
 
   // Notification Permission State
   const [permState, setPermState] = useState<string>("default")
@@ -57,8 +62,39 @@ export function SettingsModal({ isOpen, onClose, currentAdminUser, onLogout }: S
       if (savedDest === "WAREHOUSE" || savedDest === "BAR") {
         setStockDestination(savedDest)
       }
+
+      const savedStaff = localStorage.getItem(`nota_staff_list_${currentAdminUser.toLowerCase()}`)
+      if (savedStaff) {
+        try {
+          setStaffList(JSON.parse(savedStaff))
+        } catch {}
+      }
     }
-  }, [isOpen])
+  }, [isOpen, currentAdminUser])
+
+  const handleAddStaff = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newStaffName.trim() || !newStaffPin.trim()) return
+    const newItem = {
+      id: Date.now().toString(),
+      name: newStaffName.trim(),
+      pin: newStaffPin.trim(),
+      role: "KASIR",
+    }
+    const updated = [...staffList, newItem]
+    setStaffList(updated)
+    localStorage.setItem(`nota_staff_list_${currentAdminUser.toLowerCase()}`, JSON.stringify(updated))
+    setNewStaffName("")
+    setNewStaffPin("")
+    toast.success(`Akun staf "${newItem.name}" berhasil ditambahkan!`)
+  }
+
+  const handleDeleteStaff = (id: string) => {
+    const updated = staffList.filter((s) => s.id !== id)
+    setStaffList(updated)
+    localStorage.setItem(`nota_staff_list_${currentAdminUser.toLowerCase()}`, JSON.stringify(updated))
+    toast.success("Akun staf dihapus")
+  }
 
   const handleSetStockDestination = (dest: "BAR" | "WAREHOUSE") => {
     setStockDestination(dest)
@@ -226,6 +262,18 @@ export function SettingsModal({ isOpen, onClose, currentAdminUser, onLogout }: S
               }`}
             >
               <KeyRound className="w-3.5 h-3.5 text-emerald-600" /> Password
+            </button>
+          )}
+
+          {!isKaryawan && (
+            <button
+              type="button"
+              onClick={() => setActiveTab("team")}
+              className={`flex-1 py-2 rounded-xl transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                activeTab === "team" ? "bg-white text-slate-900 shadow-xs" : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <Users className="w-3.5 h-3.5 text-blue-600" /> Kasir/Tim
             </button>
           )}
 
@@ -549,6 +597,68 @@ export function SettingsModal({ isOpen, onClose, currentAdminUser, onLogout }: S
               {isSaving ? "Menyimpan..." : "Simpan Password Baru"}
             </button>
           </form>
+        )}
+
+        {/* Tab Content: Kelola Tim & Kasir */}
+        {activeTab === "team" && (
+          <div className="space-y-4 animate-in fade-in duration-150 text-xs">
+            <div className="p-3.5 bg-blue-50/70 border border-blue-200 text-blue-900 rounded-2xl flex items-start gap-2">
+              <Users className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+              <div className="leading-relaxed">
+                <strong>Akses Staf & Kasir Toko</strong>: Staf dapat login menggunakan nama dan PIN di bawah khusus untuk memotret nota tanpa melihat rincian finansial utama.
+              </div>
+            </div>
+
+            {/* Add New Staff Form */}
+            <form onSubmit={handleAddStaff} className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+              <span className="font-bold text-slate-800 block">Tambah Akun Kasir / Staf Baru:</span>
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="text"
+                  required
+                  value={newStaffName}
+                  onChange={(e) => setNewStaffName(e.target.value)}
+                  placeholder="Nama (misal: Kasir 1)"
+                  className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs outline-none focus:border-blue-500"
+                />
+                <input
+                  type="text"
+                  required
+                  value={newStaffPin}
+                  onChange={(e) => setNewStaffPin(e.target.value)}
+                  placeholder="PIN / Password Staf"
+                  className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs outline-none focus:border-blue-500"
+                />
+              </div>
+              <button
+                type="submit"
+                className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                <UserPlus className="w-3.5 h-3.5" /> Tambah Staf Toko
+              </button>
+            </form>
+
+            {/* List of Active Staff */}
+            <div className="space-y-2">
+              <span className="font-bold text-slate-700 block">Daftar Staf Aktif ({staffList.length}):</span>
+              {staffList.map((s) => (
+                <div key={s.id} className="p-3 bg-white border border-slate-200 rounded-2xl flex items-center justify-between shadow-2xs">
+                  <div>
+                    <strong className="text-slate-900 font-bold block">{s.name}</strong>
+                    <span className="text-[11px] text-slate-500 font-mono">PIN: {s.pin} • Role: {s.role}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteStaff(s.id)}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                    title="Hapus Staf"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
 
         {/* Tab Content: Info Akun */}

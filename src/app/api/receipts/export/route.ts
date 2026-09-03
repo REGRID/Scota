@@ -250,6 +250,84 @@ export async function GET(req: NextRequest) {
     XLSX.utils.book_append_sheet(workbook, summarySheet, "Ringkasan Nota")
     XLSX.utils.book_append_sheet(workbook, itemsSheet, "Rincian Item Produk")
 
+    // Format Jurnal.id by Mekari
+    if (format === "jurnal") {
+      const jurnalRows: any[] = []
+      receipts.forEach((r: any, idx: number) => {
+        const transNo = `SC-${r.date.replace(/-/g, "")}-${String(idx + 1).padStart(4, "0")}`
+        // Debit: Beban Operasional / Barang
+        jurnalRows.push({
+          "No Transaksi": transNo,
+          "Tanggal Transaksi": r.date,
+          "Deskripsi": `Pembelian di ${r.merchantName} - ${r.note || "Nota Fisik"}`,
+          "Nama Akun": "Beban Operasional / Pembelian Barang",
+          "Kode Akun": "6-60001",
+          "Debit": r.totalAmount,
+          "Kredit": 0,
+          "Nama Kontak / Toko": r.merchantName,
+        })
+        // Kredit: Kas / Bank
+        jurnalRows.push({
+          "No Transaksi": transNo,
+          "Tanggal Transaksi": r.date,
+          "Deskripsi": `Pembayaran via ${r.paymentMethod || "Cash"} ke ${r.merchantName}`,
+          "Nama Akun": r.paymentMethod === "Transfer" || r.paymentMethod === "QRIS" ? "Kas di Bank" : "Kas Kecil (Petty Cash)",
+          "Kode Akun": r.paymentMethod === "Transfer" || r.paymentMethod === "QRIS" ? "1-10002" : "1-10001",
+          "Debit": 0,
+          "Kredit": r.totalAmount,
+          "Nama Kontak / Toko": r.merchantName,
+        })
+      })
+
+      const jWorkbook = XLSX.utils.book_new()
+      const jSheet = XLSX.utils.json_to_sheet(jurnalRows)
+      XLSX.utils.book_append_sheet(jWorkbook, jSheet, "Jurnal Mekari Import")
+      const jBuffer = XLSX.write(jWorkbook, { bookType: "xlsx", type: "buffer" })
+
+      return new Response(jBuffer, {
+        status: 200,
+        headers: {
+          "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "Content-Disposition": `attachment; filename="Import_Jurnal_Mekari_${new Date().toISOString().split("T")[0]}.xlsx"`,
+        },
+      })
+    }
+
+    // Format Accurate Accounting
+    if (format === "accurate") {
+      const accurateRows: any[] = []
+      receipts.forEach((r: any, idx: number) => {
+        const fakturNo = `INV-${r.date.replace(/-/g, "")}-${String(idx + 1).padStart(3, "0")}`
+        ;(r.items || []).forEach((it: any) => {
+          accurateRows.push({
+            "No Faktur": fakturNo,
+            "Tgl Faktur": r.date,
+            "Pemasok": r.merchantName,
+            "Nama Barang": it.name,
+            "Kategori": it.category,
+            "Kuantitas": it.quantity || 1,
+            "Harga Satuan": it.price,
+            "Total Nilai": (it.price || 0) * (it.quantity || 1),
+            "Metode Bayar": r.paymentMethod || "Cash",
+            "Catatan": r.note || "",
+          })
+        })
+      })
+
+      const aWorkbook = XLSX.utils.book_new()
+      const aSheet = XLSX.utils.json_to_sheet(accurateRows)
+      XLSX.utils.book_append_sheet(aWorkbook, aSheet, "Accurate Import")
+      const aBuffer = XLSX.write(aWorkbook, { bookType: "xlsx", type: "buffer" })
+
+      return new Response(aBuffer, {
+        status: 200,
+        headers: {
+          "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "Content-Disposition": `attachment; filename="Import_Accurate_${new Date().toISOString().split("T")[0]}.xlsx"`,
+        },
+      })
+    }
+
     if (format === "csv") {
       const csvOutput = XLSX.utils.sheet_to_csv(summarySheet)
       return new Response(csvOutput, {

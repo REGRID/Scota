@@ -24,15 +24,10 @@ export default function HomePage() {
   // Admin Auth Gate State
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
   const [adminUser, setAdminUser] = useState<string>("rama")
+  const [staffName, setStaffName] = useState<string>("Staf")
   const [authInitialMode, setAuthInitialMode] = useState<"login" | "register">("login")
   const [authInitialTier, setAuthInitialTier] = useState<SubscriptionTier>("trial")
-  const [showLanding, setShowLanding] = useState<boolean>(() => {
-    if (typeof window !== "undefined") {
-      const hasToken = localStorage.getItem("nota_admin_token")
-      return !hasToken
-    }
-    return true
-  })
+  const [showLanding, setShowLanding] = useState<boolean>(true)
 
   // Auto-register Web Push subscription in background if permission is granted
   useEffect(() => {
@@ -42,15 +37,7 @@ export default function HomePage() {
     }
   }, [isAuthenticated, adminUser])
 
-  const [activeTab, setActiveTab] = useState<"scan" | "history">(() => {
-    if (typeof window !== "undefined") {
-      const savedUser = localStorage.getItem("nota_admin_user") || "rama"
-      const key = `nota_active_tab_${savedUser.toLowerCase()}`
-      const savedTab = localStorage.getItem(key) || localStorage.getItem("nota_active_tab")
-      if (savedTab === "scan" || savedTab === "history") return savedTab as "scan" | "history"
-    }
-    return "scan"
-  })
+  const [activeTab, setActiveTab] = useState<"scan" | "history">("scan")
   const [showSettingsModal, setShowSettingsModal] = useState(false)
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(false)
@@ -169,6 +156,21 @@ export default function HomePage() {
 
   // Initial Auth Check on Mount
   useEffect(() => {
+    const localToken = localStorage.getItem("nota_admin_token")
+    const localUser = localStorage.getItem("nota_admin_user")
+    const localStaff = localStorage.getItem("nota_staff_name")
+    if (localStaff) setStaffName(localStaff)
+    if (localUser) {
+      setAdminUser(localUser)
+      const key = `nota_active_tab_${localUser.toLowerCase()}`
+      const savedTab = localStorage.getItem(key) || localStorage.getItem("nota_active_tab")
+      if (savedTab === "scan" || savedTab === "history") setActiveTab(savedTab as "scan" | "history")
+    }
+
+    if (localToken) {
+      setShowLanding(false)
+    }
+
     const checkSession = async () => {
       try {
         const res = await fetch("/api/auth/session")
@@ -177,21 +179,26 @@ export default function HomePage() {
           if (data.authenticated) {
             setIsAuthenticated(true)
             if (data.user?.username) setAdminUser(data.user.username)
+            setShowLanding(false)
             return
           }
         }
 
-        const localToken = localStorage.getItem("nota_admin_token")
-        const localUser = localStorage.getItem("nota_admin_user")
         if (localToken) {
           setIsAuthenticated(true)
           if (localUser) setAdminUser(localUser)
+          setShowLanding(false)
           return
         }
 
         setIsAuthenticated(false)
       } catch {
-        setIsAuthenticated(false)
+        if (localToken) {
+          setIsAuthenticated(true)
+          setShowLanding(false)
+        } else {
+          setIsAuthenticated(false)
+        }
       }
     }
 
@@ -680,7 +687,7 @@ export default function HomePage() {
               <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
               <span>
                 {adminUser.toLowerCase() === "karyawan"
-                  ? `Karyawan (${typeof window !== "undefined" ? localStorage.getItem("nota_staff_name") || "Staf" : "Staf"})`
+                  ? `Karyawan (${staffName || "Staf"})`
                   : `Admin (${adminUser.toUpperCase()})`}
               </span>
             </div>

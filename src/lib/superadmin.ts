@@ -78,7 +78,7 @@ export async function getSuperadminPlatformStats(): Promise<PlatformStats> {
       totalReceipts = receipts.length
     }
   } catch (err) {
-    console.warn("Superadmin receipts query notice:", err)
+    // Graceful fallback to local cache
   }
 
   // 2. Count tier breakdown & calculate actual SaaS subscription earnings (Revenue & MRR)

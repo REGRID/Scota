@@ -130,6 +130,26 @@ export function VerificationSplitScreen({
   const activeDisplayImage = imagePreviewUrl || lazyLoadedImage
 
   // Fetch categories hierarchy on mount
+  // Extract initial paidByPerson from existing note if present
+  const initialPaidByMatch = (existingNote || "").match(/\[Dibayar oleh: ([^\]]+)\]/)
+  const initialPaidBy = initialPaidByMatch ? initialPaidByMatch[1] : ""
+  const initialCleanNote = (existingNote || "").replace(/\[Dibayar oleh: [^\]]+\]\s*/g, "")
+
+  // Form State
+  const [merchantName, setMerchantName] = useState(initialResult.merchantName ?? "")
+  const [date, setDate] = useState(initialResult.date || new Date().toISOString().split("T")[0])
+  const [items, setItems] = useState<ParsedItem[]>(initialResult.items || [])
+  const [taxAmount, setTaxAmount] = useState<number | "">(initialResult.taxAmount ?? 0)
+  const [discountAmount, setDiscountAmount] = useState<number | "">(initialResult.discountAmount ?? 0)
+  const [discountType, setDiscountType] = useState<"RP" | "PERCENT">("RP")
+  const [discountPercentValue, setDiscountPercentValue] = useState<number | "">("")
+  const [paymentMethod, setPaymentMethod] = useState<string>(existingPaymentMethod || "Cash")
+  const [paymentStatus, setPaymentStatus] = useState<string>(existingPaymentStatus || "Lunas")
+  const [paidByPerson, setPaidByPerson] = useState<string>(initialPaidBy)
+  const [note, setNote] = useState(initialCleanNote)
+  const [isSaving, setIsSaving] = useState(false)
+  const [errorMsg, setErrorMsg] = useState("")
+
   const fetchCategoryHierarchy = async () => {
     try {
       const res = await fetch("/api/categories")
@@ -293,26 +313,6 @@ export function VerificationSplitScreen({
       showAlert({ title: "Kesalahan Sistem", description: "Gagal menambah kategori baru ke database", variant: "destructive" })
     }
   }
-
-  // Extract initial paidByPerson from existing note if present
-  const initialPaidByMatch = (existingNote || "").match(/\[Dibayar oleh: ([^\]]+)\]/)
-  const initialPaidBy = initialPaidByMatch ? initialPaidByMatch[1] : ""
-  const initialCleanNote = (existingNote || "").replace(/\[Dibayar oleh: [^\]]+\]\s*/g, "")
-
-  // Form State
-  const [merchantName, setMerchantName] = useState(initialResult.merchantName ?? "")
-  const [date, setDate] = useState(initialResult.date || new Date().toISOString().split("T")[0])
-  const [items, setItems] = useState<ParsedItem[]>(initialResult.items || [])
-  const [taxAmount, setTaxAmount] = useState<number | "">(initialResult.taxAmount ?? 0)
-  const [discountAmount, setDiscountAmount] = useState<number | "">(initialResult.discountAmount ?? 0)
-  const [discountType, setDiscountType] = useState<"RP" | "PERCENT">("RP")
-  const [discountPercentValue, setDiscountPercentValue] = useState<number | "">("")
-  const [paymentMethod, setPaymentMethod] = useState<string>(existingPaymentMethod || "Cash")
-  const [paymentStatus, setPaymentStatus] = useState<string>(existingPaymentStatus || "Lunas")
-  const [paidByPerson, setPaidByPerson] = useState<string>(initialPaidBy)
-  const [note, setNote] = useState(initialCleanNote)
-  const [isSaving, setIsSaving] = useState(false)
-  const [errorMsg, setErrorMsg] = useState("")
 
   const isKaryawanRole = typeof window !== "undefined"
     ? localStorage.getItem("nota_admin_role") === "KARYAWAN" || localStorage.getItem("nota_admin_user") === "karyawan"

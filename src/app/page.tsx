@@ -15,7 +15,7 @@ import { OnboardingWelcomeModal } from "@/components/OnboardingWelcomeModal"
 import { createSampleReceiptDataUrl } from "@/lib/sampleReceipt"
 import { SubscriptionInfo, SubscriptionTier } from "@/lib/subscription"
 import { ParsedReceiptResult } from "@/app/api/parse-receipt/route"
-import { Camera, Receipt, History, ShieldCheck, CheckCircle2, Maximize2, LogOut, UserCheck, Loader2, Settings, Sparkles, Info, ExternalLink, ChevronDown, ArrowRight, Bell } from "lucide-react"
+import { Camera, Receipt, History, ShieldCheck, CheckCircle2, Maximize2, LogOut, UserCheck, Loader2, Settings, Sparkles, Info, ExternalLink, ChevronDown, ArrowRight, Bell, Database } from "lucide-react"
 
 import { registerPushSubscription } from "@/lib/pwaNotification"
 import { useAppDialog } from "@/components/ui/app-dialog"
@@ -59,6 +59,39 @@ export default function HomePage() {
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null)
+  const [dualControlEnabled, setDualControlEnabled] = useState<boolean>(true)
+  const [pendingApprovalsCount, setPendingApprovalsCount] = useState<number>(0)
+
+  // Listen for Dual Control setting and pending approvals count
+  useEffect(() => {
+    const updateDualControl = () => {
+      if (typeof window !== "undefined") {
+        const stored = localStorage.getItem("scota_dual_control_enabled")
+        setDualControlEnabled(stored !== "false")
+      }
+    }
+    updateDualControl()
+    window.addEventListener("storage", updateDualControl)
+
+    const handleApprovalsCount = (e: any) => {
+      if (e.detail && typeof e.detail.count === "number") {
+        setPendingApprovalsCount(e.detail.count)
+      }
+    }
+    window.addEventListener("scota-pending-approvals", handleApprovalsCount)
+
+    fetch("/api/approvals?status=PENDING")
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => {
+        if (Array.isArray(data)) setPendingApprovalsCount(data.length)
+      })
+      .catch(() => {})
+
+    return () => {
+      window.removeEventListener("storage", updateDualControl)
+      window.removeEventListener("scota-pending-approvals", handleApprovalsCount)
+    }
+  }, [])
 
   useEffect(() => {
     if (isAuthenticated && typeof window !== "undefined") {
@@ -697,8 +730,38 @@ export default function HomePage() {
             </button>
           </div>
 
-          {/* Right: Notifications + Theme Toggle + Unified User Profile Menu */}
-          <div className="flex items-center gap-2 shrink-0 relative">
+          {/* Right: Dual Control + Notifications + Theme Toggle + Unified User Profile Menu */}
+          <div className="flex items-center gap-1.5 shrink-0 relative">
+            {/* Dual-Control Verification Icon Button (Active only when dual control enabled in settings) */}
+            {dualControlEnabled && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (activeTab !== "history") {
+                    setActiveTab("history")
+                  }
+                  setTimeout(() => {
+                    window.dispatchEvent(new CustomEvent("open-approval-modal"))
+                  }, 50)
+                }}
+                className={`p-2 rounded-xl text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer relative ${
+                  pendingApprovalsCount > 0 ? "text-amber-600 dark:text-amber-400" : ""
+                }`}
+                title={
+                  pendingApprovalsCount > 0
+                    ? `Verifikasi Dual-Control (${pendingApprovalsCount} tertunda)`
+                    : "Verifikasi Dual-Control"
+                }
+              >
+                <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                {pendingApprovalsCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 flex h-3.5 min-w-3.5 px-0.5 items-center justify-center bg-rose-600 text-white rounded-full text-[8px] font-black leading-none shadow-2xs animate-pulse">
+                    {pendingApprovalsCount}
+                  </span>
+                )}
+              </button>
+            )}
+
             {/* Notification Bell Button */}
             <button
               type="button"
@@ -782,6 +845,23 @@ export default function HomePage() {
                         <Settings className="w-4 h-4 text-slate-400" />
                         <span>Pengaturan & Notifikasi</span>
                       </Link>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowProfileMenu(false)
+                          if (activeTab !== "history") {
+                            setActiveTab("history")
+                          }
+                          setTimeout(() => {
+                            window.dispatchEvent(new CustomEvent("open-data-options-modal"))
+                          }, 50)
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                      >
+                        <Database className="w-4 h-4 text-slate-400" />
+                        <span>Cadangkan & Ekspor Data</span>
+                      </button>
 
                       <Link
                         href="/superadmin"

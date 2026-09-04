@@ -125,6 +125,7 @@ export default function SettingsPage() {
   const [oldPassword, setOldPassword] = useState("")
   const [newPassword, setNewPassword] = useState("")
   const [approvalThreshold, setApprovalThreshold] = useState("1000000")
+  const [dualControlEnabled, setDualControlEnabled] = useState(true)
 
   // 6. Business Profile State
   const [businessName, setBusinessName] = useState("Scota Business")
@@ -149,6 +150,9 @@ export default function SettingsPage() {
 
       const storedThreshold = localStorage.getItem("scota_approval_threshold")
       if (storedThreshold) setApprovalThreshold(storedThreshold)
+
+      const storedDual = localStorage.getItem("scota_dual_control_enabled")
+      if (storedDual !== null) setDualControlEnabled(storedDual === "true")
 
       const storedBiz = localStorage.getItem("scota_business_name")
       if (storedBiz) setBusinessName(storedBiz)
@@ -229,15 +233,19 @@ export default function SettingsPage() {
     }, 1000)
   }
 
-  // Handle Save Threshold
+  // Handle Save Threshold & Dual Control
   const handleSaveSecurity = () => {
     localStorage.setItem("scota_approval_threshold", approvalThreshold)
+    localStorage.setItem("scota_dual_control_enabled", String(dualControlEnabled))
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("storage"))
+    }
     if (newPassword.trim()) {
       toast.success("Sandi & kebijakan verifikasi dual-control berhasil diperbarui!")
       setOldPassword("")
       setNewPassword("")
     } else {
-      toast.success("Batas nominal verifikasi dual-control berhasil disimpan!")
+      toast.success("Pengaturan keamanan & verifikasi dual-control berhasil disimpan!")
     }
   }
 
@@ -728,6 +736,39 @@ export default function SettingsPage() {
                 <p className="text-xs text-slate-500 dark:text-slate-400">
                   Proteksi integritas pengeluaran dengan verifikasi wajib 2 admin untuk nominal transaksi besar.
                 </p>
+              </div>
+
+              {/* Dual Control Switch */}
+              <div className="flex items-center justify-between p-4 rounded-xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-800">
+                <div className="space-y-0.5">
+                  <span className="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                    Aktifkan Fitur Verifikasi Dual-Control
+                  </span>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Menampilkan ikon verifikasi di header atas dan mewajibkan otorisasi admin untuk nominal di atas batas.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nextVal = !dualControlEnabled
+                    setDualControlEnabled(nextVal)
+                    localStorage.setItem("scota_dual_control_enabled", String(nextVal))
+                    if (typeof window !== "undefined") {
+                      window.dispatchEvent(new Event("storage"))
+                    }
+                  }}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                    dualControlEnabled ? "bg-emerald-500" : "bg-slate-300 dark:bg-slate-700"
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                      dualControlEnabled ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </button>
               </div>
 
               {/* Dual Control Threshold */}

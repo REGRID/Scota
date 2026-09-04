@@ -264,14 +264,10 @@ export default function TenantDetailPage({ params }: TenantDetailPageProps) {
   const stats = data?.stats
   const tierCfg = TIER_CONFIG[tenant?.tier as SubscriptionTier] || TIER_CONFIG.trial
 
-  // Sample monthly usage for chart
+  // Actual monthly usage for chart
+  const currentMonthName = new Date().toLocaleDateString("id-ID", { month: "short" })
   const usageMonthlyData = [
-    { month: "Jan", scans: 34 },
-    { month: "Feb", scans: 58 },
-    { month: "Mar", scans: 92 },
-    { month: "Apr", scans: 114 },
-    { month: "Mei", scans: 138 },
-    { month: "Jun", scans: stats?.scanUsage?.used || 142 },
+    { month: currentMonthName, scans: stats?.scanUsage?.used || 0 },
   ]
 
   return (

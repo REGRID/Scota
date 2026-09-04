@@ -56,17 +56,13 @@ export default function SuperadminOverviewPage() {
     fetchStats()
   }, [])
 
-  // Sample historical data for charts
+  // Actual aggregated data for charts
+  const currentMonthName = new Date().toLocaleDateString("id-ID", { month: "short" })
   const mrrTrendData = [
-    { month: "Jan", mrr: 850000, tenants: 6 },
-    { month: "Feb", mrr: 1450000, tenants: 11 },
-    { month: "Mar", mrr: 2100000, tenants: 18 },
-    { month: "Apr", mrr: 2890000, tenants: 24 },
-    { month: "Mei", mrr: 3150000, tenants: 29 },
     {
-      month: "Jun",
-      mrr: stats?.monthlyRecurringRevenue || 3450000,
-      tenants: stats?.totalTenants || 35,
+      month: currentMonthName,
+      mrr: stats?.monthlyRecurringRevenue || 0,
+      tenants: stats?.totalTenants || 0,
     },
   ]
 
@@ -88,7 +84,7 @@ export default function SuperadminOverviewPage() {
             Ringkasan Platform & Analytics
           </h1>
           <p className="text-xs sm:text-sm text-slate-400">
-            Pemantauan performa bisnis SaaS Scota, tren pendapatan berulang (MRR), dan aktivitas tenant.
+            Pemantauan performa bisnis SaaS Scota, pendapatan berulang (MRR), dan aktivitas tenant.
           </p>
         </div>
 
@@ -110,7 +106,7 @@ export default function SuperadminOverviewPage() {
           value={stats?.totalTenants ?? 0}
           icon={Users}
           iconColor="text-sky-400 bg-sky-500/10 border-sky-500/20"
-          trend={{ value: "+18%", isPositive: true, label: "bulan ini" }}
+          trend={{ value: `${stats?.activeTenants ?? 0} Aktif`, isPositive: true }}
           description="Tenant bisnis terdaftar"
           loading={isLoading}
         />
@@ -130,7 +126,7 @@ export default function SuperadminOverviewPage() {
           value={`Rp ${(stats?.monthlyRecurringRevenue ?? 0).toLocaleString("id-ID")}`}
           icon={TrendingUp}
           iconColor="text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
-          trend={{ value: "+24.5%", isPositive: true, label: "vs bln lalu" }}
+          trend={{ value: `${stats?.paidTenantsCount ?? 0} Paket Berbayar`, isPositive: true }}
           description="Estimasi omset bulanan SaaS"
           loading={isLoading}
         />

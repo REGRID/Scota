@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { activateLicenseKey, getSubscriptionInfo, updateStudioProfile } from "@/lib/subscription"
+import { activateLicenseKey, getSubscriptionInfo, updateStudioProfile } from "@/lib/subscriptionServer"
 
 export async function GET() {
   try {

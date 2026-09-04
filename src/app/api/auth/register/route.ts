@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { registerAdminAccount } from "@/lib/adminAccounts"
-import { saveSubscriptionInfo, getSubscriptionInfo, TIER_CONFIG, SubscriptionTier } from "@/lib/subscription"
+import { TIER_CONFIG, SubscriptionTier } from "@/lib/subscription"
+import { saveSubscriptionInfo, getSubscriptionInfo } from "@/lib/subscriptionServer"
 
 export async function POST(req: NextRequest) {
   try {

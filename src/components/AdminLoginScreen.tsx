@@ -152,7 +152,7 @@ export function AdminLoginScreen({
           fullName: regFullName.trim(),
           businessName: regBusinessName.trim() || regFullName.trim() || "Scota Business",
           phone: regPhone.trim(),
-          selectedTier: "trial",
+          interestedTier: "trial",
         }),
       })
 

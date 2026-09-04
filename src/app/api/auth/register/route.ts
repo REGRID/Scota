@@ -6,14 +6,19 @@ import { createSessionToken } from "@/lib/session"
 
 export async function POST(req: NextRequest) {
   try {
-    const { username, password, fullName, businessName, phone, selectedTier } = await req.json()
+    const { username, password, fullName, businessName, phone, selectedTier, interestedTier } = await req.json()
 
     const cleanUsername = (username || "").trim().toLowerCase()
     const cleanPassword = (password || "").trim()
     const cleanFullName = (fullName || "").trim()
     const cleanBusinessName = (businessName || "").trim()
     const cleanPhone = (phone || "").trim()
-    const tier = (selectedTier || "trial").toLowerCase() as SubscriptionTier
+
+    // SECURITY ENFORCEMENT:
+    // Pendaftaran mandiri (self-service) HANYA dan SELALU mendapatkan paket "trial".
+    // Input `selectedTier` dari client tidak boleh dipercaya untuk menentukan hak akses/kuota aktif.
+    const activeTier: SubscriptionTier = "trial"
+    const leadInterestedTier = (interestedTier || selectedTier || "trial").toLowerCase().trim()
 
     if (!cleanUsername || !cleanPassword) {
       return NextResponse.json({ error: "ID Pengguna / Email dan Password harus diisi" }, { status: 400 })
@@ -23,33 +28,33 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Password minimal 8 karakter" }, { status: 400 })
     }
 
-    // Register as ADMIN role
+    // Register as ADMIN role with strictly "trial" tier
     const regResult = await registerAdminAccount({
       username: cleanUsername,
       password: cleanPassword,
       fullName: cleanFullName,
       businessName: cleanBusinessName,
       phone: cleanPhone,
-      tier,
+      tier: activeTier,
     })
 
     if (!regResult.success) {
       return NextResponse.json({ error: regResult.error || "Gagal membuat akun Admin" }, { status: 400 })
     }
 
-    // Initialize business subscription profile
+    // Initialize business subscription profile strictly as "trial" (14 days validity, 50 scan quota)
     try {
-      const currentSub = await getSubscriptionInfo()
-      const tierConfig = TIER_CONFIG[tier] || TIER_CONFIG.trial
-      const validityDays = tier === "trial" ? 14 : 30
+      const currentSub = await getSubscriptionInfo(regResult.tenantId)
+      const tierConfig = TIER_CONFIG.trial
+      const validityDays = 14
 
       const validUntilDate = new Date()
       validUntilDate.setDate(validUntilDate.getDate() + validityDays)
 
       await saveSubscriptionInfo({
         ...currentSub,
-        tier,
-        status: tier === "trial" ? "trial" : "active",
+        tier: activeTier,
+        status: "trial",
         monthlyScanLimit: tierConfig.monthlyScanLimit,
         usedScansThisMonth: 0,
         validUntil: validUntilDate.toISOString(),
@@ -58,7 +63,7 @@ export async function POST(req: NextRequest) {
           studioName: cleanBusinessName || cleanFullName || "Scota Business",
           phone: cleanPhone || currentSub.studioProfile.phone,
         },
-      })
+      }, regResult.tenantId)
     } catch (subErr) {
       console.warn("Could not save initial subscription profile:", subErr)
     }
@@ -80,7 +85,8 @@ export async function POST(req: NextRequest) {
         tenantId: regResult.tenantId,
         fullName: cleanFullName,
         businessName: cleanBusinessName,
-        tier,
+        tier: activeTier,
+        interestedTier: leadInterestedTier,
       },
     })
 

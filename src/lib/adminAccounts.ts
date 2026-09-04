@@ -231,7 +231,10 @@ export async function registerAdminAccount(params: {
     const cleanUser = normalizeAdminUsername(params.username)
     const cleanPass = params.password.trim()
     const role = (params.role || "ADMIN").toUpperCase()
-    const rawTier = (params.tier || "trial").toLowerCase() as SubscriptionTier
+    // SERVER-SIDE STRICT ENFORCEMENT:
+    // Registrasi akun admin baru mandiri HANYA dan SELALU menghasilkan paket 'trial'.
+    // Parameter tier dari pemanggil luar tidak boleh diizinkan langsung mengaktifkan tier berbayar.
+    const forcedTier: SubscriptionTier = "trial"
     const businessName = params.businessName?.trim() || params.fullName?.trim() || "Scota Business"
 
     if (!cleanUser || !cleanPass) {
@@ -265,20 +268,19 @@ export async function registerAdminAccount(params: {
           createdTenantId = tenantRes.rows[0].id
         }
 
-        // 2. Buat Subscription Khusus untuk Tenant Baru
-        const tierConfig = TIER_CONFIG[rawTier] || TIER_CONFIG.trial
-        const validityDays = rawTier === "trial" ? 14 : 30
+        // 2. Buat Subscription Khusus untuk Tenant Baru (Selalu Trial 14 hari)
+        const tierConfig = TIER_CONFIG.trial
+        const validityDays = 14
         const validUntilDate = new Date()
         validUntilDate.setDate(validUntilDate.getDate() + validityDays)
 
         await queryPg(
           `INSERT INTO subscriptions ("tenantId", tier, "validUntil", "monthlyScanLimit", "usedScansThisMonth", "studioName", phone, "createdAt", "updatedAt")
-           VALUES ($1, $2, $3, $4, 0, $5, $6, NOW(), NOW())
+           VALUES ($1, 'trial', $2, $3, 0, $4, $5, NOW(), NOW())
            ON CONFLICT ("tenantId") DO UPDATE 
            SET tier = EXCLUDED.tier, "validUntil" = EXCLUDED."validUntil"`,
           [
             createdTenantId,
-            rawTier,
             validUntilDate.toISOString(),
             tierConfig.monthlyScanLimit,
             businessName,
@@ -286,10 +288,10 @@ export async function registerAdminAccount(params: {
           ]
         )
 
-        // 3. Masukkan Akun Admin baru terikat ke createdTenantId
+        // 3. Masukkan Akun Admin baru terikat ke createdTenantId dengan tier trial
         await queryPg(
           `INSERT INTO admin_accounts (username, password, role, "fullName", "businessName", phone, tier, "tenantId", "createdAt", "updatedAt")
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+           VALUES ($1, $2, $3, $4, $5, $6, 'trial', $7, NOW(), NOW())
            ON CONFLICT (username) DO NOTHING`,
           [
             cleanUser,
@@ -298,7 +300,6 @@ export async function registerAdminAccount(params: {
             params.fullName || "",
             businessName,
             params.phone || "",
-            rawTier,
             createdTenantId,
           ]
         )

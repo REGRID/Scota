@@ -16,6 +16,7 @@ export function getPgPool(): Pool | null {
   if (!isDatabaseConfigured) {
     return null
   }
+  if (!globalPool) {
     const isSslExplicitlyDisabled =
       connectionString.includes("sslmode=disable") ||
       connectionString.includes("sumobase.my.id") ||

@@ -156,19 +156,19 @@ export async function getAllTenants(): Promise<TenantSummary[]> {
     console.warn("getAllTenants local store notice:", err)
   }
 
-  // Ensure default demo accounts are present if list is small
+  // Ensure default superadmin account is present if list is empty
   if (!tenantsMap.has("rama")) {
     tenantsMap.set("rama", {
       username: "rama",
-      fullName: "Rama Wijaya",
-      businessName: "Toko Kemasan Rama",
-      phone: "081234567890",
+      fullName: "Superadmin Rama",
+      businessName: "Scota Platform",
+      phone: "",
       role: "SUPERADMIN",
-      tier: "pro",
-      validUntil: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString(),
-      monthlyScanLimit: 500,
-      usedScansThisMonth: 142,
-      createdAt: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(),
+      tier: "enterprise",
+      validUntil: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+      monthlyScanLimit: 99999,
+      usedScansThisMonth: 0,
+      createdAt: new Date().toISOString(),
       status: "active",
     })
   }
@@ -238,17 +238,17 @@ export async function getSuperadminPlatformStats(): Promise<PlatformStats> {
       const cfg = TIER_CONFIG[tTier]
       if (cfg) {
         monthlyRecurringRevenue += cfg.priceMonthly
-        totalSubscriptionRevenue += cfg.priceMonthly * 2 // estimated historical
+        totalSubscriptionRevenue += cfg.priceMonthly
       }
     }
   }
 
   return {
     totalTenants: tenants.length,
-    activeTenants: activeTenants || tenants.length,
-    totalReceipts: totalReceipts || 482,
-    totalSubscriptionRevenue: totalSubscriptionRevenue || 12500000,
-    monthlyRecurringRevenue: monthlyRecurringRevenue || 3450000,
+    activeTenants,
+    totalReceipts,
+    totalSubscriptionRevenue,
+    monthlyRecurringRevenue,
     paidTenantsCount,
     tierBreakdown,
     recentRegistrations: tenants.slice(0, 10),
@@ -451,25 +451,10 @@ export async function getTenantDetail(username: string) {
   } catch (err) {}
 
   // Get staff list
-  const staffList = [
-    { id: "1", name: "Reza", role: "Kasir / Verifikator", status: "Active", lastActive: "Hari ini" },
-    { id: "2", name: "Ummu", role: "Admin Inventaris", status: "Active", lastActive: "Kemarin" },
-    { id: "3", name: "Cheisa", role: "Staf Operasional", status: "Active", lastActive: "3 hari lalu" },
-  ]
+  const staffList: any[] = []
 
   // Invoices list
-  const tierCfg = TIER_CONFIG[tenant.tier] || TIER_CONFIG.trial
-  const invoices = [
-    {
-      id: `INV-${cleanUser.toUpperCase()}-001`,
-      invoiceNumber: `INV/${new Date().getFullYear()}/${cleanUser.toUpperCase()}/001`,
-      date: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toLocaleDateString("id-ID"),
-      planName: tierCfg.name,
-      amount: tierCfg.priceMonthly || 0,
-      status: "Lunas",
-      paymentMethod: "Transfer Bank BCA",
-    },
-  ]
+  const invoices: any[] = []
 
   // Audit logs for this tenant
   const allLogs = await getAuditLogs()
@@ -480,12 +465,12 @@ export async function getTenantDetail(username: string) {
   return {
     tenant,
     stats: {
-      totalReceipts: receiptsCount || 128,
-      totalOmset: totalOmset || 15420000,
-      storageUsedMb: 24.5,
+      totalReceipts: receiptsCount,
+      totalOmset: totalOmset,
+      storageUsedMb: 0,
       storageLimitMb: 500,
       scanUsage: {
-        used: tenant.usedScansThisMonth || 42,
+        used: tenant.usedScansThisMonth || 0,
         limit: tenant.monthlyScanLimit || 500,
       },
     },
@@ -543,41 +528,6 @@ export async function recordAuditLog(payload: {
  * Get all audit log entries
  */
 export async function getAuditLogs(): Promise<AuditLogEntry[]> {
-  const defaultLogs: AuditLogEntry[] = [
-    {
-      id: "LOG-01",
-      timestamp: new Date(Date.now() - 10 * 60 * 1000).toLocaleString("id-ID"),
-      superadmin: "REGRID Master (rama)",
-      action: "UPDATE_SUBSCRIPTION",
-      targetTenant: "rama",
-      detail: "Upgrade paket ke Pro Usaha (Masa aktif 180 Hari)",
-    },
-    {
-      id: "LOG-02",
-      timestamp: new Date(Date.now() - 45 * 60 * 1000).toLocaleString("id-ID"),
-      superadmin: "REGRID Master (refo)",
-      action: "GENERATE_VOUCHER",
-      targetTenant: "NP-PRO-1Y-AB892",
-      detail: "Pembuatan voucher lisensi resmi Pro Usaha 1 Tahun",
-    },
-    {
-      id: "LOG-03",
-      timestamp: new Date(Date.now() - 120 * 60 * 1000).toLocaleString("id-ID"),
-      superadmin: "REGRID Master (rama)",
-      action: "RESET_PASSWORD",
-      targetTenant: "maju_lancar",
-      detail: "Reset password atas permintaan pemilik tenant",
-    },
-    {
-      id: "LOG-04",
-      timestamp: new Date(Date.now() - 360 * 60 * 1000).toLocaleString("id-ID"),
-      superadmin: "System Automated Engine",
-      action: "AUTO_ONBOARDING",
-      targetTenant: "studio_abadi",
-      detail: "Aktivasi otomatis Free Trial 14 Hari saat pendaftaran",
-    },
-  ]
-
   try {
     if (fs.existsSync(AUDIT_LOG_FILE)) {
       const fileLogs = JSON.parse(fs.readFileSync(AUDIT_LOG_FILE, "utf-8"))
@@ -587,60 +537,13 @@ export async function getAuditLogs(): Promise<AuditLogEntry[]> {
     }
   } catch (e) {}
 
-  return defaultLogs
+  return []
 }
 
 /**
  * Get all billing transactions
  */
 export async function getAllBillingTransactions(): Promise<BillingTransaction[]> {
-  const defaultTransactions: BillingTransaction[] = [
-    {
-      id: "TRX-001",
-      tenantUsername: "rama",
-      businessName: "Toko Kemasan Rama",
-      tier: "pro",
-      amount: 149000,
-      status: "lunas",
-      paymentMethod: "BCA Virtual Account",
-      date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-      invoiceNumber: "INV/2026/RAMA/001",
-    },
-    {
-      id: "TRX-002",
-      tenantUsername: "kopi_senja",
-      businessName: "Kopi Senja Utama",
-      tier: "starter",
-      amount: 49000,
-      status: "lunas",
-      paymentMethod: "QRIS",
-      date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-      invoiceNumber: "INV/2026/KOPISENJA/002",
-    },
-    {
-      id: "TRX-003",
-      tenantUsername: "distribusi_jaya",
-      businessName: "PT Distribusi Makmur",
-      tier: "enterprise",
-      amount: 399000,
-      status: "lunas",
-      paymentMethod: "Mandiri Transfer",
-      date: new Date(Date.now() - 9 * 24 * 60 * 60 * 1000).toISOString(),
-      invoiceNumber: "INV/2026/MAKMOOR/003",
-    },
-    {
-      id: "TRX-004",
-      tenantUsername: "salon_ayu",
-      businessName: "Studio Cantik Ayu",
-      tier: "starter",
-      amount: 49000,
-      status: "pending",
-      paymentMethod: "BCA Virtual Account",
-      date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-      invoiceNumber: "INV/2026/AYU/004",
-    },
-  ]
-
   try {
     if (fs.existsSync(BILLING_FILE)) {
       const fileData = JSON.parse(fs.readFileSync(BILLING_FILE, "utf-8"))
@@ -650,5 +553,5 @@ export async function getAllBillingTransactions(): Promise<BillingTransaction[]>
     }
   } catch (e) {}
 
-  return defaultTransactions
+  return []
 }

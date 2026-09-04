@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { queryPg, isDatabaseConfigured } from "@/lib/pgDb"
-import { getAdminUserFromRequest } from "@/lib/authHelper"
+import { getSession } from "@/lib/authHelper"
 import { sendWebPushNotification } from "@/lib/serverPush"
 import { invalidateNotificationsCache } from "@/app/api/notifications/route"
 
@@ -14,6 +14,11 @@ export function invalidateApprovalsCache() {
 
 export async function GET(req: NextRequest) {
   try {
+    const session = await getSession(req)
+    if (!session) {
+      return NextResponse.json({ error: "Sesi tidak valid. Silakan login." }, { status: 401 })
+    }
+
     const { searchParams } = new URL(req.url)
     const status = searchParams.get("status") || "PENDING"
     const receiptId = searchParams.get("receiptId") || ""
@@ -110,7 +115,12 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const adminUser = getAdminUserFromRequest(req)
+    const session = await getSession(req)
+    if (!session) {
+      return NextResponse.json({ error: "Sesi tidak valid. Silakan login." }, { status: 401 })
+    }
+
+    const adminUser = session.username
     const body = await req.json()
     const { receiptId, actionType, payload } = body
 

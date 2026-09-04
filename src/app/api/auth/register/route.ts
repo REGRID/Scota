@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { registerAdminAccount } from "@/lib/adminAccounts"
 import { TIER_CONFIG, SubscriptionTier } from "@/lib/subscription"
 import { saveSubscriptionInfo, getSubscriptionInfo } from "@/lib/subscriptionServer"
+import { createSessionToken } from "@/lib/session"
 
 export async function POST(req: NextRequest) {
   try {
@@ -62,7 +63,12 @@ export async function POST(req: NextRequest) {
       console.warn("Could not save initial subscription profile:", subErr)
     }
 
-    const tokenPayload = Buffer.from(`${cleanUsername}:${cleanPassword}:ADMIN::nota_session_secret`).toString("base64")
+    // Generate secure signed JWT session token (HS256)
+    const token = await createSessionToken({
+      username: cleanUsername,
+      role: "ADMIN",
+      name: cleanFullName || cleanUsername,
+    })
 
     const response = NextResponse.json({
       success: true,
@@ -74,12 +80,11 @@ export async function POST(req: NextRequest) {
         businessName: cleanBusinessName,
         tier,
       },
-      token: tokenPayload,
     })
 
     response.cookies.set({
       name: "nota_admin_session",
-      value: tokenPayload,
+      value: token,
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",

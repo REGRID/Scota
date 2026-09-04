@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getUserAccountDetails } from "@/lib/adminAccounts"
-
-const ALLOWED_STAFF_NAMES = ["reza", "ummu", "cheisa", "novi", "titis"]
+import { createSessionToken } from "@/lib/session"
 
 export async function POST(req: NextRequest) {
   try {
@@ -25,29 +24,32 @@ export async function POST(req: NextRequest) {
     const userRole = account.role || "ADMIN"
     const finalStaffName = cleanStaffName || ""
 
-    // Auth Token encoded with authenticated username, role, and staffName
-    const tokenPayload = Buffer.from(`${authenticatedUser}:${cleanPassword}:${userRole}:${finalStaffName}:nota_session_secret`).toString("base64")
+    // Create cryptographically signed JWT session token (without password)
+    const sessionToken = await createSessionToken({
+      username: authenticatedUser,
+      role: userRole,
+      staffName: finalStaffName || undefined,
+    })
 
     const response = NextResponse.json({
       success: true,
-      message: `Login Admin (${authenticatedUser}) berhasil`,
+      message: `Login Pengguna (${authenticatedUser}) berhasil`,
       user: {
         username: authenticatedUser,
         role: userRole,
         staffName: finalStaffName,
       },
-      token: tokenPayload,
     })
 
-    // Set secure HTTP-only Cookies
+    // Set secure HTTP-only session cookie
     response.cookies.set({
       name: "nota_admin_session",
-      value: tokenPayload,
+      value: sessionToken,
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
-      maxAge: 60 * 60 * 24 * 30,
+      maxAge: 60 * 60 * 24 * 30, // 30 days
     })
 
     if (finalStaffName) {

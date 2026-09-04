@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { recordVerifiedReceiptLearning } from "@/lib/selfLearningEngine"
-import { getAdminUserFromRequest, getAdminRoleFromRequest, getStaffNameFromRequest } from "@/lib/authHelper"
+import { getSession } from "@/lib/authHelper"
 import { getOrSeedCategories } from "@/lib/categories"
 import { compressBase64Image } from "@/lib/imageCompressor"
 import { sendWebPushNotification } from "@/lib/serverPush"
@@ -149,7 +149,8 @@ export async function GET(req: NextRequest) {
     })
 
     // Role KARYAWAN Data Scoping
-    const userRole = getAdminRoleFromRequest(req)
+    const session = await getSession(req)
+    const userRole = session?.role || "ADMIN"
     if (userRole === "KARYAWAN") {
       const knownStaff = ["reza", "ummu", "cheisa", "novi", "titis", "karyawan"]
       normalizedReceipts = normalizedReceipts.filter((r: any) => {
@@ -177,6 +178,11 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const session = await getSession(req)
+    if (!session || !session.username) {
+      return NextResponse.json({ error: "Sesi tidak valid atau belum login. Silakan login terlebih dahulu." }, { status: 401 })
+    }
+
     const body = await req.json()
     const {
       merchantName,
@@ -205,9 +211,9 @@ export async function POST(req: NextRequest) {
     invalidateApprovalsCache()
     invalidateNotificationsCache()
 
-    const userRole = getAdminRoleFromRequest(req)
-    const reqStaffName = staffName || getStaffNameFromRequest(req)
-    const adminUser = getAdminUserFromRequest(req)
+    const userRole = session.role || "ADMIN"
+    const reqStaffName = staffName || session.staffName || ""
+    const adminUser = session.username
 
     const isPersonal =
       paymentMethod === "Dana Pribadi Owner" || paymentMethod === "Talangan Karyawan"
@@ -421,7 +427,12 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
-    const adminUser = getAdminUserFromRequest(req)
+    const session = await getSession(req)
+    if (!session || !session.username) {
+      return NextResponse.json({ error: "Sesi tidak valid atau belum login. Silakan login terlebih dahulu." }, { status: 401 })
+    }
+
+    const adminUser = session.username
     const { ids } = await req.json()
     if (!ids || !Array.isArray(ids) || ids.length === 0) {
       return NextResponse.json({ error: "ID nota yang akan dihapus tidak valid" }, { status: 400 })
@@ -502,7 +513,12 @@ export async function DELETE(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
-    const adminUser = getAdminUserFromRequest(req)
+    const session = await getSession(req)
+    if (!session || !session.username) {
+      return NextResponse.json({ error: "Sesi tidak valid atau belum login. Silakan login terlebih dahulu." }, { status: 401 })
+    }
+
+    const adminUser = session.username
     const { ids, paymentStatus, proofImageUrl, personName, totalAmount } = await req.json()
     if (!ids || !Array.isArray(ids) || ids.length === 0) {
       return NextResponse.json({ error: "ID nota yang akan diperbarui tidak valid" }, { status: 400 })

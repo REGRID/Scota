@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { queryPg, isDatabaseConfigured } from "@/lib/pgDb"
-import { getAdminUserFromRequest, getAdminRoleFromRequest } from "@/lib/authHelper"
+import { getSession } from "@/lib/authHelper"
 import { sendWebPushNotification } from "@/lib/serverPush"
 import { invalidateApprovalsCache } from "@/app/api/approvals/route"
 import { invalidateNotificationsCache } from "@/app/api/notifications/route"
@@ -16,8 +16,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: "ID permintaan verifikasi tidak valid" }, { status: 400 })
     }
 
-    const rejectingAdmin = getAdminUserFromRequest(req)
-    const userRole = getAdminRoleFromRequest(req)
+    const session = await getSession(req)
+    if (!session || !session.username) {
+      return NextResponse.json({ error: "Akses Ditolak: Sesi tidak valid atau belum login." }, { status: 401 })
+    }
+
+    const rejectingAdmin = session.username
+    const userRole = session.role
 
     if (userRole === "KARYAWAN") {
       return NextResponse.json({

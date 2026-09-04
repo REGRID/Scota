@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getAdminUserFromRequest } from "@/lib/authHelper"
+import { getSession } from "@/lib/authHelper"
 import { sendWebPushNotification } from "@/lib/serverPush"
 import { invalidateReceiptsListCache } from "@/app/api/receipts/route"
 import { invalidateApprovalsCache } from "@/app/api/approvals/route"
@@ -82,7 +82,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
-    const adminUser = getAdminUserFromRequest(req)
+    const session = await getSession(req)
+    if (!session || !session.username) {
+      return NextResponse.json({ error: "Sesi tidak valid atau belum login. Silakan login terlebih dahulu." }, { status: 401 })
+    }
+
+    const adminUser = session.username
     const body = await req.json()
     const { date, items, merchantName, subtotal, discountAmount, taxAmount, totalAmount, paymentMethod, paymentStatus, note, imageUrl } = body
 
@@ -230,7 +235,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
-    const adminUser = getAdminUserFromRequest(req)
+    const session = await getSession(req)
+    if (!session || !session.username) {
+      return NextResponse.json({ error: "Sesi tidak valid atau belum login. Silakan login terlebih dahulu." }, { status: 401 })
+    }
+
+    const adminUser = session.username
 
     invalidateReceiptsListCache()
     invalidateApprovalsCache()

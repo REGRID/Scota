@@ -81,13 +81,12 @@ export function AdminLoginScreen({
         throw new Error(data.error || "ID Pengguna atau Password salah.")
       }
 
-      if (data.token) {
-        localStorage.setItem("nota_admin_token", data.token)
+      if (data.user?.username || loginUsername.trim()) {
         localStorage.setItem("nota_admin_user", data.user?.username || loginUsername.trim())
-        localStorage.setItem("nota_admin_role", "ADMIN")
+        localStorage.setItem("nota_admin_role", data.user?.role || "ADMIN")
       }
 
-      onLoginSuccess(data.token, data.user?.username || loginUsername.trim())
+      onLoginSuccess(data.token || "", data.user?.username || loginUsername.trim())
     } catch (err: any) {
       setErrorMessage(err.message || "Gagal masuk ke sistem.")
     } finally {
@@ -133,15 +132,14 @@ export function AdminLoginScreen({
         throw new Error(data.error || "Gagal mendaftarkan akun.")
       }
 
-      if (data.token) {
-        localStorage.setItem("nota_admin_token", data.token)
+      if (data.user?.username || regUsername.trim()) {
         localStorage.setItem("nota_admin_user", data.user?.username || regUsername.trim())
         localStorage.setItem("nota_admin_role", "ADMIN")
       }
 
       setSuccessMessage("Pendaftaran berhasil! Mengaktifkan Free Trial 14 hari Anda...")
       setTimeout(() => {
-        onLoginSuccess(data.token, data.user?.username || regUsername.trim())
+        onLoginSuccess(data.token || "", data.user?.username || regUsername.trim())
       }, 500)
     } catch (err: any) {
       setErrorMessage(err.message || "Gagal mendaftar akun.")

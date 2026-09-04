@@ -279,7 +279,6 @@ export function MainApp({
 
   // Initial Auth Check on Mount
   useEffect(() => {
-    const localToken = typeof window !== "undefined" ? localStorage.getItem("nota_admin_token") : null
     const localUser = typeof window !== "undefined" ? localStorage.getItem("nota_admin_user") : null
     const localStaff = typeof window !== "undefined" ? localStorage.getItem("nota_staff_name") : null
     if (localStaff) setStaffName(localStaff)
@@ -288,10 +287,6 @@ export function MainApp({
       const key = `nota_active_tab_${localUser.toLowerCase()}`
       const savedTab = localStorage.getItem(key) || localStorage.getItem("nota_active_tab")
       if (savedTab === "scan" || savedTab === "history") setActiveTab(savedTab as "scan" | "history")
-    }
-
-    if (localToken && initialView !== "landing") {
-      setShowLanding(false)
     }
 
     const checkSession = async () => {
@@ -306,22 +301,9 @@ export function MainApp({
             return
           }
         }
-
-        if (localToken) {
-          setIsAuthenticated(true)
-          if (localUser) setAdminUser(localUser)
-          if (initialView !== "landing") setShowLanding(false)
-          return
-        }
-
         setIsAuthenticated(false)
       } catch {
-        if (localToken) {
-          setIsAuthenticated(true)
-          if (initialView !== "landing") setShowLanding(false)
-        } else {
-          setIsAuthenticated(false)
-        }
+        setIsAuthenticated(false)
       }
     }
 

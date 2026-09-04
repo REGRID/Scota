@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
-import { validateAdminCredentials, updateAdminPassword } from "@/lib/adminAccounts"
+import { validateAdminCredentials, updateAdminPassword, getUserAccountDetails } from "@/lib/adminAccounts"
+import { createSessionToken } from "@/lib/session"
 
 export async function POST(req: NextRequest) {
   try {
@@ -29,17 +30,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Gagal memperbarui password di database" }, { status: 500 })
     }
 
-    const newToken = Buffer.from(`${cleanUser}:${cleanNew}:nota_session_secret`).toString("base64")
+    const account = await getUserAccountDetails(cleanUser)
+    const sessionToken = await createSessionToken({
+      username: cleanUser,
+      role: account?.role || "ADMIN",
+    })
 
     const response = NextResponse.json({
       success: true,
       message: `Password untuk ID "${cleanUser}" berhasil diperbarui!`,
-      token: newToken,
     })
 
     response.cookies.set({
       name: "nota_admin_session",
-      value: newToken,
+      value: sessionToken,
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",

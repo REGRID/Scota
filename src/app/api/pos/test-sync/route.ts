@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
     // Kirim payload uji coba kecil
     const testResult = await syncReceiptToPos({
       receiptId: "TEST-PING-" + Date.now(),
-      merchantName: "Nota Photo Studio Test Sync",
+      merchantName: "Scota Studio Test Sync",
       date: new Date().toISOString().split("T")[0],
       totalAmount: 50000,
       subtotal: 50000,

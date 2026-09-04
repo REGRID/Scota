@@ -243,7 +243,7 @@ export async function testBackgroundPushNotification(delaySeconds = 5): Promise<
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        title: "Nota Photo: Pengujian Notifikasi HP",
+        title: "Scota: Pengujian Notifikasi HP",
         message: "Notifikasi berhasil muncul di bilah notifikasi HP Anda meski aplikasi tertutup!",
         delaySeconds,
       }),

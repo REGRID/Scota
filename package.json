@@ -1,12 +1,11 @@
 {
-  "name": "nota-photo",
+  "name": "scota",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "start:local": "node scripts/start-nota.js",
     "db:setup": "node scripts/setup-supabase.js",
     "lint": "eslint"
   },

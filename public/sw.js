@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nota-photo-v3';
+const CACHE_NAME = 'scota-v1';
 const ASSETS_TO_CACHE = [
   '/',
   '/manifest.json',
@@ -135,7 +135,7 @@ self.addEventListener('message', (event) => {
       icon: '/icon-192.png',
       badge: '/icon-192.png',
       vibrate: [300, 100, 300],
-      tag: 'nota-photo-notification',
+      tag: 'scota-notification',
       renotify: true,
       ...options
     });

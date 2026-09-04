@@ -30,8 +30,8 @@ export interface PosSyncPayload {
   items: PosReceiptItem[]
 }
 
-const DEFAULT_POS_WEBHOOK_URL = process.env.POS_WEBHOOK_URL || "http://localhost:3001/api/webhooks/nota-approved"
-const POS_WEBHOOK_SECRET = process.env.POS_WEBHOOK_SECRET || "nota_photo_pos_secret_key_2026"
+const DEFAULT_POS_WEBHOOK_URL = process.env.POS_WEBHOOK_URL || "http://localhost:3001/api/webhooks/scota-approved"
+const POS_WEBHOOK_SECRET = process.env.POS_WEBHOOK_SECRET || "scota_pos_secret_key_2026"
 
 export async function syncReceiptToPos(payload: PosSyncPayload): Promise<{ success: boolean; message: string; data?: any }> {
   try {
@@ -45,7 +45,7 @@ export async function syncReceiptToPos(payload: PosSyncPayload): Promise<{ succe
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${POS_WEBHOOK_SECRET}`,
-        "x-source-app": "nota-photo",
+        "x-source-app": "scota",
       },
       body: JSON.stringify(payload),
       signal: controller.signal,

@@ -1392,7 +1392,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
       // Metadata Info Rows
       const metadataRows: { label: string; value: string; isHighlight?: boolean }[] = [
         { label: "Periode Data", value: `${statementDateRange.from} s/d ${statementDateRange.to}` },
-        { label: "No. Registrasi", value: "140008801996 - NOTA PHOTO PEMBUKUAN" },
+        { label: "No. Registrasi", value: "140008801996 - SCOTA PEMBUKUAN" },
         { label: "Kategori Utama", value: `${selectedCategory}${isSubCategoryActive ? ` (${selectedSubCategory})` : ""}` },
         {
           label: "Metode Bayar",
@@ -3256,7 +3256,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                     <div className="flex items-center gap-1.5">
                       <span className="w-28 text-slate-500 font-normal">No. Registrasi</span>
                       <span>:</span>
-                      <span className="font-bold font-mono">140008801996 - NOTA PHOTO PEMBUKUAN</span>
+                      <span className="font-bold font-mono">140008801996 - SCOTA PEMBUKUAN</span>
                     </div>
 
                     <div className="flex items-center gap-1.5">
@@ -3318,9 +3318,9 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                 {/* Right Logo Brand */}
                 <div className="flex items-center gap-1.5 text-blue-900 font-black text-lg tracking-tighter shrink-0 pt-0.5">
                   <div className="w-7 h-7 rounded-lg bg-blue-800 text-white flex items-center justify-center font-bold text-xs">
-                    NP
+                    SC
                   </div>
-                  <span>nota-photo</span>
+                  <span>scota</span>
                 </div>
               </div>
 

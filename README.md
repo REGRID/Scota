@@ -1,4 +1,6 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Scota — Digitalisasi Struk & Pembukuan Otomatis
+
+Platform Scota - Digitalisasi Struk, Faktur, & Pembukuan Pengeluaran Otomatis untuk Semua Jenis Bisnis, Toko, Kantor & UMKM.
 
 ## Getting Started
 

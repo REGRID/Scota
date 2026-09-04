@@ -16,8 +16,19 @@ export function getPgPool(): Pool | null {
   if (!isDatabaseConfigured) {
     return null
   }
-  if (!globalPool) {
-    const isSslRequired = process.env.NODE_ENV === "production" || connectionString.includes("sslmode=require") || connectionString.includes(".cloud")
+    const isSslExplicitlyDisabled =
+      connectionString.includes("sslmode=disable") ||
+      connectionString.includes("sumobase.my.id") ||
+      connectionString.includes("localhost") ||
+      connectionString.includes("127.0.0.1") ||
+      process.env.DB_SSL === "false"
+
+    const isSslRequired =
+      !isSslExplicitlyDisabled &&
+      (connectionString.includes("sslmode=require") ||
+        connectionString.includes("supabase.co") ||
+        connectionString.includes(".pooler.supabase.com") ||
+        (process.env.NODE_ENV === "production" && !connectionString.includes(".my.id")))
     globalPool = new Pool({
       connectionString: cleanUrl || connectionString,
       ssl: isSslRequired ? { rejectUnauthorized: false } : undefined,

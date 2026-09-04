@@ -49,6 +49,7 @@ import {
 } from "lucide-react"
 import { TIER_CONFIG, SubscriptionTier } from "@/lib/subscription"
 import { compressImageBase64 } from "@/lib/ocr"
+import { getSupportWhatsAppNumber } from "@/lib/contactConfig"
 
 interface IntroductionDashboardProps {
   onEnterApp: (options?: { mode?: "login" | "register"; tier?: SubscriptionTier }) => void
@@ -125,33 +126,33 @@ export function IntroductionDashboard({
 
   const businessTypes = [
     { name: "Toko & Ritel", icon: Store, desc: "Struk supplier & kasir" },
-    { name: "Kantor & Perusahaan", icon: Briefcase, desc: "Klaim reimbursement & ATK" },
-    { name: "Resto, Cafe & F&B", icon: Coffee, desc: "Belanja bahan & perlengkapan" },
-    { name: "Studio & Agensi", icon: Camera, desc: "Aset, sewa & freelance" },
-    { name: "Bengkel & Jasa", icon: Wrench, desc: "Sparepart & alat kerja" },
-    { name: "Logistik & Olshop", icon: Truck, desc: "Ongkir, bensin & packaging" },
+    { name: "Kantor & Bisnis", icon: Briefcase, desc: "Klaim & biaya operasional" },
+    { name: "Resto & Kafe", icon: Coffee, desc: "Belanja bahan baku" },
+    { name: "Studio & Agensi", icon: Camera, desc: "Sewa alat & operasional" },
+    { name: "Bengkel & Servis", icon: Wrench, desc: "Suku cadang & perkakas" },
+    { name: "Logistik & Olshop", icon: Truck, desc: "Ongkir & kemasan paket" },
   ]
 
   const faqs = [
     {
-      q: "Apakah bisa digunakan untuk semua jenis bisnis dan usaha?",
-      a: "Tentu saja! Scota dirancang universal untuk segala jenis usaha: Toko Ritel, Kantor/Perusahaan, Resto & Cafe, Agensi & Studio Kreatif, Bengkel, Kontraktor, Ekspedisi, hingga UMKM & Freelancer.",
+      q: "Apakah cocok untuk semua jenis usaha?",
+      a: "Ya. Scota dirancang untuk toko ritel, restoran, kantor, studio kreatif, bengkel, logistik, hingga UMKM dan pekerja lepas.",
     },
     {
-      q: "Apakah sistem dapat membaca bon tulisan tangan atau struk kasir thermal?",
-      a: "Ya! Pemindai visual kami terlatih membaca berbagai format: struk kasir thermal minimarket/supermarket, bon faktur kertas pasar, kuitansi tulis tangan, hingga invoice digital PDF.",
+      q: "Bisa membaca struk thermal dan bon tulis tangan?",
+      a: "Bisa. Sistem membaca struk thermal kasir, bon faktur kertas, kuitansi tulisan tangan, hingga invoice digital PDF.",
     },
     {
-      q: "Bagaimana sistem langganan & aktivasi lisensinya?",
-      a: "Pilih paket bulanan atau tahunan yang sesuai dengan kebutuhan kuota nota usaha Anda. Setelah konfirmasi, Anda akan menerima Kunci Lisensi resmi yang langsung aktif tanpa instalasi software rumit.",
+      q: "Bagaimana cara aktivasi lisensinya?",
+      a: "Pilih paket bulanan atau tahunan. Lisensi langsung aktif seketika tanpa perlu instalasi aplikasi tambahan.",
     },
     {
-      q: "Apakah laporan ekspor bisa memakai Nama & Logo Bisnis saya sendiri?",
-      a: "Pasti! Anda bebas mengatur Nama Usaha, Logo, Alamat, dan Catatan Resmi di profil bisnis. Setiap ekspor dokumen PDF dan Excel akan otomatis menggunakan branding usaha Anda.",
+      q: "Bisa menggunakan nama dan logo usaha sendiri?",
+      a: "Bisa. Identitas usaha, logo, dan kop surat otomatis tercetak pada dokumen ekspor PDF dan Excel.",
     },
     {
-      q: "Bisa dipakai di HP, Tablet kasir, dan Laptop sekaligus?",
-      a: "Bisa! Aplikasi ini berbasis Progressive Web App (PWA) modern yang ringan dan responsif, dapat diakses dari browser HP Android/iOS, tablet kasir toko, maupun laptop akunting Anda.",
+      q: "Dapat diakses dari HP, tablet, dan laptop?",
+      a: "Bisa. Aplikasi berbasis web responsif (PWA), dapat diakses bersamaan melalui browser HP, tablet kasir, dan laptop.",
     },
   ]
 
@@ -160,17 +161,18 @@ export function IntroductionDashboard({
     const price = billingCycle === "yearly" ? plan.priceYearly : plan.priceMonthly
     const cycleText = billingCycle === "yearly" ? "Tahunan (Hemat 17%)" : "Bulanan"
     const message = encodeURIComponent(
-      `Halo Tim Scota, saya ingin berlangganan paket *${plan.name}* (${cycleText}) seharga Rp ${price.toLocaleString("id-ID")}. Mohon info prosedur aktivasi lisensi untuk usaha kami.`
+      `Halo Tim Scota, saya ingin memesan paket *${plan.name}* (${cycleText}) seharga Rp ${price.toLocaleString("id-ID")}. Mohon info aktivasi lisensinya.`
     )
-    window.open(`https://wa.me/6281234567890?text=${message}`, "_blank")
+    const phone = getSupportWhatsAppNumber()
+    window.open(`https://wa.me/${phone}?text=${message}`, "_blank")
   }
 
   const navItems = [
     { id: "simulasi", label: "Simulasi" },
-    { id: "jenis-usaha", label: "Semua Usaha" },
+    { id: "jenis-usaha", label: "Sektor Usaha" },
     { id: "komparasi", label: "Komparasi" },
     { id: "fitur", label: "Fitur" },
-    { id: "harga", label: "Harga" },
+    { id: "harga", label: "Paket Harga" },
     { id: "faq", label: "FAQ" },
   ]
 
@@ -179,7 +181,7 @@ export function IntroductionDashboard({
     setActiveSection(id)
     const el = document.getElementById(id)
     if (el) {
-      const yOffset = -75 // Height offset for sticky navbar
+      const yOffset = -75
       const y = el.getBoundingClientRect().top + window.pageYOffset + yOffset
       window.scrollTo({ top: y, behavior: "smooth" })
     }
@@ -191,7 +193,7 @@ export function IntroductionDashboard({
     if (!file) return
 
     if (!file.type.startsWith("image/") && file.type !== "application/pdf") {
-      setScanError("Silakan pilih file gambar (JPG, PNG, atau WEBP).")
+      setScanError("Pilih berkas gambar (JPG, PNG, WEBP) atau PDF.")
       return
     }
 
@@ -202,7 +204,6 @@ export function IntroductionDashboard({
     setSelectedReceiptType("custom")
     setCustomParsedData(null)
 
-    // Convert and compress to optimized base64 Data URL for instant OCR processing
     const reader = new FileReader()
     reader.onload = async () => {
       const rawBase64 = reader.result as string
@@ -216,7 +217,7 @@ export function IntroductionDashboard({
       }
     }
     reader.onerror = () => {
-      setScanError("Gagal membaca file gambar. Silakan coba unggah ulang.")
+      setScanError("Gagal membaca gambar. Silakan coba lagi.")
     }
     reader.readAsDataURL(file)
   }
@@ -232,7 +233,7 @@ export function IntroductionDashboard({
     setSimStep(2)
 
     try {
-      setScanProgressMessage("Membaca & mengekstrak data nota...")
+      setScanProgressMessage("Mengekstrak data nota...")
 
       let res: Response
       if (base64Data) {
@@ -271,12 +272,12 @@ export function IntroductionDashboard({
         })
         setScanError(null)
       } else {
-        const errMsg = data?.message || data?.error || "Gagal mengekstrak foto nota. Pastikan gambar jelas dan tidak buram."
+        const errMsg = data?.message || data?.error || "Gagal membaca nota. Pastikan foto jelas dan tidak buram."
         setScanError(errMsg)
       }
     } catch (err: any) {
       console.error("Scan error:", err)
-      setScanError(err.message || "Gagal memproses struk melalui server OCR.")
+      setScanError(err.message || "Gagal memproses nota.")
     } finally {
       setIsScanningCustom(false)
       setScanProgressMessage("")
@@ -324,7 +325,7 @@ export function IntroductionDashboard({
             />
           </div>
 
-          {/* Nav Links (Desktop) with Dynamic Active Scrollspy - Absolutely Centered */}
+          {/* Nav Links (Desktop) */}
           <div className="hidden md:flex absolute left-1/2 -translate-x-1/2 items-center gap-1.5 text-xs z-10">
             {navItems.map((item) => {
               const isActive = activeSection === item.id
@@ -347,84 +348,78 @@ export function IntroductionDashboard({
 
           {/* Action CTA */}
           <div className="flex items-center gap-2 sm:gap-3 z-10">
-            <button
-              onClick={() => onEnterApp({ mode: "login" })}
+            <Link
+              href="/login"
               className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-900 border border-transparent hover:border-slate-800 transition-all cursor-pointer"
             >
               Masuk
-            </button>
-            <button
-              onClick={() => onEnterApp({ mode: "register", tier: "trial" })}
+            </Link>
+            <Link
+              href="/register"
               className="inline-flex items-center gap-2 px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-slate-950 font-black text-xs sm:text-sm transition-all shadow-lg shadow-emerald-500/25 active:scale-98 cursor-pointer"
             >
-              <span>Daftar</span>
+              <span>Daftar Gratis</span>
               <ArrowRight className="w-4 h-4" />
-            </button>
+            </Link>
           </div>
         </div>
       </nav>
 
       {/* 2. HERO SECTION */}
-      <section className="relative overflow-hidden pt-12 pb-16 sm:pt-16 sm:pb-24 border-b border-slate-900">
-        {/* Ambient Backlight Glow */}
-        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[650px] h-[320px] bg-emerald-500/15 rounded-full blur-[130px] pointer-events-none" />
-        <div className="absolute top-1/2 right-10 w-96 h-96 bg-teal-500/10 rounded-full blur-[100px] pointer-events-none" />
+      <section className="relative overflow-hidden pt-14 pb-16 sm:pt-20 sm:pb-24 border-b border-slate-900">
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[350px] bg-emerald-500/12 rounded-full blur-[140px] pointer-events-none" />
+        <div className="absolute top-1/2 right-10 w-96 h-96 bg-teal-500/10 rounded-full blur-[110px] pointer-events-none" />
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-3xl mx-auto space-y-4">
-            {/* Eyebrow badge */}
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900 border border-slate-700 text-emerald-400 text-xs font-extrabold tracking-wide uppercase shadow-inner">
-              <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-              Platform Digitalisasi Struk & Faktur Bisnis #1
-            </div>
-
+          <div className="text-center max-w-4xl mx-auto space-y-6 sm:space-y-7">
             {/* Main Headline */}
-            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-white tracking-tight leading-tight">
-              Otomatisasi Pembukuan & Scan Nota untuk Semua Jenis Usaha
+            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-white tracking-tight leading-[1.14] text-balance">
+              Otomatisasi Pembukuan & Scan Nota<br className="hidden sm:inline" /> untuk Semua Jenis Usaha
             </h1>
 
-            {/* Subtext highlighting Spreadsheet pain points */}
-            <p className="text-sm sm:text-base text-slate-300 font-medium leading-relaxed max-w-2xl mx-auto">
-              Tinggalkan input manual satu per satu di spreadsheet yang rawan terhapus dan membuang waktu. Cukup foto nota fisik, sistem otomatis mengekstrak rincian barang, nominal, dan merekapitulasi pembukuan dalam hitungan detik.
+            {/* Subtext */}
+            <p className="text-sm sm:text-base md:text-lg text-slate-300 font-normal leading-relaxed max-w-2xl mx-auto text-balance">
+              Tinggalkan input manual. Cukup foto nota, Scota otomatis merekap pembukuan bisnis Anda.
             </p>
 
             {/* CTAs */}
-            <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
-              <button
-                onClick={() => onEnterApp({ mode: "register", tier: "trial" })}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-slate-950 font-black text-sm transition-all shadow-xl shadow-emerald-500/30 active:scale-98 cursor-pointer"
+            <div className="pt-2 sm:pt-3 flex flex-col sm:flex-row items-center justify-center gap-3.5">
+              <Link
+                href="/register"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-7 py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-slate-950 font-black text-sm transition-all shadow-xl shadow-emerald-500/25 hover:shadow-emerald-500/35 hover:-translate-y-0.5 active:scale-98 cursor-pointer"
               >
-                <Zap className="w-4 h-4 text-slate-950" />
-                <span>Mulai Uji Coba Gratis 14 Hari</span>
-              </button>
+                <Zap className="w-4 h-4 text-slate-950 fill-slate-950" />
+                <span>Coba Gratis 14 Hari</span>
+              </Link>
 
-              <a
-                href="#harga"
-                onClick={(e) => scrollToSection(e, "harga")}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 font-bold text-sm transition-all cursor-pointer"
+              <Link
+                href="/pricing"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-7 py-3.5 rounded-2xl bg-slate-900/90 hover:bg-slate-800 text-slate-200 border border-slate-700/80 hover:border-slate-600 font-bold text-sm transition-all hover:-translate-y-0.5 cursor-pointer shadow-md"
               >
                 <Receipt className="w-4 h-4 text-emerald-400" />
-                <span>Lihat Paket Langganan</span>
-              </a>
+                <span>Lihat Paket Harga</span>
+              </Link>
             </div>
 
             {/* Trust Micro-Metrics */}
-            <div className="pt-6 flex flex-wrap items-center justify-center gap-6 text-xs text-slate-400 font-semibold">
-              <span className="flex items-center gap-1.5">
-                <Check className="w-4 h-4 text-emerald-400" /> Cocok untuk Semua Bisnis
+            <div className="pt-6 sm:pt-7 flex flex-wrap items-center justify-center gap-y-2 gap-x-6 sm:gap-x-8 text-xs sm:text-sm text-slate-400 font-medium">
+              <span className="inline-flex items-center gap-2">
+                <Check className="w-4 h-4 text-emerald-400 stroke-[2.5]" /> Semua Jenis Usaha
               </span>
-              <span className="flex items-center gap-1.5">
-                <Check className="w-4 h-4 text-emerald-400" /> Multi-Role Kasir & Admin
+              <span className="hidden sm:inline text-slate-700">•</span>
+              <span className="inline-flex items-center gap-2">
+                <Check className="w-4 h-4 text-emerald-400 stroke-[2.5]" /> Multi-Akses Kasir & Admin
               </span>
-              <span className="flex items-center gap-1.5">
-                <Check className="w-4 h-4 text-emerald-400" /> Ekspor PDF & Excel Branding Usaha
+              <span className="hidden sm:inline text-slate-700">•</span>
+              <span className="inline-flex items-center gap-2">
+                <Check className="w-4 h-4 text-emerald-400 stroke-[2.5]" /> Ekspor PDF & Excel Resmi
               </span>
             </div>
           </div>
 
           {/* 3. LIVE INTERACTIVE SCANNER & UPLOAD SIMULATOR */}
           <div id="simulasi" className="scroll-mt-24 mt-12 max-w-4xl mx-auto bg-slate-900/90 border border-slate-800 rounded-3xl p-4 sm:p-6 shadow-2xl backdrop-blur-md">
-            {/* Header Simulator & Tab Selector */}
+            {/* Header Simulator */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-4 border-b border-slate-800">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-xs shrink-0">
@@ -432,19 +427,19 @@ export function IntroductionDashboard({
                 </div>
                 <div>
                   <h3 className="text-sm sm:text-base font-black text-white flex items-center gap-2">
-                    Live Simulator: Coba Scan Nota Sekarang
+                    Coba Scan Nota Sekarang
                     <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                      Interaktif
+                      Demo Langsung
                     </span>
                   </h3>
                   <p className="text-xs text-slate-400">
-                    Pindai foto nota atau bon pengeluaran secara langsung untuk melihat sistem mengekstrak data secara otomatis.
+                    Unggah foto nota untuk melihat ekstraksi data otomatis.
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* Hidden File Inputs for Specific Sources */}
+            {/* Hidden File Inputs */}
             <input
               ref={cameraInputRef}
               type="file"
@@ -468,15 +463,13 @@ export function IntroductionDashboard({
               onChange={handleFileChange}
             />
 
-            {/* Viewport: Full Width Upload Hero on Default, Split Grid when Active */}
+            {/* Viewport */}
             {!uploadedImage && !isScanningCustom && !customParsedData && !scanError ? (
-              /* A. FULL-WIDTH SPACIOUS HERO UPLOAD DROPZONE */
               <div className="pt-6">
                 <div
                   onClick={() => setShowSourceModal(true)}
                   className="bg-slate-950/80 rounded-3xl p-6 sm:p-12 border-2 border-dashed border-slate-800 hover:border-emerald-500/50 transition-all text-center space-y-6 relative overflow-hidden shadow-2xl group cursor-pointer"
                 >
-                  {/* Subtle Background Glow */}
                   <div className="absolute inset-0 bg-gradient-to-b from-emerald-500/5 via-transparent to-transparent pointer-events-none" />
 
                   <div className="space-y-4 relative z-10">
@@ -486,10 +479,10 @@ export function IntroductionDashboard({
 
                     <div className="space-y-1.5 max-w-xl mx-auto">
                       <h3 className="text-lg sm:text-2xl font-black text-white tracking-tight">
-                        Unggah atau Potret Foto Nota Sekarang
+                        Unggah atau Foto Nota
                       </h3>
                       <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
-                        Pindai struk kasir thermal, bon belanja toko, kuitansi kertas, atau faktur PDF untuk mengekstrak seluruh data nominal & item secara otomatis.
+                        Mendukung struk thermal kasir, bon belanja, dan faktur PDF.
                       </p>
                     </div>
 
@@ -506,8 +499,8 @@ export function IntroductionDashboard({
                         <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center group-hover/btn:bg-emerald-500 group-hover/btn:text-slate-950 transition-colors">
                           <Camera className="w-5 h-5" />
                         </div>
-                        <span className="text-xs sm:text-sm font-black text-white">Ambil via Kamera</span>
-                        <span className="text-[10.5px] text-slate-400">Potret langsung nota fisik</span>
+                        <span className="text-xs sm:text-sm font-black text-white">Kamera</span>
+                        <span className="text-[10.5px] text-slate-400">Foto nota langsung</span>
                       </button>
 
                       <button
@@ -518,8 +511,8 @@ export function IntroductionDashboard({
                         <div className="w-10 h-10 rounded-xl bg-teal-500/20 text-teal-400 flex items-center justify-center group-hover/btn:bg-teal-500 group-hover/btn:text-slate-950 transition-colors">
                           <ImageIcon className="w-5 h-5" />
                         </div>
-                        <span className="text-xs sm:text-sm font-black text-white">Pilih dari Galeri</span>
-                        <span className="text-[10.5px] text-slate-400">Foto struk di album HP/PC</span>
+                        <span className="text-xs sm:text-sm font-black text-white">Galeri</span>
+                        <span className="text-[10.5px] text-slate-400">Pilih dari galeri</span>
                       </button>
 
                       <button
@@ -530,140 +523,128 @@ export function IntroductionDashboard({
                         <div className="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center group-hover/btn:bg-purple-500 group-hover/btn:text-slate-950 transition-colors">
                           <FileText className="w-5 h-5" />
                         </div>
-                        <span className="text-xs sm:text-sm font-black text-white">Upload Dokumen / PDF</span>
-                        <span className="text-[10.5px] text-slate-400">Berkas faktur & nota PDF</span>
+                        <span className="text-xs sm:text-sm font-black text-white">Dokumen PDF</span>
+                        <span className="text-[10.5px] text-slate-400">Unggah berkas invoice</span>
                       </button>
                     </div>
 
                     {/* Feature Trust Pills */}
                     <div className="pt-4 border-t border-slate-800/80 flex flex-wrap items-center justify-center gap-4 sm:gap-8 text-[11px] text-slate-400">
                       <span className="flex items-center gap-1.5 font-medium">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Ekstraksi Kilat ~1.5 Detik
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Ekstraksi Real-Time Presisi
                       </span>
                       <span className="flex items-center gap-1.5 font-medium">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Akurasi 99.8% Multi-Barang
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Akurasi 99.8%
                       </span>
                       <span className="flex items-center gap-1.5 font-medium">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Otomatis Masuk Pembukuan Usaha
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Rekapitulasi Otomatis
                       </span>
                     </div>
                   </div>
                 </div>
               </div>
             ) : (
-              /* B. 2-COLUMN SPLIT RESULTS VIEW */
               <div className="pt-6 grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
-                {/* LEFT COLUMN: Input Receipt (Uploaded Image with Lightbox) */}
+                {/* LEFT COLUMN: Image Preview */}
                 <div className="bg-slate-950 rounded-2xl p-4 border border-slate-800 text-xs text-slate-300 space-y-3 relative overflow-hidden flex flex-col justify-between min-h-[340px]">
                   <div className="relative w-full h-full flex flex-col items-center justify-between space-y-3">
-                    {/* Clickable Image Container with Hover Zoom & Tooltip */}
                     <div
                       onClick={handleOpenLightbox}
                       className="relative w-full h-64 sm:h-72 rounded-2xl overflow-hidden border border-slate-800 bg-slate-900/90 flex items-center justify-center cursor-pointer group select-none shadow-inner"
-                      title="Klik untuk melihat foto lebih jelas & perbesar"
+                      title="Klik untuk memperbesar"
                     >
                       <img
                         src={uploadedImage || ""}
-                        alt="Foto Nota Terunggah"
+                        alt="Foto Nota"
                         className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
                       />
 
-                      {/* Top Left Badge: Original Verified Photo */}
                       <div className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-xl bg-slate-950/80 backdrop-blur-md border border-emerald-500/40 text-emerald-400 text-[10px] font-black flex items-center gap-1.5 shadow-md">
                         <CheckCircle2 className="w-3.5 h-3.5" />
-                        <span>Foto Nota Terlampir</span>
+                        <span>Foto Nota</span>
                       </div>
 
-                      {/* Hover Center Pill for Detail/Zoom */}
                       <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
                         <div className="px-4 py-2 rounded-2xl bg-slate-900/95 backdrop-blur-md border border-emerald-500/50 text-white text-xs font-bold shadow-2xl flex items-center gap-2 transform translate-y-1 group-hover:translate-y-0 transition-transform">
                           <Maximize2 className="w-4 h-4 text-emerald-400" />
-                          <span>Klik untuk Perbesar & Detail</span>
+                          <span>Perbesar</span>
                         </div>
                       </div>
 
-                      {/* Animated Laser Scan Bar */}
                       {isScanningCustom && (
                         <div className="absolute inset-x-0 h-1 bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-400 shadow-[0_0_15px_#10b981] animate-bounce top-0" />
                       )}
 
-                      {/* Delete / Reset Button Top-Right */}
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
                           handleResetCustomUpload()
                         }}
                         className="absolute top-2.5 right-2.5 p-2 rounded-xl bg-slate-950/80 hover:bg-red-500 text-slate-400 hover:text-white border border-slate-700 transition-all cursor-pointer z-10 shadow-md"
-                        title="Hapus / Ganti Foto Nota"
+                        title="Ganti foto nota"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
 
-                    {/* Friendly Bottom Toolbar */}
                     <div className="w-full pt-1 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400">
                       <button
                         onClick={handleOpenLightbox}
                         className="text-emerald-400 hover:text-emerald-300 font-bold flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 transition-all cursor-pointer"
                       >
                         <Eye className="w-3.5 h-3.5" />
-                        <span>Lihat Foto Lebih Jelas</span>
+                        <span>Lihat Detail</span>
                       </button>
 
                       <div className="flex items-center gap-1.5">
                         <button
                           onClick={() => cameraInputRef.current?.click()}
                           className="px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 font-medium flex items-center gap-1 cursor-pointer transition-all"
-                          title="Ambil foto ulang via kamera"
                         >
                           <Camera className="w-3 h-3 text-emerald-400" /> Kamera
                         </button>
                         <button
                           onClick={() => galleryInputRef.current?.click()}
                           className="px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 font-medium flex items-center gap-1 cursor-pointer transition-all"
-                          title="Pilih foto dari galeri"
                         >
                           <ImageIcon className="w-3 h-3 text-teal-400" /> Galeri
                         </button>
                         <button
                           onClick={() => docInputRef.current?.click()}
                           className="px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 font-medium flex items-center gap-1 cursor-pointer transition-all"
-                          title="Pilih file dokumen/PDF"
                         >
-                          <FileText className="w-3 h-3 text-purple-400" /> Dokumen
+                          <FileText className="w-3 h-3 text-purple-400" /> PDF
                         </button>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* RIGHT COLUMN: Auto-Categorization Extraction Output */}
+                {/* RIGHT COLUMN: Results */}
                 <div className="bg-slate-950/70 rounded-2xl p-4 sm:p-5 border border-slate-800 space-y-3 flex flex-col justify-between">
                   <div>
                     <div className="flex items-center justify-between pb-3 border-b border-slate-800/80">
                       <span className="text-xs font-black text-white flex items-center gap-1.5">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Hasil Ekstraksi Otomatis
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Hasil Ekstraksi
                       </span>
                       <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                         Akurasi 99.8%
                       </span>
                     </div>
 
-                    {/* Scanning In-Progress Feedback */}
                     {isScanningCustom ? (
                       <div className="py-14 flex flex-col items-center justify-center text-center space-y-3">
                         <Loader2 className="w-9 h-9 text-emerald-400 animate-spin" />
                         <div className="space-y-1">
-                          <strong className="block text-sm text-white font-bold">Sedang Membaca & Mengekstrak Nota...</strong>
+                          <strong className="block text-sm text-white font-bold">Membaca Nota...</strong>
                           <p className="text-xs text-emerald-400 font-medium">{scanProgressMessage}</p>
                         </div>
                       </div>
                     ) : scanError ? (
-                      /* Error State with Retry */
                       <div className="py-8 px-4 flex flex-col items-center justify-center text-center space-y-3 bg-red-950/20 border border-red-500/30 rounded-2xl my-2">
                         <AlertCircle className="w-8 h-8 text-red-400" />
                         <div className="space-y-1">
-                          <strong className="block text-xs text-red-300 font-bold">Ekstraksi Nota Gagal</strong>
+                          <strong className="block text-xs text-red-300 font-bold">Gagal Ekstraksi</strong>
                           <p className="text-[11px] text-slate-400 leading-relaxed max-w-xs">{scanError}</p>
                         </div>
                         <button
@@ -671,13 +652,11 @@ export function IntroductionDashboard({
                           className="px-4 py-2 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/40 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
                         >
                           <RefreshCw className="w-3.5 h-3.5" />
-                          <span>Coba Pindai Ulang</span>
+                          <span>Pindai Ulang</span>
                         </button>
                       </div>
                     ) : customParsedData ? (
-                      /* Real Extracted Results from Upload */
                       <div className="space-y-2.5 pt-2">
-                        {/* Merchant Store Card Header */}
                         <div className="p-3 rounded-2xl bg-gradient-to-r from-emerald-950/40 via-slate-900 to-slate-900 border border-emerald-500/40 flex justify-between items-center text-xs shadow-md">
                           <div className="flex items-center gap-2.5">
                             <div className="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0">
@@ -685,15 +664,14 @@ export function IntroductionDashboard({
                             </div>
                             <div>
                               <strong className="block text-white text-sm font-black tracking-tight">{customParsedData.merchantName}</strong>
-                              <span className="text-[10px] text-slate-400 block mt-0.5">Tanggal Nota: <span className="text-emerald-400 font-mono font-bold">{customParsedData.date}</span></span>
+                              <span className="text-[10px] text-slate-400 block mt-0.5">Tanggal: <span className="text-emerald-400 font-mono font-bold">{customParsedData.date}</span></span>
                             </div>
                           </div>
                           <span className="text-[10px] px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 font-black border border-emerald-400/30 flex items-center gap-1">
-                            <Check className="w-3 h-3 text-emerald-400" /> Selesai
+                            <Check className="w-3 h-3 text-emerald-400" /> Terbaca
                           </span>
                         </div>
 
-                        {/* Item Rows with Smooth Scroll if Long */}
                         <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
                           {customParsedData.items.map((item, idx) => (
                             <div
@@ -722,7 +700,6 @@ export function IntroductionDashboard({
                           ))}
                         </div>
 
-                        {/* Total Pengeluaran Card */}
                         <div className="p-3 rounded-2xl bg-gradient-to-r from-emerald-950/80 via-slate-900 to-slate-900 border-2 border-emerald-500/60 flex justify-between items-center text-xs font-black text-white shadow-lg shadow-emerald-500/10">
                           <span className="text-slate-300 uppercase tracking-wider text-[11px]">TOTAL PENGELUARAN</span>
                           <span className="text-emerald-400 font-mono text-base sm:text-lg">
@@ -730,19 +707,17 @@ export function IntroductionDashboard({
                           </span>
                         </div>
 
-                        {/* Quick Action CTA Row */}
                         <div className="pt-1 flex flex-col sm:flex-row gap-2">
-                          <button
-                            onClick={() => onEnterApp({ mode: "register", tier: "trial" })}
+                          <Link
+                            href="/register"
                             className="flex-1 py-2.5 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-98 text-slate-950 font-black text-xs transition-all shadow-md shadow-emerald-500/25 flex items-center justify-center gap-1.5 cursor-pointer"
                           >
                             <ArrowRight className="w-3.5 h-3.5" />
-                            <span>Gunakan di Dashboard Scota</span>
-                          </button>
+                            <span>Buka di Dashboard</span>
+                          </Link>
                           <button
                             onClick={() => setShowSourceModal(true)}
                             className="py-2.5 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700 font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                            title="Pindai foto nota lainnya"
                           >
                             <RefreshCw className="w-3 h-3 text-emerald-400" />
                             <span>Pindai Nota Lain</span>
@@ -755,7 +730,7 @@ export function IntroductionDashboard({
                   <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
                     <span className="text-slate-400">Status Pembukuan:</span>
                     <span className="text-emerald-400 font-bold flex items-center gap-1">
-                      <CheckCircle2 className="w-3.5 h-3.5" /> Laporan & Rekapitulasi Terupdate
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Laporan Terbarui
                     </span>
                   </div>
                 </div>
@@ -769,9 +744,9 @@ export function IntroductionDashboard({
       <section id="jenis-usaha" className="scroll-mt-24 py-16 sm:py-20 border-b border-slate-900 bg-slate-950/40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
           <div className="text-center max-w-2xl mx-auto space-y-2">
-            <h2 className="text-xs font-black uppercase text-emerald-400 tracking-wider">Fleksibilitas Tanpa Batas</h2>
+            <h2 className="text-xs font-black uppercase text-emerald-400 tracking-wider">Sektor Usaha</h2>
             <p className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-              Satu Aplikasi untuk Semua Sektor Usaha
+              Cocok untuk Berbagai Jenis Usaha
             </p>
           </div>
 
@@ -801,15 +776,15 @@ export function IntroductionDashboard({
       <section id="komparasi" className="scroll-mt-24 py-16 sm:py-24 border-b border-slate-900 bg-slate-950/60">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
           <div className="text-center max-w-3xl mx-auto space-y-3">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-extrabold uppercase tracking-wide">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-extrabold uppercase tracking-wide">
               <AlertCircle className="w-3.5 h-3.5 text-red-400" />
-              Tinggalkan Cara Lama yang Lambat & Rawan Rusak
+              Komparasi Pembukuan
             </div>
             <h2 className="text-2xl sm:text-4xl font-black text-white tracking-tight">
-              Kenapa Harus Beralih dari Spreadsheet Manual?
+              Tinggalkan Cara Lama yang Menyita Waktu
             </h2>
             <p className="text-xs sm:text-sm text-slate-300 max-w-2xl mx-auto leading-relaxed">
-              Menginput nota satu per satu di Excel atau Google Sheets bukan hanya melelahkan dan membuang waktu, tapi juga menyimpan risiko finansial yang merugikan bisnis Anda.
+              Perbandingan pencatatan spreadsheet manual dengan otomatisasi Scota.
             </p>
           </div>
 
@@ -824,9 +799,9 @@ export function IntroductionDashboard({
                     </div>
                     <div>
                       <strong className="block text-sm sm:text-base font-black text-white">
-                        Spreadsheet Manual (Excel / Google Sheets)
+                        Spreadsheet Manual
                       </strong>
-                      <span className="text-[11px] text-red-400/90 font-bold">Rawan Human Error & Boros Waktu</span>
+                      <span className="text-[11px] text-red-400/90 font-bold">Rentan Salah & Boros Waktu</span>
                     </div>
                   </div>
                   <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-full bg-red-500/10 text-red-400 border border-red-500/30">
@@ -835,57 +810,52 @@ export function IntroductionDashboard({
                 </div>
 
                 <div className="space-y-4 text-xs">
-                  {/* Problem 1 */}
                   <div className="flex items-start gap-3 p-3 rounded-2xl bg-slate-950/60 border border-slate-800/80">
                     <XCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
                     <div>
-                      <strong className="text-white block font-bold">Input Manual Menghabiskan Waktu</strong>
+                      <strong className="text-white block font-bold">Input Manual Lambat</strong>
                       <p className="text-slate-400 text-[11px] leading-relaxed mt-0.5">
-                        Staf kasir atau akunting harus mengetik tanggal, nama toko, rincian barang, dan nominal satu per satu yang memakan 2–4 jam setiap minggunya.
+                        Mengetik nota satu per satu menyita waktu 2–4 jam per minggu.
                       </p>
                     </div>
                   </div>
 
-                  {/* Problem 2 */}
                   <div className="flex items-start gap-3 p-3 rounded-2xl bg-slate-950/60 border border-slate-800/80">
                     <XCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
                     <div>
-                      <strong className="text-white block font-bold">Banyak Akses Rawan Terhapus & Rumus Rusak</strong>
+                      <strong className="text-white block font-bold">Rumus Mudah Rusak</strong>
                       <p className="text-slate-400 text-[11px] leading-relaxed mt-0.5">
-                        Ketika banyak staf kasir/admin memiliki link sheet bersama, cell dan formula rumus rawan tertimpa, terhapus, atau salah ketik tanpa disadari.
+                        Penggunaan sheet bersama berisiko merusak formula dan menghapus data.
                       </p>
                     </div>
                   </div>
 
-                  {/* Problem 3 */}
                   <div className="flex items-start gap-3 p-3 rounded-2xl bg-slate-950/60 border border-slate-800/80">
                     <XCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
                     <div>
-                      <strong className="text-white block font-bold">Nota Fisik Sering Hilang & Tulisan Pudar</strong>
+                      <strong className="text-white block font-bold">Nota Kertas Cepat Hilang</strong>
                       <p className="text-slate-400 text-[11px] leading-relaxed mt-0.5">
-                        Struk kasir kertas thermal mudah pudar atau tercecer, menyulitkan proses audit dan verifikasi bukti fisik pengeluaran riil.
+                        Tinta struk thermal cepat pudar dan kertas bon mudah tercecer.
                       </p>
                     </div>
                   </div>
 
-                  {/* Problem 4 */}
                   <div className="flex items-start gap-3 p-3 rounded-2xl bg-slate-950/60 border border-slate-800/80">
                     <XCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
                     <div>
-                      <strong className="text-white block font-bold">Selisih Kas Kecil & Human Error</strong>
+                      <strong className="text-white block font-bold">Rentan Selisih Kas</strong>
                       <p className="text-slate-400 text-[11px] leading-relaxed mt-0.5">
-                        Salah memasukkan angka atau salah hitung diskon memicu selisih saldo kas (*petty cash*) yang sulit dilacak sumber kesalahannya.
+                        Salah ketik nominal memicu selisih saldo yang sulit dilacak.
                       </p>
                     </div>
                   </div>
 
-                  {/* Problem 5 */}
                   <div className="flex items-start gap-3 p-3 rounded-2xl bg-slate-950/60 border border-slate-800/80">
                     <XCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
                     <div>
-                      <strong className="text-white block font-bold">Tanpa Sistem Persetujuan & Log Audit</strong>
+                      <strong className="text-white block font-bold">Tanpa Alur Approval</strong>
                       <p className="text-slate-400 text-[11px] leading-relaxed mt-0.5">
-                        Tidak ada alur approval resmi. Semua orang dapat mengedit atau mengubah angka pengeluaran tanpa jejak otorisasi dari Owner/Manager.
+                        Perubahan angka dapat terjadi tanpa otorisasi resmi pemilik bisnis.
                       </p>
                     </div>
                   </div>
@@ -894,13 +864,12 @@ export function IntroductionDashboard({
 
               <div className="pt-4 border-t border-slate-800 text-[11px] text-red-400 font-bold flex items-center gap-1.5">
                 <AlertCircle className="w-3.5 h-3.5" />
-                <span>Risiko selisih kas & kebocoran dana operasional bisnis.</span>
+                <span>Risiko selisih kas dan kebocoran dana operasional.</span>
               </div>
             </div>
 
             {/* CARD 2: NOTA AI SAAS (THE SOLUTION) */}
             <div className="bg-gradient-to-b from-slate-900 to-slate-950 border-2 border-emerald-500/50 rounded-3xl p-6 sm:p-8 space-y-6 relative overflow-hidden flex flex-col justify-between shadow-2xl shadow-emerald-500/10">
-              {/* Subtle top glow */}
               <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
 
               <div className="space-y-4 relative">
@@ -913,7 +882,7 @@ export function IntroductionDashboard({
                       <strong className="block text-sm sm:text-base font-black text-white">
                         Platform Scota
                       </strong>
-                      <span className="text-[11px] text-emerald-400 font-bold">Otomatisasi 100% Cepat & Terproteksi</span>
+                      <span className="text-[11px] text-emerald-400 font-bold">Otomatis, Cepat & Aman</span>
                     </div>
                   </div>
                   <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-full bg-emerald-500 text-slate-950 shadow-md">
@@ -922,57 +891,52 @@ export function IntroductionDashboard({
                 </div>
 
                 <div className="space-y-4 text-xs">
-                  {/* Solution 1 */}
                   <div className="flex items-start gap-3 p-3 rounded-2xl bg-slate-900/90 border border-emerald-500/30">
                     <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                     <div>
-                      <strong className="text-white block font-black">Sekali Foto Selesai dalam 1 Detik</strong>
+                      <strong className="text-white block font-black">Ekstraksi Otomatis Presisi</strong>
                       <p className="text-slate-300 text-[11px] leading-relaxed mt-0.5">
-                        Sistem cerdas otomatis membaca nama barang, harga, diskon, dan tanggal dari struk kasir, faktur belanja, hingga bon tulisan tangan secara instan.
+                        Sekali foto, sistem memproses item, nominal, diskon, dan tanggal secara terstruktur.
                       </p>
                     </div>
                   </div>
 
-                  {/* Solution 2 */}
                   <div className="flex items-start gap-3 p-3 rounded-2xl bg-slate-900/90 border border-emerald-500/30">
                     <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                     <div>
-                      <strong className="text-white block font-black">Database Cloud Aman & Role Terproteksi</strong>
+                      <strong className="text-white block font-black">Cloud Aman & Terproteksi</strong>
                       <p className="text-slate-300 text-[11px] leading-relaxed mt-0.5">
-                        Data tersimpan permanen di cloud. Kasir hanya dapat mengajukan nota, sedangkan Admin/Owner memverifikasi. Rumus tidak akan pernah rusak.
+                        Data tersimpan aman di cloud; kasir mengunggah dan Admin memverifikasi.
                       </p>
                     </div>
                   </div>
 
-                  {/* Solution 3 */}
                   <div className="flex items-start gap-3 p-3 rounded-2xl bg-slate-900/90 border border-emerald-500/30">
                     <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                     <div>
-                      <strong className="text-white block font-black">Arsip Foto Nota Digital Tersimpan Selamanya</strong>
+                      <strong className="text-white block font-black">Arsip Foto Nota Digital</strong>
                       <p className="text-slate-300 text-[11px] leading-relaxed mt-0.5">
-                        Setiap baris pembukuan otomatis terlampir foto nota fisik yang tajam. Aman dari risiko nota hilang, basah, atau tulisan pudar saat audit.
+                        Setiap transaksi terhubung dengan foto nota asli untuk kebutuhan audit.
                       </p>
                     </div>
                   </div>
 
-                  {/* Solution 4 */}
                   <div className="flex items-start gap-3 p-3 rounded-2xl bg-slate-900/90 border border-emerald-500/30">
                     <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                     <div>
-                      <strong className="text-white block font-black">Akurasi 99.8% & Pemetaan Kategori Otomatis</strong>
+                      <strong className="text-white block font-black">Kategori Otomatis</strong>
                       <p className="text-slate-300 text-[11px] leading-relaxed mt-0.5">
-                        Mencegah salah ketik angka (*zero human error*) dan otomatis mengelompokkan biaya ke kategori operasional yang sesuai standar akuntansi.
+                        Bebas salah ketik dan pos pengeluaran terkelompok rapi secara otomatis.
                       </p>
                     </div>
                   </div>
 
-                  {/* Solution 5 */}
                   <div className="flex items-start gap-3 p-3 rounded-2xl bg-slate-900/90 border border-emerald-500/30">
                     <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                     <div>
-                      <strong className="text-white block font-black">Approval Bertingkat & Ekspor Laporan Resmi</strong>
+                      <strong className="text-white block font-black">Approval & Laporan Resmi</strong>
                       <p className="text-slate-300 text-[11px] leading-relaxed mt-0.5">
-                        Alur persetujuan pengeluaran dari HP + ekspor dokumen PDF dan Excel rapi siap cetak lengkap dengan Logo & Nama Resmi Usaha Anda.
+                        Alur persetujuan dari ponsel dan ekspor dokumen PDF/Excel berlogo usaha.
                       </p>
                     </div>
                   </div>
@@ -981,14 +945,14 @@ export function IntroductionDashboard({
 
               <div className="pt-4 border-t border-slate-800 flex items-center justify-between">
                 <span className="text-xs text-emerald-400 font-black flex items-center gap-1.5">
-                  <Check className="w-4 h-4" /> Hemat hingga 95% Waktu Pembukuan
+                  <Check className="w-4 h-4" /> Hemat 95% Waktu Pembukuan
                 </span>
-                <button
-                  onClick={() => onEnterApp({ mode: "register", tier: "trial" })}
+                <Link
+                  href="/register"
                   className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs transition-all shadow-md active:scale-95 cursor-pointer"
                 >
                   Coba Sekarang
-                </button>
+                </Link>
               </div>
             </div>
           </div>
@@ -1001,10 +965,10 @@ export function IntroductionDashboard({
           <div className="text-center max-w-2xl mx-auto space-y-3">
             <h2 className="text-xs font-black uppercase text-emerald-400 tracking-wider">Fitur Unggulan</h2>
             <p className="text-2xl sm:text-4xl font-black text-white tracking-tight">
-              Solusi Pembukuan Lengkap untuk Menghemat Waktu & Biaya
+              Fitur Lengkap untuk Pembukuan Praktis
             </p>
             <p className="text-xs sm:text-sm text-slate-400">
-              Otomatiskan alur pencatatan nota, verifikasi bertingkat, dan laporan keuangan usaha Anda.
+              Semua yang Anda butuhkan untuk mengelola pengeluaran usaha.
             </p>
           </div>
 
@@ -1014,9 +978,9 @@ export function IntroductionDashboard({
               <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center">
                 <Scan className="w-6 h-6" />
               </div>
-              <h3 className="text-xl font-black text-white">Pemindaian Visual Berakurasi Tinggi</h3>
+              <h3 className="text-xl font-black text-white">Ekstraksi Nota Berakurasi Tinggi</h3>
               <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-xl">
-                Teknologi pemindai cerdas yang secara instan mengenali nama barang, jumlah nominal, potongan diskon, dan pajak dari berbagai jenis nota belanja, struk kasir minimarket, hingga kuitansi fisik.
+                AI mengenali nama barang, nominal, diskon, dan pajak dari aneka nota belanja, struk kasir, hingga kuitansi fisik secara presisi.
               </p>
             </div>
 
@@ -1025,9 +989,9 @@ export function IntroductionDashboard({
               <div className="w-12 h-12 rounded-2xl bg-teal-500/10 text-teal-400 border border-teal-500/20 flex items-center justify-center">
                 <Layers className="w-6 h-6" />
               </div>
-              <h3 className="text-lg font-black text-white">Auto-Katalog & Self-Learning</h3>
+              <h3 className="text-lg font-black text-white">Katalog Cerdas</h3>
               <p className="text-xs text-slate-400 leading-relaxed">
-                Sistem semakin pintar setiap kali digunakan. Platform mengingat nama produk dan kategori yang pernah Anda verifikasi untuk mempercepat pemrosesan nota berikutnya.
+                Sistem otomatis mengingat produk dan kategori langganan usaha Anda untuk mempercepat pencatatan berikutnya.
               </p>
             </div>
 
@@ -1036,9 +1000,9 @@ export function IntroductionDashboard({
               <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center justify-center">
                 <ShieldCheck className="w-6 h-6" />
               </div>
-              <h3 className="text-lg font-black text-white">Alur Persetujuan Bertingkat</h3>
+              <h3 className="text-lg font-black text-white">Approval Bertingkat</h3>
               <p className="text-xs text-slate-400 leading-relaxed">
-                Karyawan mengunggah nota, Admin 1 memeriksa data barang, dan Admin 2 memberikan persetujuan final sebelum masuk ke laporan keuangan resmi.
+                Kasir mengunggah nota, Admin 1 memeriksa rincian, dan Admin 2 memberikan persetujuan akhir.
               </p>
             </div>
 
@@ -1047,9 +1011,9 @@ export function IntroductionDashboard({
               <div className="w-12 h-12 rounded-2xl bg-purple-500/10 text-purple-400 border border-purple-500/20 flex items-center justify-center">
                 <FileSpreadsheet className="w-6 h-6" />
               </div>
-              <h3 className="text-xl font-black text-white">Ekspor Laporan Resmi Ber-Branding Usaha</h3>
+              <h3 className="text-xl font-black text-white">Laporan Resmi Ber-Branding</h3>
               <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-xl">
-                Cetak laporan rekapitulasi keuangan bulanan dalam format PDF dan Excel berlogo dan ber-watermark nama toko atau perusahaan Anda sendiri untuk kebutuhan pajak dan audit.
+                Cetak laporan keuangan bulanan format PDF dan Excel lengkap dengan logo resmi bisnis Anda untuk audit dan pajak.
               </p>
             </div>
           </div>
@@ -1060,12 +1024,12 @@ export function IntroductionDashboard({
       <section id="harga" className="scroll-mt-24 py-16 sm:py-24 border-b border-slate-900">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
           <div className="text-center max-w-2xl mx-auto space-y-3">
-            <h2 className="text-xs font-black uppercase text-emerald-400 tracking-wider">Pilihan Paket Langganan</h2>
+            <h2 className="text-xs font-black uppercase text-emerald-400 tracking-wider">Paket Langganan</h2>
             <p className="text-2xl sm:text-4xl font-black text-white tracking-tight">
-              Investasi Terjangkau untuk Pembukuan Rapi & Akurat
+              Harga Transparan Sesuai Kebutuhan
             </p>
             <p className="text-xs sm:text-sm text-slate-400">
-              Pilih paket sesuai volume nota bulanan usaha Anda. Aktivasi instan dengan kunci lisensi resmi.
+              Pilih paket sesuai volume nota usaha Anda. Lisensi langsung aktif seketika.
             </p>
 
             {/* Cycle Toggle */}
@@ -1140,8 +1104,8 @@ export function IntroductionDashboard({
                   </div>
 
                   <div className="pt-8 space-y-2">
-                    <button
-                      onClick={() => onEnterApp({ mode: "register", tier: "trial" })}
+                    <Link
+                      href="/register"
                       className={`w-full py-3 px-4 rounded-xl text-xs sm:text-sm font-extrabold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg ${
                         isPro
                           ? "bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-emerald-500/25 active:scale-98"
@@ -1149,19 +1113,29 @@ export function IntroductionDashboard({
                       }`}
                     >
                       <Zap className="w-4 h-4" />
-                      <span>Mulai Gratis 14 Hari</span>
-                    </button>
+                      <span>Coba Gratis 14 Hari</span>
+                    </Link>
                     <button
                       onClick={() => handleOrderWhatsApp(tierKey)}
                       className="w-full py-2 px-3 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-900/80 border border-slate-800 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                     >
                       <MessageCircle className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>Atau Tanya / Pesan via WhatsApp</span>
+                      <span>Pesan via WhatsApp</span>
                     </button>
                   </div>
                 </div>
               )
             })}
+          </div>
+
+          <div className="text-center pt-2">
+            <Link
+              href="/pricing"
+              className="inline-flex items-center gap-2 text-xs font-bold text-emerald-400 hover:text-emerald-300 transition-colors"
+            >
+              <span>Lihat Komparasi Fitur Lengkap</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
           </div>
         </div>
       </section>
@@ -1172,7 +1146,7 @@ export function IntroductionDashboard({
           <div className="text-center space-y-2">
             <h2 className="text-xs font-black uppercase text-emerald-400 tracking-wider">FAQ</h2>
             <p className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-              Pertanyaan yang Sering Diajukan
+              Pertanyaan Umum
             </p>
           </div>
 
@@ -1219,20 +1193,29 @@ export function IntroductionDashboard({
             <div>
               <span className="font-bold text-white">Scota Platform</span>
               <p className="text-[11px] text-slate-500">
-                © {new Date().getFullYear()} Scota Platform. Solusi pembukuan untuk semua jenis bisnis.
+                © {new Date().getFullYear()} Scota Platform. Solusi otomatisasi pembukuan bisnis.
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-4 text-xs">
-            <button onClick={() => onEnterApp({ mode: "login" })} className="text-emerald-400 hover:text-emerald-300 font-bold cursor-pointer">
-              Buka Aplikasi / Masuk Dashboard
-            </button>
+          <div className="flex flex-wrap items-center gap-4 text-xs">
+            <Link href="/pricing" className="text-slate-400 hover:text-white transition-colors">
+              Paket Harga
+            </Link>
+            <Link href="/login" className="text-slate-400 hover:text-white transition-colors">
+              Masuk
+            </Link>
+            <Link href="/register" className="text-slate-400 hover:text-white transition-colors">
+              Daftar Gratis
+            </Link>
+            <Link href="/dashboard" className="text-emerald-400 hover:text-emerald-300 font-bold transition-colors">
+              Buka Dashboard →
+            </Link>
           </div>
         </div>
       </footer>
 
-      {/* iOS & Android Native-Feel Action Sheet Modal */}
+      {/* Action Sheet Modal */}
       {showSourceModal && (
         <div 
           onClick={() => setShowSourceModal(false)}
@@ -1242,7 +1225,6 @@ export function IntroductionDashboard({
             onClick={(e) => e.stopPropagation()}
             className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-t-[28px] sm:rounded-3xl p-5 shadow-2xl space-y-4 animate-in slide-in-from-bottom duration-200"
           >
-            {/* Grabber Bar for Mobile */}
             <div className="w-12 h-1.5 bg-slate-700 rounded-full mx-auto sm:hidden" />
 
             <div className="flex items-center justify-between pb-2 border-b border-slate-800">
@@ -1251,7 +1233,7 @@ export function IntroductionDashboard({
                   <Scan className="w-4 h-4 text-emerald-400" />
                   Pilih Sumber Foto Nota
                 </h4>
-                <p className="text-[11px] text-slate-400">Pilih metode pengambilan nota dari HP atau komputer</p>
+                <p className="text-[11px] text-slate-400">Pilih metode pengambilan nota</p>
               </div>
               <button
                 onClick={() => setShowSourceModal(false)}
@@ -1261,9 +1243,7 @@ export function IntroductionDashboard({
               </button>
             </div>
 
-            {/* 3 Source Action Options */}
             <div className="space-y-2">
-              {/* Option 1: Kamera */}
               <button
                 onClick={() => {
                   setShowSourceModal(false)
@@ -1277,15 +1257,14 @@ export function IntroductionDashboard({
                   </div>
                   <div className="text-left">
                     <strong className="block text-xs font-black text-white group-hover:text-emerald-300 transition-colors">
-                      Ambil Foto dengan Kamera
+                      Kamera
                     </strong>
-                    <span className="text-[11px] text-slate-400">Buka kamera HP untuk memotret nota fisik langsung</span>
+                    <span className="text-[11px] text-slate-400">Potret langsung nota fisik</span>
                   </div>
                 </div>
                 <ArrowRight className="w-4 h-4 text-slate-600 group-hover:text-emerald-400 transition-colors" />
               </button>
 
-              {/* Option 2: Galeri Foto */}
               <button
                 onClick={() => {
                   setShowSourceModal(false)
@@ -1299,15 +1278,14 @@ export function IntroductionDashboard({
                   </div>
                   <div className="text-left">
                     <strong className="block text-xs font-black text-white group-hover:text-emerald-300 transition-colors">
-                      Pilih dari Galeri Foto
+                      Galeri
                     </strong>
-                    <span className="text-[11px] text-slate-400">Pilih foto struk belanja yang sudah tersimpan di album</span>
+                    <span className="text-[11px] text-slate-400">Pilih foto dari galeri</span>
                   </div>
                 </div>
                 <ArrowRight className="w-4 h-4 text-slate-600 group-hover:text-emerald-400 transition-colors" />
               </button>
 
-              {/* Option 3: Dokumen / PDF */}
               <button
                 onClick={() => {
                   setShowSourceModal(false)
@@ -1321,16 +1299,15 @@ export function IntroductionDashboard({
                   </div>
                   <div className="text-left">
                     <strong className="block text-xs font-black text-white group-hover:text-emerald-300 transition-colors">
-                      Pilih Berkas Dokumen / PDF
+                      Dokumen PDF
                     </strong>
-                    <span className="text-[11px] text-slate-400">Pilih berkas PDF atau gambar faktur dari file manager</span>
+                    <span className="text-[11px] text-slate-400">Unggah berkas invoice format PDF</span>
                   </div>
                 </div>
                 <ArrowRight className="w-4 h-4 text-slate-600 group-hover:text-emerald-400 transition-colors" />
               </button>
             </div>
 
-            {/* Cancel Button */}
             <button
               onClick={() => setShowSourceModal(false)}
               className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition-all cursor-pointer"
@@ -1341,13 +1318,12 @@ export function IntroductionDashboard({
         </div>
       )}
 
-      {/* High-Resolution Photo Detail & Zoom Lightbox Modal */}
+      {/* Lightbox Modal */}
       {showImageLightbox && uploadedImage && (
         <div
           onClick={() => setShowImageLightbox(false)}
           className="fixed inset-0 z-50 flex flex-col justify-between p-3 sm:p-6 bg-slate-950/95 backdrop-blur-xl animate-in fade-in duration-200 select-none"
         >
-          {/* Top Bar Header & Controls */}
           <div
             onClick={(e) => e.stopPropagation()}
             className="w-full max-w-5xl mx-auto flex items-center justify-between gap-4 p-3 sm:p-4 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-2xl backdrop-blur-md"
@@ -1358,20 +1334,19 @@ export function IntroductionDashboard({
               </div>
               <div className="truncate">
                 <h4 className="text-xs sm:text-sm font-black text-white truncate">
-                  {customParsedData?.merchantName || "Detail Foto Nota Fisik"}
+                  {customParsedData?.merchantName || "Detail Foto Nota"}
                 </h4>
                 <p className="text-[11px] text-slate-400 truncate">
-                  {uploadedFileName || "nota-terunggah.jpg"} {customParsedData ? `• Tanggal: ${customParsedData.date}` : ""}
+                  {uploadedFileName || "nota.jpg"} {customParsedData ? `• ${customParsedData.date}` : ""}
                 </p>
               </div>
             </div>
 
-            {/* Zoom & Action Controls */}
             <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
               <button
                 onClick={handleZoomOut}
                 className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 hover:text-white transition-all cursor-pointer"
-                title="Perkecil (Zoom Out)"
+                title="Perkecil"
               >
                 <ZoomOut className="w-4 h-4" />
               </button>
@@ -1383,7 +1358,7 @@ export function IntroductionDashboard({
               <button
                 onClick={handleZoomIn}
                 className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 hover:text-white transition-all cursor-pointer"
-                title="Perbesar (Zoom In)"
+                title="Perbesar"
               >
                 <ZoomIn className="w-4 h-4" />
               </button>
@@ -1391,7 +1366,7 @@ export function IntroductionDashboard({
               <button
                 onClick={handleRotate}
                 className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 hover:text-white transition-all cursor-pointer"
-                title="Putar 90° (Rotate)"
+                title="Putar 90°"
               >
                 <RotateCw className="w-4 h-4" />
               </button>
@@ -1399,7 +1374,7 @@ export function IntroductionDashboard({
               <button
                 onClick={handleResetZoom}
                 className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 hover:text-white transition-all cursor-pointer hidden sm:flex"
-                title="Reset Ukuran (100%)"
+                title="Reset 100%"
               >
                 <RotateCcw className="w-4 h-4" />
               </button>
@@ -1409,14 +1384,13 @@ export function IntroductionDashboard({
               <button
                 onClick={() => setShowImageLightbox(false)}
                 className="p-2 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 transition-all cursor-pointer"
-                title="Tutup (ESC)"
+                title="Tutup"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
           </div>
 
-          {/* Center Image Viewport with Pan/Zoom Transform */}
           <div
             onClick={() => setShowImageLightbox(false)}
             className="flex-1 w-full max-w-5xl mx-auto my-3 sm:my-4 flex items-center justify-center overflow-auto rounded-3xl border border-slate-800/80 bg-slate-900/40 p-4 relative"
@@ -1431,20 +1405,19 @@ export function IntroductionDashboard({
             >
               <img
                 src={uploadedImage}
-                alt="Detail Foto Nota"
+                alt="Foto Nota"
                 className="max-h-[70vh] max-w-[85vw] object-contain rounded-xl shadow-2xl border border-slate-700/50"
               />
             </div>
           </div>
 
-          {/* Bottom Floating Info Summary Pill */}
           <div
             onClick={(e) => e.stopPropagation()}
             className="w-full max-w-3xl mx-auto p-3 rounded-2xl bg-slate-900/95 border border-slate-800 shadow-2xl backdrop-blur-md flex flex-col sm:flex-row items-center justify-between gap-3 text-xs"
           >
             {customParsedData ? (
               <div className="flex items-center gap-3">
-                <span className="text-slate-400">Hasil Scan:</span>
+                <span className="text-slate-400">Hasil:</span>
                 <strong className="text-white font-bold">{customParsedData.merchantName}</strong>
                 <span className="text-slate-600">•</span>
                 <span className="font-mono text-emerald-400 font-extrabold text-sm">
@@ -1453,14 +1426,14 @@ export function IntroductionDashboard({
                 <span className="text-slate-400">({customParsedData.items.length} item)</span>
               </div>
             ) : (
-              <span className="text-slate-400">Gunakan tombol perbesar atau putar untuk melihat detail tulisan pada struk.</span>
+              <span className="text-slate-400">Gunakan kontrol perbesar atau putar untuk rincian teks struk.</span>
             )}
 
             <button
               onClick={() => setShowImageLightbox(false)}
               className="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold transition-all cursor-pointer text-xs"
             >
-              Tutup Preview
+              Tutup
             </button>
           </div>
         </div>

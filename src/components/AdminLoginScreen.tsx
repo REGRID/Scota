@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 import { Lock, User, Eye, EyeOff, Building2, Phone, ArrowRight, AlertCircle, Loader2, Sparkles, CheckCircle2, ShieldCheck, Zap, Store } from "lucide-react"
 import { SubscriptionTier } from "@/lib/subscription"
 
@@ -17,6 +17,23 @@ export function AdminLoginScreen({
   initialMode = "login",
 }: AdminLoginScreenProps) {
   const [authMode, setAuthMode] = useState<"login" | "register">(initialMode)
+
+  useEffect(() => {
+    if (initialMode) {
+      setAuthMode(initialMode)
+    }
+  }, [initialMode])
+
+  const switchMode = (mode: "login" | "register") => {
+    setAuthMode(mode)
+    setErrorMessage(null)
+    if (typeof window !== "undefined") {
+      const targetPath = mode === "register" ? "/register" : "/login"
+      if (window.location.pathname !== targetPath) {
+        window.history.pushState(null, "", targetPath)
+      }
+    }
+  }
 
   // Login Form States
   const [loginUsername, setLoginUsername] = useState("")
@@ -155,10 +172,7 @@ export function AdminLoginScreen({
           <div className="flex bg-slate-950 p-1.5 rounded-2xl border border-slate-800">
             <button
               type="button"
-              onClick={() => {
-                setAuthMode("login")
-                setErrorMessage(null)
-              }}
+              onClick={() => switchMode("login")}
               className={`flex-1 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
                 authMode === "login"
                   ? "bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/25"
@@ -169,10 +183,7 @@ export function AdminLoginScreen({
             </button>
             <button
               type="button"
-              onClick={() => {
-                setAuthMode("register")
-                setErrorMessage(null)
-              }}
+              onClick={() => switchMode("register")}
               className={`flex-1 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
                 authMode === "register"
                   ? "bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/25"
@@ -264,10 +275,7 @@ export function AdminLoginScreen({
                   Belum punya akun bisnis?{" "}
                   <button
                     type="button"
-                    onClick={() => {
-                      setAuthMode("register")
-                      setErrorMessage(null)
-                    }}
+                    onClick={() => switchMode("register")}
                     className="text-emerald-400 hover:underline font-bold cursor-pointer"
                   >
                     Daftar Sekarang
@@ -383,10 +391,7 @@ export function AdminLoginScreen({
                   Sudah memiliki akun?{" "}
                   <button
                     type="button"
-                    onClick={() => {
-                      setAuthMode("login")
-                      setErrorMessage(null)
-                    }}
+                    onClick={() => switchMode("login")}
                     className="text-emerald-400 hover:underline font-bold cursor-pointer"
                   >
                     Masuk Sekarang

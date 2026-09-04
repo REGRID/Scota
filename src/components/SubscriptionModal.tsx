@@ -22,6 +22,7 @@ import {
   SubscriptionTier,
   TIER_CONFIG,
 } from "@/lib/subscription"
+import { getSupportWhatsAppNumber } from "@/lib/contactConfig"
 
 interface SubscriptionModalProps {
   isOpen: boolean
@@ -191,7 +192,8 @@ export function SubscriptionModal({
     const message = encodeURIComponent(
       `Halo Tim Scota, saya ingin berlangganan paket *${plan.name}* (${cycleText}) seharga Rp ${price.toLocaleString("id-ID")} untuk Usaha kami (${studioName}). Mohon info rekening / QRIS pembayaran.`
     )
-    window.open(`https://wa.me/6281234567890?text=${message}`, "_blank")
+    const phone = getSupportWhatsAppNumber()
+    window.open(`https://wa.me/${phone}?text=${message}`, "_blank")
   }
 
   return (

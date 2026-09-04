@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import { useState, useEffect } from "react"
 import {
   Sparkles,
   KeyRound,
@@ -18,9 +18,12 @@ import {
   Sliders,
   Check,
   Activity,
-  Server
+  Server,
+  Phone,
+  MessageCircle,
 } from "lucide-react"
 import { toast } from "sonner"
+import { getSupportWhatsAppNumber, setSupportWhatsAppNumber } from "@/lib/contactConfig"
 
 export default function SuperadminAiSettingsPage() {
   const [apiKey, setApiKey] = useState("")
@@ -29,6 +32,7 @@ export default function SuperadminAiSettingsPage() {
   const [temperature, setTemperature] = useState("0.1")
   const [autoLearnEnabled, setAutoLearnEnabled] = useState(true)
   const [tenantCustomKeyAllowed, setTenantCustomKeyAllowed] = useState(false)
+  const [supportWhatsApp, setSupportWhatsApp] = useState("6285215973776")
   const [isTesting, setIsTesting] = useState(false)
   const [testResult, setTestResult] = useState<{ success?: boolean; message?: string; latencyMs?: number } | null>(null)
 
@@ -46,6 +50,8 @@ export default function SuperadminAiSettingsPage() {
 
       const savedCustomKeyAllowed = localStorage.getItem("scota_ai_tenant_custom_allowed")
       if (savedCustomKeyAllowed !== null) setTenantCustomKeyAllowed(savedCustomKeyAllowed === "true")
+
+      setSupportWhatsApp(getSupportWhatsAppNumber())
     }
   }, [])
 
@@ -111,8 +117,9 @@ export default function SuperadminAiSettingsPage() {
     localStorage.setItem("scota_ai_model", aiModel)
     localStorage.setItem("scota_ai_autolearn", String(autoLearnEnabled))
     localStorage.setItem("scota_ai_tenant_custom_allowed", String(tenantCustomKeyAllowed))
+    setSupportWhatsAppNumber(supportWhatsApp)
 
-    toast.success("Konfigurasi Master AI & OCR Platform berhasil disimpan!")
+    toast.success("Seluruh Konfigurasi Sistem, AI, & Kontak WhatsApp berhasil disimpan!")
   }
 
   return (
@@ -274,7 +281,7 @@ export default function SuperadminAiSettingsPage() {
                   </span>
                 </div>
                 <p className="text-[11px] font-normal leading-relaxed text-slate-300">
-                  Model generasi terbaru: latensi super cepat (~1.2 detik), sangat hemat token, dan akurat membaca nota kusut.
+                  Model generasi terbaru: latensi rendah, efisiensi token optimal, dan akurat membaca berbagai kondisi nota.
                 </p>
               </div>
 
@@ -350,6 +357,47 @@ export default function SuperadminAiSettingsPage() {
                 <p className="text-slate-400">
                   Seluruh tenant menggunakan Master API Key Superadmin. Tenant tidak dibebani teknis API dan admin platform dapat mengontrol kuota langganan secara terpusat.
                 </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Card 5: WhatsApp Sales & Support Hotline */}
+          <div className="p-5 sm:p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center">
+                <MessageCircle className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-xs font-black text-white">Nomor WhatsApp Sales / CS</h3>
+                <p className="text-[10px] text-slate-400">Tautan Pemesanan & Bantuan Pelanggan</p>
+              </div>
+            </div>
+
+            <p className="text-[11px] text-slate-400 leading-relaxed">
+              Nomor ini digunakan secara dinamis untuk seluruh tombol pemesanan paket langganan WhatsApp di Landing Page dan Modal Upgrade.
+            </p>
+
+            <div className="space-y-2">
+              <label className="text-[11px] font-bold text-slate-300">Nomor WhatsApp (format: 628...):</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={supportWhatsApp}
+                  onChange={(e) => setSupportWhatsApp(e.target.value)}
+                  placeholder="6285215973776"
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-700 bg-slate-950 text-white font-mono focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const clean = supportWhatsApp.replace(/[^\d]/g, "")
+                    window.open(`https://wa.me/${clean}?text=Halo%20Admin%20Scota`, "_blank")
+                  }}
+                  className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-400 text-xs font-bold transition-all cursor-pointer shrink-0"
+                  title="Test Buka WhatsApp"
+                >
+                  Tes WA
+                </button>
               </div>
             </div>
           </div>

@@ -168,17 +168,19 @@ export async function getSuperadminPlatformStats(): Promise<PlatformStats> {
 
   let totalReceipts = 0
 
-  // 1. Calculate receipts count from Supabase
-  try {
-    const { data: receipts } = await supabase
-      .from("receipts")
-      .select("id")
-    
-    if (receipts && receipts.length > 0) {
-      totalReceipts = receipts.length
+  // 1. Calculate receipts count from Supabase if configured
+  if (isSupabaseConfigured) {
+    try {
+      const { data: receipts } = await supabase
+        .from("receipts")
+        .select("id")
+      
+      if (receipts && receipts.length > 0) {
+        totalReceipts = receipts.length
+      }
+    } catch (err) {
+      // Graceful fallback
     }
-  } catch (err) {
-    // Graceful fallback
   }
 
   // 2. Count tier breakdown & calculate actual SaaS subscription earnings (Revenue & MRR)
@@ -265,19 +267,21 @@ export async function updateTenantSubscription(
 
     const monthlyScanLimit = params.customScanLimit || tierConfig.monthlyScanLimit
 
-    // 1. Update in Supabase
-    try {
-      await supabase
-        .from("admin_accounts")
-        .update({
-          tier: params.tier,
-          validUntil: validUntilIso,
-          monthlyScanLimit,
-          updatedAt: new Date().toISOString(),
-        })
-        .eq("username", cleanUser)
-    } catch (err) {
-      console.warn("updateTenantSubscription Supabase notice:", err)
+    // 1. Update in Supabase if configured
+    if (isSupabaseConfigured) {
+      try {
+        await supabase
+          .from("admin_accounts")
+          .update({
+            tier: params.tier,
+            validUntil: validUntilIso,
+            monthlyScanLimit,
+            updatedAt: new Date().toISOString(),
+          })
+          .eq("username", cleanUser)
+      } catch (err) {
+        console.warn("updateTenantSubscription Supabase notice:", err)
+      }
     }
 
     await recordAuditLog({
@@ -306,16 +310,18 @@ export async function toggleTenantStatus(
   try {
     const cleanUser = username.trim().toLowerCase()
 
-    try {
-      await supabase
-        .from("admin_accounts")
-        .update({
-          status: newStatus,
-          updatedAt: new Date().toISOString(),
-        })
-        .eq("username", cleanUser)
-    } catch (err) {
-      console.warn("toggleTenantStatus Supabase notice:", err)
+    if (isSupabaseConfigured) {
+      try {
+        await supabase
+          .from("admin_accounts")
+          .update({
+            status: newStatus,
+            updatedAt: new Date().toISOString(),
+          })
+          .eq("username", cleanUser)
+      } catch (err) {
+        console.warn("toggleTenantStatus Supabase notice:", err)
+      }
     }
 
     await recordAuditLog({
@@ -410,19 +416,21 @@ export async function getTenantDetail(username: string) {
   let totalOmset = 0
   let recentReceipts: any[] = []
 
-  try {
-    const { data: dbReceipts } = await supabase
-      .from("receipts")
-      .select("*")
-      .order("tanggal", { ascending: false })
-      .limit(10)
+  if (isSupabaseConfigured) {
+    try {
+      const { data: dbReceipts } = await supabase
+        .from("receipts")
+        .select("*")
+        .order("tanggal", { ascending: false })
+        .limit(10)
 
-    if (dbReceipts) {
-      receiptsCount = dbReceipts.length
-      recentReceipts = dbReceipts
-      totalOmset = dbReceipts.reduce((sum, r) => sum + (Number(r.total) || 0), 0)
-    }
-  } catch (err) {}
+      if (dbReceipts) {
+        receiptsCount = dbReceipts.length
+        recentReceipts = dbReceipts
+        totalOmset = dbReceipts.reduce((sum, r) => sum + (Number(r.total) || 0), 0)
+      }
+    } catch (err) {}
+  }
 
   // Get staff list
   const staffList: any[] = []

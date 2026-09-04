@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { supabase } from "@/lib/supabase"
+import { queryPg, isDatabaseConfigured } from "@/lib/pgDb"
 import { getAdminUserFromRequest, getAdminRoleFromRequest } from "@/lib/authHelper"
 import { compressBase64Image } from "@/lib/imageCompressor"
 import { invalidateReceiptsListCache } from "@/app/api/receipts/route"
@@ -26,17 +26,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       }, { status: 403 })
     }
 
-    // Fetch approval request safely with maybeSingle to avoid coercion error
-    const { data: pendingApproval, error: findErr } = await supabase
-      .from("pending_approvals")
-      .select("*")
-      .eq("id", cleanId)
-      .maybeSingle()
-
-    if (findErr) {
-      console.error("Supabase Find Approval Error:", findErr)
-      return NextResponse.json({ error: "Gagal membaca permintaan verifikasi" }, { status: 500 })
+    if (!isDatabaseConfigured) {
+      return NextResponse.json({ error: "Database belum terkonfigurasi" }, { status: 500 })
     }
+
+    // Fetch approval request safely
+    const findRes = await queryPg<any>(
+      `SELECT * FROM pending_approvals WHERE id = $1 LIMIT 1`,
+      [cleanId]
+    )
+    const pendingApproval = findRes.rows?.[0]
 
     if (!pendingApproval) {
       return NextResponse.json({ error: "Permintaan verifikasi tidak ditemukan" }, { status: 404 })
@@ -51,8 +50,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const cleanRequestedBy = (pendingApproval.requestedBy || "").trim().toLowerCase()
 
     // Dual-Control Enforcement: Prevent Self-Approval (Case-Insensitive)
-    // If Admin 1 (Rama) creates nota -> Admin 2 (Refo) approves.
-    // If Admin 2 (Refo) creates nota -> Admin 1 (Rama) approves.
     if (cleanRequestedBy === cleanApprovingAdmin) {
       return NextResponse.json({
         error: `Akses Ditolak: Permintaan diajukan oleh Anda (${approvingAdmin}). Verifikasi & persetujuan harus dilakukan oleh Admin lain.`,
@@ -66,7 +63,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       payload = {}
     }
 
-    // Invalidate list cache so fresh updated data is returned immediately
+    // Invalidate list cache
     invalidateReceiptsListCache()
 
     let createdReceiptId: string | null = null
@@ -90,78 +87,83 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
       const compressedImageUrl = imageUrl ? await compressBase64Image(imageUrl) : null
 
-      const { data: newReceipt, error: receiptError } = await supabase
-        .from("receipts")
-        .insert({
-          merchantName: merchantName || "Nota / Toko",
-          date: date || new Date().toISOString().split("T")[0],
-          imageUrl: compressedImageUrl,
-          subtotal: Number(subtotal) || 0,
-          discountAmount: Number(discountAmount) || 0,
-          taxAmount: Number(taxAmount) || 0,
-          totalAmount: Number(totalAmount) || 0,
-          paymentMethod: paymentMethod || "Cash",
-          paymentStatus: paymentStatus || "Lunas",
-          note: note || null,
-          staffName: staffName || null,
-          updatedAt: new Date().toISOString(),
-        })
-        .select()
-        .single()
+      const newReceiptRes = await queryPg<{ id: string }>(
+        `INSERT INTO receipts ("merchantName", date, "imageUrl", subtotal, "discountAmount", "taxAmount", "totalAmount", "paymentMethod", "paymentStatus", note, "staffName", "createdAt", "updatedAt")
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
+         RETURNING id`,
+        [
+          merchantName || "Nota / Toko",
+          date || new Date().toISOString().split("T")[0],
+          compressedImageUrl,
+          Number(subtotal) || 0,
+          Number(discountAmount) || 0,
+          Number(taxAmount) || 0,
+          Number(totalAmount) || 0,
+          paymentMethod || "Cash",
+          paymentStatus || "Lunas",
+          note || null,
+          staffName || null,
+        ]
+      )
 
-      if (receiptError) {
-        console.error("Insert Approved Receipt Error:", receiptError)
-        throw new Error(receiptError.message)
+      const newReceipt = newReceiptRes.rows?.[0]
+      if (!newReceipt) {
+        throw new Error("Gagal menyimpan nota yang disetujui")
       }
 
       createdReceiptId = newReceipt.id
 
       // Insert items
       if (items && Array.isArray(items) && items.length > 0) {
-        const itemsToInsert = items.map((item: any) => ({
-          receiptId: newReceipt.id,
-          name: item.name || "Item",
-          category: item.category || "Lain-lain",
-          subCategory: item.subCategory || "Umum",
-          price: Number(item.price) || 0,
-          quantity: Number(item.quantity) || 1,
-        }))
-
-        const { error: itemsError } = await supabase
-          .from("receipt_items")
-          .insert(itemsToInsert)
-
-        if (itemsError) {
-          console.error("Insert Approved Items Error:", itemsError)
+        for (const item of items) {
+          await queryPg(
+            `INSERT INTO receipt_items ("receiptId", name, category, "subCategory", price, quantity, "createdAt")
+             VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+            [
+              newReceipt.id,
+              item.name || "Item",
+              item.category || "Lain-lain",
+              item.subCategory || "Umum",
+              Number(item.price) || 0,
+              Number(item.quantity) || 1,
+            ]
+          )
         }
       }
 
       // Background auto-learning into dictionaries
       try {
         if (merchantName) {
-          await supabase.from("merchant_dictionaries").upsert(
-            {
-              rawPattern: merchantName.toLowerCase().trim(),
-              cleanName: merchantName.trim(),
-              updatedAt: new Date().toISOString(),
-            },
-            { onConflict: "rawPattern" }
+          await queryPg(
+            `INSERT INTO merchant_dictionaries ("rawPattern", "cleanName", "verifiedCount", "updatedAt")
+             VALUES ($1, $2, 1, NOW())
+             ON CONFLICT ("rawPattern")
+             DO UPDATE SET "cleanName" = EXCLUDED."cleanName", "verifiedCount" = merchant_dictionaries."verifiedCount" + 1, "updatedAt" = NOW()`,
+            [merchantName.toLowerCase().trim(), merchantName.trim()]
           )
         }
 
         if (items && Array.isArray(items)) {
           for (const itm of items) {
             if (itm.name) {
-              await supabase.from("product_dictionaries").upsert(
-                {
-                  rawName: itm.name.toLowerCase().trim(),
-                  verifiedName: itm.name.trim(),
-                  category: itm.category || "Lain-lain",
-                  subCategory: itm.subCategory || "Umum",
-                  lastKnownPrice: Number(itm.price) || 0,
-                  updatedAt: new Date().toISOString(),
-                },
-                { onConflict: "rawName" }
+              await queryPg(
+                `INSERT INTO product_dictionaries ("rawName", "verifiedName", category, "subCategory", "lastKnownPrice", "verifiedCount", "updatedAt")
+                 VALUES ($1, $2, $3, $4, $5, 1, NOW())
+                 ON CONFLICT ("rawName")
+                 DO UPDATE SET 
+                   "verifiedName" = EXCLUDED."verifiedName",
+                   category = EXCLUDED.category,
+                   "subCategory" = EXCLUDED."subCategory",
+                   "lastKnownPrice" = EXCLUDED."lastKnownPrice",
+                   "verifiedCount" = product_dictionaries."verifiedCount" + 1,
+                   "updatedAt" = NOW()`,
+                [
+                  itm.name.toLowerCase().trim(),
+                  itm.name.trim(),
+                  itm.category || "Lain-lain",
+                  itm.subCategory || "Umum",
+                  Number(itm.price) || 0,
+                ]
               )
             }
           }
@@ -196,19 +198,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       }).catch((posErr) => console.warn("[POS Sync Trigger Error]:", posErr))
     } else if (actionType === "DELETE" && (pendingApproval.receiptId || payload.id)) {
       const delId = pendingApproval.receiptId || payload.id
-      const { error: delErr } = await supabase
-        .from("receipts")
-        .delete()
-        .eq("id", delId)
-
-      if (delErr) console.warn("Delete receipt execution notice:", delErr)
+      await queryPg(`DELETE FROM receipts WHERE id = $1`, [delId])
     } else if (actionType === "BULK_DELETE" && payload.ids && Array.isArray(payload.ids)) {
-      const { error: bulkErr } = await supabase
-        .from("receipts")
-        .delete()
-        .in("id", payload.ids)
-
-      if (bulkErr) console.warn("Bulk delete receipts execution notice:", bulkErr)
+      await queryPg(`DELETE FROM receipts WHERE id = ANY($1::uuid[])`, [payload.ids])
     } else if (actionType === "BULK_SETTLE" || actionType === "SETTLE") {
       const targetIds: string[] =
         payload.ids && Array.isArray(payload.ids) && payload.ids.length > 0
@@ -220,15 +212,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           : []
 
       if (targetIds.length > 0) {
-        const { error: setErr } = await supabase
-          .from("receipts")
-          .update({
-            paymentStatus: "Sudah Dilunasi",
-            updatedAt: new Date().toISOString(),
-          })
-          .in("id", targetIds)
-
-        if (setErr) console.warn("Settle execution notice:", setErr)
+        await queryPg(
+          `UPDATE receipts SET "paymentStatus" = 'Sudah Dilunasi', "updatedAt" = NOW() WHERE id = ANY($1::uuid[])`,
+          [targetIds]
+        )
       }
     } else if (actionType === "EDIT" && (pendingApproval.receiptId || payload.id)) {
       const editReceiptId = pendingApproval.receiptId || payload.id
@@ -236,74 +223,76 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       const compressedImageUrl = imageUrl ? await compressBase64Image(imageUrl) : null
 
       // Delete existing receipt items
-      await supabase
-        .from("receipt_items")
-        .delete()
-        .eq("receiptId", editReceiptId)
+      await queryPg(`DELETE FROM receipt_items WHERE "receiptId" = $1`, [editReceiptId])
 
-      // Update parent receipt record (preserve exact paymentStatus passed in edit payload)
-      const updateFields: any = {
-        merchantName: merchantName || "Nota / Toko",
-        date: date,
-        subtotal: Number(subtotal) || 0,
-        discountAmount: Number(discountAmount) || 0,
-        taxAmount: Number(taxAmount) || 0,
-        totalAmount: Number(totalAmount) || 0,
-        paymentMethod: paymentMethod || "Cash",
-        paymentStatus: paymentStatus || "Lunas",
-        note: note || null,
-        updatedAt: new Date().toISOString(),
-      }
-
+      // Update parent receipt record
       if (compressedImageUrl) {
-        updateFields.imageUrl = compressedImageUrl
+        await queryPg(
+          `UPDATE receipts 
+           SET "merchantName" = $1, date = $2, subtotal = $3, "discountAmount" = $4, "taxAmount" = $5, "totalAmount" = $6, "paymentMethod" = $7, "paymentStatus" = $8, note = $9, "imageUrl" = $10, "updatedAt" = NOW()
+           WHERE id = $11`,
+          [
+            merchantName || "Nota / Toko",
+            date,
+            Number(subtotal) || 0,
+            Number(discountAmount) || 0,
+            Number(taxAmount) || 0,
+            Number(totalAmount) || 0,
+            paymentMethod || "Cash",
+            paymentStatus || "Lunas",
+            note || null,
+            compressedImageUrl,
+            editReceiptId,
+          ]
+        )
+      } else {
+        await queryPg(
+          `UPDATE receipts 
+           SET "merchantName" = $1, date = $2, subtotal = $3, "discountAmount" = $4, "taxAmount" = $5, "totalAmount" = $6, "paymentMethod" = $7, "paymentStatus" = $8, note = $9, "updatedAt" = NOW()
+           WHERE id = $10`,
+          [
+            merchantName || "Nota / Toko",
+            date,
+            Number(subtotal) || 0,
+            Number(discountAmount) || 0,
+            Number(taxAmount) || 0,
+            Number(totalAmount) || 0,
+            paymentMethod || "Cash",
+            paymentStatus || "Lunas",
+            note || null,
+            editReceiptId,
+          ]
+        )
       }
-
-      const { error: editErr } = await supabase
-        .from("receipts")
-        .update(updateFields)
-        .eq("id", editReceiptId)
-
-      if (editErr) console.warn("Edit receipt execution notice:", editErr)
 
       // Re-create items
       if (items && Array.isArray(items) && items.length > 0) {
-        const itemsToCreate = items.map((it: any) => ({
-          receiptId: editReceiptId,
-          name: it.name || "Item",
-          category: it.category || "Lain-lain",
-          subCategory: it.subCategory || "Umum",
-          price: Number(it.price) || 0,
-          quantity: Number(it.quantity) || 1,
-        }))
-
-        await supabase
-          .from("receipt_items")
-          .insert(itemsToCreate)
+        for (const it of items) {
+          await queryPg(
+            `INSERT INTO receipt_items ("receiptId", name, category, "subCategory", price, quantity, "createdAt")
+             VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+            [
+              editReceiptId,
+              it.name || "Item",
+              it.category || "Lain-lain",
+              it.subCategory || "Umum",
+              Number(it.price) || 0,
+              Number(it.quantity) || 1,
+            ]
+          )
+        }
       }
     }
 
-    // Mark approval request as APPROVED in Supabase
-    const updateApprovalData: any = {
-      status: "APPROVED",
-      approvedBy: approvingAdmin,
-      updatedAt: new Date().toISOString(),
-    }
-    if (createdReceiptId) {
-      updateApprovalData.receiptId = createdReceiptId
-    }
-
-    const { data: updatedApproval, error: updateErr } = await supabase
-      .from("pending_approvals")
-      .update(updateApprovalData)
-      .eq("id", cleanId)
-      .select("*")
-      .maybeSingle()
-
-    if (updateErr) {
-      console.error("Update Approval Status Error:", updateErr)
-      throw new Error(updateErr.message)
-    }
+    // Mark approval request as APPROVED
+    const updateRes = await queryPg(
+      `UPDATE pending_approvals 
+       SET status = 'APPROVED', "approvedBy" = $1, "receiptId" = COALESCE($2, "receiptId"), "updatedAt" = NOW()
+       WHERE id = $3
+       RETURNING *`,
+      [approvingAdmin, createdReceiptId, cleanId]
+    )
+    const updatedApproval = updateRes.rows?.[0]
 
     // Invalidate caches immediately
     invalidateApprovalsCache()
@@ -317,16 +306,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         ? `Admin ${approvingAdmin} telah menyetujui nota baru dari "${payload.merchantName || 'Nota / Toko'}" sebesar Rp ${(Number(payload.totalAmount) || 0).toLocaleString("id-ID")}. Nota kini resmi tercatat di sistem.`
         : `Admin ${approvingAdmin} telah memverifikasi & menyetujui permintaan ${pendingApproval.actionType} Anda.`
 
-      await supabase.from("notifications").insert({
-        recipient: "all",
-        sender: approvingAdmin,
-        type: "APPROVE",
-        title: notifTitle,
-        message: notifMsg,
-        approvalId: cleanId,
-        receiptId: createdReceiptId || pendingApproval.receiptId || null,
-        isRead: false,
-      })
+      await queryPg(
+        `INSERT INTO notifications (recipient, sender, type, title, message, "approvalId", "receiptId", "isRead", "createdAt")
+         VALUES ('all', $1, 'APPROVE', $2, $3, $4::uuid, $5, false, NOW())`,
+        [approvingAdmin, notifTitle, notifMsg, cleanId, createdReceiptId || pendingApproval.receiptId || null]
+      ).catch(() => {})
 
       sendWebPushNotification({
         title: notifTitle,

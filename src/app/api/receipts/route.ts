@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server"
-import { supabase, isSupabaseConfigured } from "@/lib/supabase"
 import { recordVerifiedReceiptLearning } from "@/lib/selfLearningEngine"
 import { getAdminUserFromRequest, getAdminRoleFromRequest, getStaffNameFromRequest } from "@/lib/authHelper"
 import { getOrSeedCategories } from "@/lib/categories"
@@ -7,10 +6,7 @@ import { compressBase64Image } from "@/lib/imageCompressor"
 import { sendWebPushNotification } from "@/lib/serverPush"
 import { invalidateApprovalsCache } from "@/app/api/approvals/route"
 import { invalidateNotificationsCache } from "@/app/api/notifications/route"
-import { queryPg } from "@/lib/pgDb"
-
-const RECEIPT_LIST_SELECT =
-  "id, merchantName, date, subtotal, discountAmount, taxAmount, totalAmount, paymentMethod, paymentStatus, note, staffName, createdAt, updatedAt, items:receipt_items(id, name, category, subCategory, price, quantity)"
+import { queryPg, isDatabaseConfigured } from "@/lib/pgDb"
 
 let listCache: { key: string; data: any; timestamp: number } | null = null
 const LIST_CACHE_TTL = 5000 // 5 seconds cache
@@ -38,68 +34,52 @@ export async function GET(req: NextRequest) {
     }
 
     const rootKeyword = category ? category.split("/")[0].trim() : ""
-
     let receipts: any[] = []
 
-    try {
-      const pgRes = await queryPg(
-        `SELECT 
-          r.id, 
-          r."merchantName", 
-          r.date, 
-          r.subtotal,
-          r."discountAmount",
-          r."taxAmount",
-          r."totalAmount",
-          r."paymentMethod",
-          r."paymentStatus",
-          r.note,
-          r."staffName",
-          r."createdAt", 
-          r."updatedAt",
-          COALESCE(
-            json_agg(
-              json_build_object(
-                'id', i.id,
-                'name', i.name,
-                'category', i.category,
-                'subCategory', i."subCategory",
-                'price', i.price,
-                'quantity', i.quantity
-              )
-            ) FILTER (WHERE i.id IS NOT NULL),
-            '[]'::json
-          ) as items
-        FROM receipts r
-        LEFT JOIN receipt_items i ON i."receiptId" = r.id
-        GROUP BY r.id
-        ORDER BY r."createdAt" DESC
-        ${limit ? `LIMIT ${limit}` : ''}`
-      )
-      receipts = pgRes.rows || []
-    } catch (pgErr) {
-      if (isSupabaseConfigured) {
-        try {
-          let query = supabase
-            .from("receipts")
-            .select(RECEIPT_LIST_SELECT)
-            .order("createdAt", { ascending: false })
-
-          if (limit) {
-            query = query.limit(limit)
-          }
-
-          const { data: rawReceipts, error } = await query
-          if (!error && rawReceipts) {
-            receipts = rawReceipts
-          }
-        } catch (sErr) {
-          console.warn("Supabase receipts query notice:", sErr)
-        }
+    if (isDatabaseConfigured) {
+      try {
+        const pgRes = await queryPg(
+          `SELECT 
+            r.id, 
+            r."merchantName", 
+            r.date, 
+            r."imageUrl",
+            r.subtotal,
+            r."discountAmount",
+            r."taxAmount",
+            r."totalAmount",
+            r."paymentMethod",
+            r."paymentStatus",
+            r.note,
+            r."staffName",
+            r."createdAt", 
+            r."updatedAt",
+            COALESCE(
+              json_agg(
+                json_build_object(
+                  'id', i.id,
+                  'name', i.name,
+                  'category', i.category,
+                  'subCategory', i."subCategory",
+                  'price', i.price,
+                  'quantity', i.quantity
+                )
+              ) FILTER (WHERE i.id IS NOT NULL),
+              '[]'::json
+            ) as items
+          FROM receipts r
+          LEFT JOIN receipt_items i ON i."receiptId" = r.id
+          GROUP BY r.id
+          ORDER BY r."createdAt" DESC
+          ${limit ? `LIMIT ${limit}` : ''}`
+        )
+        receipts = pgRes.rows || []
+      } catch (pgErr) {
+        console.warn("PostgreSQL receipts query notice:", pgErr)
       }
     }
 
-    // In-memory filter for complex relational search/category criteria
+    // In-memory filter for search/category criteria
     if (search || category) {
       const searchLower = search.toLowerCase().trim()
       const categoryLower = category.toLowerCase().trim()
@@ -137,7 +117,7 @@ export async function GET(req: NextRequest) {
     const categoryHierarchy = await getOrSeedCategories()
     const parentNames: string[] = categoryHierarchy.map((c) => c.name)
 
-    // Normalize item categories and strip legacy [Dibayar oleh: ...] from non-personal payment receipts
+    // Normalize item categories
     let normalizedReceipts = receipts.map((r: any) => {
       const isPersonal =
         r.paymentMethod === "Dana Pribadi Owner" || r.paymentMethod === "Talangan Karyawan"
@@ -166,7 +146,7 @@ export async function GET(req: NextRequest) {
       }
     })
 
-    // Role KARYAWAN Data Scoping: Only return receipts uploaded by Karyawan or Talangan Karyawan
+    // Role KARYAWAN Data Scoping
     const userRole = getAdminRoleFromRequest(req)
     if (userRole === "KARYAWAN") {
       const knownStaff = ["reza", "ummu", "cheisa", "novi", "titis", "karyawan"]
@@ -277,21 +257,24 @@ export async function POST(req: NextRequest) {
     }
 
     // 2. Insert into pending_approvals for Dual-Admin Verification
-    const { data: newApproval, error: approvalError } = await supabase
-      .from("pending_approvals")
-      .insert({
-        receiptId: null,
-        actionType: "CREATE",
-        requestedBy: uploaderName,
-        status: "PENDING",
-        payload: JSON.stringify(payloadObj),
-      })
-      .select("id, receiptId, actionType, requestedBy, status, createdAt")
-      .single()
+    let newApproval: any = {
+      id: `appr-${Date.now()}`,
+      actionType: "CREATE",
+      requestedBy: uploaderName,
+      status: "PENDING",
+      createdAt: new Date().toISOString(),
+    }
 
-    if (approvalError) {
-      console.error("Insert Pending Approval Error:", approvalError)
-      throw new Error(approvalError.message)
+    if (isDatabaseConfigured) {
+      const apprRes = await queryPg<{ id: string; actionType: string; requestedBy: string; status: string; createdAt: string }>(
+        `INSERT INTO pending_approvals ("receiptId", "actionType", "requestedBy", status, payload, "createdAt", "updatedAt")
+         VALUES (NULL, 'CREATE', $1, 'PENDING', $2, NOW(), NOW())
+         RETURNING id, "actionType", "requestedBy", status, "createdAt"`,
+        [uploaderName, JSON.stringify(payloadObj)]
+      )
+      if (apprRes.rows?.[0]) {
+        newApproval = apprRes.rows[0]
+      }
     }
 
     invalidateApprovalsCache()
@@ -302,17 +285,14 @@ export async function POST(req: NextRequest) {
       const notifTitle = "Pengajuan Nota Baru Menunggu Approval"
       const notifMessage = `${uploaderName} telah mengajukan nota baru dari "${merchantName || 'Nota / Toko'}" sebesar Rp ${(Number(totalAmount) || 0).toLocaleString("id-ID")}. Menunggu persetujuan Admin lain.`
 
-      await supabase.from("notifications").insert({
-        recipient: "all",
-        sender: uploaderName,
-        type: "REQUEST",
-        title: notifTitle,
-        message: notifMessage,
-        approvalId: newApproval.id,
-        isRead: false,
-      })
+      if (isDatabaseConfigured && newApproval.id) {
+        await queryPg(
+          `INSERT INTO notifications (recipient, sender, type, title, message, "approvalId", "isRead", "createdAt")
+           VALUES ('all', $1, 'REQUEST', $2, $3, $4::uuid, false, NOW())`,
+          [uploaderName, notifTitle, notifMessage, newApproval.id.startsWith("appr-") ? null : newApproval.id]
+        ).catch(() => {})
+      }
 
-      // Trigger Web Push to other admin
       sendWebPushNotification({
         title: notifTitle,
         message: notifMessage,
@@ -348,19 +328,24 @@ export async function DELETE(req: NextRequest) {
     invalidateApprovalsCache()
     invalidateNotificationsCache()
 
-    const { data: approval, error } = await supabase
-      .from("pending_approvals")
-      .insert({
-        actionType: "BULK_DELETE",
-        requestedBy: adminUser,
-        status: "PENDING",
-        payload: JSON.stringify({ ids }),
-      })
-      .select("*")
-      .single()
+    let approval: any = {
+      id: `appr-bulk-del-${Date.now()}`,
+      actionType: "BULK_DELETE",
+      requestedBy: adminUser,
+      status: "PENDING",
+      createdAt: new Date().toISOString(),
+    }
 
-    if (error) {
-      throw new Error(error.message)
+    if (isDatabaseConfigured) {
+      const apprRes = await queryPg<{ id: string; actionType: string; requestedBy: string; status: string; createdAt: string }>(
+        `INSERT INTO pending_approvals ("actionType", "requestedBy", status, payload, "createdAt", "updatedAt")
+         VALUES ('BULK_DELETE', $1, 'PENDING', $2, NOW(), NOW())
+         RETURNING id, "actionType", "requestedBy", status, "createdAt"`,
+        [adminUser, JSON.stringify({ ids })]
+      )
+      if (apprRes.rows?.[0]) {
+        approval = apprRes.rows[0]
+      }
     }
 
     // Insert Notification for other admin & Send Web Push
@@ -368,15 +353,13 @@ export async function DELETE(req: NextRequest) {
       const notifTitle = `Permintaan Hapus Massal (${ids.length} Nota)`
       const notifMsg = `Admin ${adminUser} mengajukan penghapusan massal untuk ${ids.length} nota.`
 
-      await supabase.from("notifications").insert({
-        recipient: "all",
-        sender: adminUser,
-        type: "REQUEST",
-        title: notifTitle,
-        message: notifMsg,
-        approvalId: approval.id,
-        isRead: false,
-      })
+      if (isDatabaseConfigured && approval.id) {
+        await queryPg(
+          `INSERT INTO notifications (recipient, sender, type, title, message, "approvalId", "isRead", "createdAt")
+           VALUES ('all', $1, 'REQUEST', $2, $3, $4::uuid, false, NOW())`,
+          [adminUser, notifTitle, notifMsg, approval.id.startsWith("appr-") ? null : approval.id]
+        ).catch(() => {})
+      }
 
       sendWebPushNotification({
         title: notifTitle,
@@ -423,19 +406,24 @@ export async function PATCH(req: NextRequest) {
       totalAmount: Number(totalAmount) || 0,
     }
 
-    const { data: approval, error } = await supabase
-      .from("pending_approvals")
-      .insert({
-        actionType: "BULK_SETTLE",
-        requestedBy: adminUser,
-        status: "PENDING",
-        payload: JSON.stringify(payloadObj),
-      })
-      .select("*")
-      .single()
+    let approval: any = {
+      id: `appr-bulk-settle-${Date.now()}`,
+      actionType: "BULK_SETTLE",
+      requestedBy: adminUser,
+      status: "PENDING",
+      createdAt: new Date().toISOString(),
+    }
 
-    if (error) {
-      throw new Error(error.message)
+    if (isDatabaseConfigured) {
+      const apprRes = await queryPg<{ id: string; actionType: string; requestedBy: string; status: string; createdAt: string }>(
+        `INSERT INTO pending_approvals ("actionType", "requestedBy", status, payload, "createdAt", "updatedAt")
+         VALUES ('BULK_SETTLE', $1, 'PENDING', $2, NOW(), NOW())
+         RETURNING id, "actionType", "requestedBy", status, "createdAt"`,
+        [adminUser, JSON.stringify(payloadObj)]
+      )
+      if (apprRes.rows?.[0]) {
+        approval = apprRes.rows[0]
+      }
     }
 
     // Insert Notification for all admins & Send Web Push
@@ -443,15 +431,13 @@ export async function PATCH(req: NextRequest) {
       const notifTitle = `Pengajuan Pelunasan (${ids.length} Nota)`
       const notifMsg = `Admin ${adminUser} mengajukan pelunasan untuk ${ids.length} nota${personName ? ` (${personName})` : ''} sebesar Rp ${(Number(totalAmount) || 0).toLocaleString("id-ID")}.`
 
-      await supabase.from("notifications").insert({
-        recipient: "all",
-        sender: adminUser,
-        type: "REQUEST",
-        title: notifTitle,
-        message: notifMsg,
-        approvalId: approval.id,
-        isRead: false,
-      })
+      if (isDatabaseConfigured && approval.id) {
+        await queryPg(
+          `INSERT INTO notifications (recipient, sender, type, title, message, "approvalId", "isRead", "createdAt")
+           VALUES ('all', $1, 'REQUEST', $2, $3, $4::uuid, false, NOW())`,
+          [adminUser, notifTitle, notifMsg, approval.id.startsWith("appr-") ? null : approval.id]
+        ).catch(() => {})
+      }
 
       sendWebPushNotification({
         title: notifTitle,

@@ -1,34 +1,29 @@
 import { NextResponse } from "next/server"
-import { supabase } from "@/lib/supabase"
+import { queryPg, isDatabaseConfigured } from "@/lib/pgDb"
 
 /**
- * Ping / Keep-Alive API Endpoint for Supabase Database
- * Performs a lightweight, ultra-efficient query selecting only 1 column with limit(1)
- * to keep the Supabase database awake and prevent auto-pause.
+ * Health Check / Ping API Endpoint for Database
  */
 export async function GET() {
   try {
-    const { data, error } = await supabase
-      .from("scan_limits")
-      .select("id")
-      .limit(1)
-
-    if (error) {
+    if (!isDatabaseConfigured) {
       return NextResponse.json(
         {
-          status: "degraded",
-          message: "Supabase ping returned an error",
-          details: error.message,
+          status: "standalone",
+          message: "Scota running in standalone local memory mode",
           timestamp: new Date().toISOString(),
         },
         { status: 200 }
       )
     }
 
+    const { rows } = await queryPg<{ now: string }>(`SELECT NOW() as now`)
+
     return NextResponse.json(
       {
         status: "healthy",
-        message: "Supabase database ping successful - project active",
+        message: "PostgreSQL database connection active",
+        serverTime: rows?.[0]?.now,
         timestamp: new Date().toISOString(),
       },
       { status: 200 }
@@ -37,7 +32,7 @@ export async function GET() {
     return NextResponse.json(
       {
         status: "error",
-        error: error?.message || "Internal Server Error",
+        error: error?.message || "Internal Database Error",
       },
       { status: 500 }
     )

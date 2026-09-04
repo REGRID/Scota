@@ -1,35 +1,47 @@
 import { NextRequest, NextResponse } from "next/server"
-import { supabase } from "@/lib/supabase"
+import { queryPg, isDatabaseConfigured } from "@/lib/pgDb"
 import { invalidateCategoriesCache } from "@/lib/categories"
 
 // GET: Export entire database data as JSON
 export async function GET() {
   try {
-    const { data: receipts } = await supabase
-      .from("receipts")
-      .select("*, items:receipt_items(*)")
-      .order("createdAt", { ascending: true })
+    let receipts: any[] = []
+    let customCategories: any[] = []
+    let merchantDictionaries: any[] = []
+    let productDictionaries: any[] = []
 
-    const { data: customCategories } = await supabase
-      .from("custom_categories")
-      .select("*")
-      .order("createdAt", { ascending: true })
+    if (isDatabaseConfigured) {
+      const receiptsRes = await queryPg(
+        `SELECT 
+          r.*,
+          COALESCE(
+            json_agg(i.*) FILTER (WHERE i.id IS NOT NULL),
+            '[]'::json
+          ) as items
+        FROM receipts r
+        LEFT JOIN receipt_items i ON i."receiptId" = r.id
+        GROUP BY r.id
+        ORDER BY r."createdAt" ASC`
+      )
+      receipts = receiptsRes.rows || []
 
-    const { data: merchantDictionaries } = await supabase
-      .from("merchant_dictionaries")
-      .select("*")
+      const catsRes = await queryPg(`SELECT * FROM custom_categories ORDER BY "createdAt" ASC`)
+      customCategories = catsRes.rows || []
 
-    const { data: productDictionaries } = await supabase
-      .from("product_dictionaries")
-      .select("*")
+      const merchRes = await queryPg(`SELECT * FROM merchant_dictionaries`)
+      merchantDictionaries = merchRes.rows || []
+
+      const prodRes = await queryPg(`SELECT * FROM product_dictionaries`)
+      productDictionaries = prodRes.rows || []
+    }
 
     const backupData = {
       version: "1.0",
       exportedAt: new Date().toISOString(),
-      receipts: receipts || [],
-      customCategories: customCategories || [],
-      merchantDictionaries: merchantDictionaries || [],
-      productDictionaries: productDictionaries || [],
+      receipts,
+      customCategories,
+      merchantDictionaries,
+      productDictionaries,
     }
 
     return new NextResponse(JSON.stringify(backupData, null, 2), {
@@ -57,79 +69,68 @@ export async function POST(req: NextRequest) {
     let importedCategories = 0
     let importedReceipts = 0
 
-    // 1. Restore Custom Categories
-    if (backupData.customCategories && Array.isArray(backupData.customCategories)) {
-      for (const cat of backupData.customCategories) {
-        try {
-          let catQuery = supabase
-            .from("custom_categories")
-            .select("id")
-            .eq("name", cat.name)
-
-          if (cat.parentId) {
-            catQuery = catQuery.eq("parentId", cat.parentId)
-          } else {
-            catQuery = catQuery.is("parentId", null)
-          }
-
-          const { data: exists } = await catQuery.maybeSingle()
-
-          if (!exists) {
-            await supabase.from("custom_categories").insert({
-              name: cat.name,
-              parentId: cat.parentId || null,
-            })
+    if (isDatabaseConfigured) {
+      // 1. Restore Custom Categories
+      if (backupData.customCategories && Array.isArray(backupData.customCategories)) {
+        for (const cat of backupData.customCategories) {
+          try {
+            await queryPg(
+              `INSERT INTO custom_categories (id, name, "parentId", "createdAt")
+               VALUES ($1, $2, $3, NOW())
+               ON CONFLICT (id) DO NOTHING`,
+              [cat.id, cat.name, cat.parentId || null]
+            )
             importedCategories++
-          }
-        } catch (e) {}
+          } catch (e) {}
+        }
       }
-    }
 
-    // 2. Restore Receipts & Items
-    if (backupData.receipts && Array.isArray(backupData.receipts)) {
-      for (const r of backupData.receipts) {
-        try {
-          const { data: exists } = await supabase
-            .from("receipts")
-            .select("id")
-            .eq("id", r.id)
-            .maybeSingle()
+      // 2. Restore Receipts & Items
+      if (backupData.receipts && Array.isArray(backupData.receipts)) {
+        for (const r of backupData.receipts) {
+          try {
+            const createRes = await queryPg<{ id: string }>(
+              `INSERT INTO receipts (id, "merchantName", date, "imageUrl", subtotal, "discountAmount", "taxAmount", "totalAmount", "paymentMethod", "paymentStatus", note, "createdAt", "updatedAt")
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, COALESCE($12::timestamptz, NOW()), NOW())
+               ON CONFLICT (id) DO NOTHING
+               RETURNING id`,
+              [
+                r.id,
+                r.merchantName || "Nota / Toko",
+                r.date,
+                r.imageUrl || null,
+                Number(r.subtotal) || 0,
+                Number(r.discountAmount) || 0,
+                Number(r.taxAmount) || 0,
+                Number(r.totalAmount) || 0,
+                r.paymentMethod || "Cash",
+                r.paymentStatus || "Lunas",
+                r.note || null,
+                r.createdAt || null,
+              ]
+            )
 
-          if (!exists) {
-            const { data: newReceipt } = await supabase
-              .from("receipts")
-              .insert({
-                id: r.id,
-                merchantName: r.merchantName || "Nota / Toko",
-                date: r.date,
-                imageUrl: r.imageUrl || null,
-                subtotal: Number(r.subtotal) || 0,
-                discountAmount: Number(r.discountAmount) || 0,
-                taxAmount: Number(r.taxAmount) || 0,
-                totalAmount: Number(r.totalAmount) || 0,
-                paymentMethod: r.paymentMethod || "Cash",
-                paymentStatus: r.paymentStatus || "Lunas",
-                note: r.note || null,
-                createdAt: r.createdAt || new Date().toISOString(),
-              })
-              .select("id")
-              .single()
-
-            if (newReceipt && r.items && Array.isArray(r.items) && r.items.length > 0) {
-              const itemsToInsert = r.items.map((it: any) => ({
-                receiptId: newReceipt.id,
-                name: it.name || "Item",
-                category: it.category || "Lain-lain",
-                subCategory: it.subCategory || "Umum",
-                price: Number(it.price) || 0,
-                quantity: Number(it.quantity) || 1,
-              }))
-
-              await supabase.from("receipt_items").insert(itemsToInsert)
+            if (createRes.rows?.[0] && r.items && Array.isArray(r.items)) {
+              for (const it of r.items) {
+                await queryPg(
+                  `INSERT INTO receipt_items (id, "receiptId", name, category, "subCategory", price, quantity, "createdAt")
+                   VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+                   ON CONFLICT (id) DO NOTHING`,
+                  [
+                    it.id,
+                    r.id,
+                    it.name || "Item",
+                    it.category || "Lain-lain",
+                    it.subCategory || "Umum",
+                    Number(it.price) || 0,
+                    Number(it.quantity) || 1,
+                  ]
+                )
+              }
             }
             importedReceipts++
-          }
-        } catch (e) {}
+          } catch (e) {}
+        }
       }
     }
 

@@ -1,4 +1,4 @@
-import { supabase, isSupabaseConfigured } from "@/lib/supabase"
+import { queryPg, isDatabaseConfigured } from "@/lib/pgDb"
 import { TIER_CONFIG, SubscriptionTier } from "@/lib/subscription"
 import { getUserAccountDetails, updateAdminPassword } from "@/lib/adminAccounts"
 import fs from "fs"
@@ -92,20 +92,21 @@ const BILLING_FILE = path.join(process.cwd(), "superadmin_billing.json")
 export async function getAllTenants(): Promise<TenantSummary[]> {
   const tenantsMap = new Map<string, TenantSummary>()
 
-  // 1. Load from Supabase `admin_accounts` if configured
-  if (isSupabaseConfigured) {
+  // 1. Load from PostgreSQL `admin_accounts` if configured
+  if (isDatabaseConfigured) {
     try {
-      const { data: dbAccounts } = await supabase
-        .from("admin_accounts")
-        .select("*")
-        .order("createdAt", { ascending: false })
+      const res = await queryPg<any>(
+        `SELECT * FROM admin_accounts ORDER BY "createdAt" DESC`
+      )
+      const dbAccounts = res.rows
 
       if (dbAccounts) {
         for (const acc of dbAccounts) {
-          const cleanUser = acc.username.trim().toLowerCase()
-          const tier = (acc.tier || "trial") as SubscriptionTier
-          const tierCfg = TIER_CONFIG[tier] || TIER_CONFIG.trial
-          const validDate = new Date(acc.validUntil || Date.now() + 14 * 24 * 60 * 60 * 1000)
+          const cleanUser = (acc.username || "").trim().toLowerCase()
+          if (!cleanUser) continue
+          const tier = (acc.tier || "starter") as SubscriptionTier
+          const tierCfg = TIER_CONFIG[tier] || TIER_CONFIG.starter
+          const validDate = new Date(acc.validUntil || Date.now() + 30 * 24 * 60 * 60 * 1000)
           const isExpired = validDate < new Date()
 
           tenantsMap.set(cleanUser, {
@@ -142,12 +143,12 @@ export async function getAllTenants(): Promise<TenantSummary[]> {
             businessName: `${cleanUser.toUpperCase()} Business`,
             phone: "",
             role: "ADMIN",
-            tier: "trial",
-            validUntil: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
-            monthlyScanLimit: 30,
+            tier: "starter",
+            validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+            monthlyScanLimit: 150,
             usedScansThisMonth: 0,
             createdAt: new Date().toISOString(),
-            status: "trial",
+            status: "active",
           })
         }
       }
@@ -168,15 +169,12 @@ export async function getSuperadminPlatformStats(): Promise<PlatformStats> {
 
   let totalReceipts = 0
 
-  // 1. Calculate receipts count from Supabase if configured
-  if (isSupabaseConfigured) {
+  // 1. Calculate receipts count from PostgreSQL if configured
+  if (isDatabaseConfigured) {
     try {
-      const { data: receipts } = await supabase
-        .from("receipts")
-        .select("id")
-      
-      if (receipts && receipts.length > 0) {
-        totalReceipts = receipts.length
+      const res = await queryPg<{ count: string }>(`SELECT count(*) as count FROM receipts`)
+      if (res.rows && res.rows[0]) {
+        totalReceipts = parseInt(res.rows[0].count, 10) || 0
       }
     } catch (err) {
       // Graceful fallback
@@ -200,11 +198,11 @@ export async function getSuperadminPlatformStats(): Promise<PlatformStats> {
   const sevenDaysFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
 
   for (const t of tenants) {
-    const tTier = t.tier || "trial"
+    const tTier = t.tier || "starter"
     if (tierBreakdown[tTier] !== undefined) {
       tierBreakdown[tTier]++
     } else {
-      tierBreakdown.trial++
+      tierBreakdown.starter++
     }
 
     const validDate = new Date(t.validUntil)
@@ -267,20 +265,17 @@ export async function updateTenantSubscription(
 
     const monthlyScanLimit = params.customScanLimit || tierConfig.monthlyScanLimit
 
-    // 1. Update in Supabase if configured
-    if (isSupabaseConfigured) {
+    // 1. Update in PostgreSQL if configured
+    if (isDatabaseConfigured) {
       try {
-        await supabase
-          .from("admin_accounts")
-          .update({
-            tier: params.tier,
-            validUntil: validUntilIso,
-            monthlyScanLimit,
-            updatedAt: new Date().toISOString(),
-          })
-          .eq("username", cleanUser)
+        await queryPg(
+          `UPDATE admin_accounts
+           SET tier = $1, "validUntil" = $2, "monthlyScanLimit" = $3, "updatedAt" = NOW()
+           WHERE LOWER(username) = LOWER($4)`,
+          [params.tier, validUntilIso, monthlyScanLimit, cleanUser]
+        )
       } catch (err) {
-        console.warn("updateTenantSubscription Supabase notice:", err)
+        console.warn("updateTenantSubscription PostgreSQL notice:", err)
       }
     }
 
@@ -310,17 +305,14 @@ export async function toggleTenantStatus(
   try {
     const cleanUser = username.trim().toLowerCase()
 
-    if (isSupabaseConfigured) {
+    if (isDatabaseConfigured) {
       try {
-        await supabase
-          .from("admin_accounts")
-          .update({
-            status: newStatus,
-            updatedAt: new Date().toISOString(),
-          })
-          .eq("username", cleanUser)
+        await queryPg(
+          `UPDATE admin_accounts SET status = $1, "updatedAt" = NOW() WHERE LOWER(username) = LOWER($2)`,
+          [newStatus, cleanUser]
+        )
       } catch (err) {
-        console.warn("toggleTenantStatus Supabase notice:", err)
+        console.warn("toggleTenantStatus PostgreSQL notice:", err)
       }
     }
 
@@ -358,32 +350,41 @@ export async function createTenantManual(payload: {
       return { success: false, message: "Username dan Password wajib diisi" }
     }
 
-    const tier = payload.tier || "pro"
-    const tierCfg = TIER_CONFIG[tier] || TIER_CONFIG.pro
+    const tier = payload.tier || "starter"
+    const tierCfg = TIER_CONFIG[tier] || TIER_CONFIG.starter
     const durationDays = payload.durationDays || 30
     const validUntil = new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000).toISOString()
 
     // 1. Save password
     await updateAdminPassword(cleanUser, payload.password)
 
-    // 2. Insert into Supabase if configured
-    if (isSupabaseConfigured) {
+    // 2. Insert into PostgreSQL if configured
+    if (isDatabaseConfigured) {
       try {
-        await supabase.from("admin_accounts").insert({
-          username: cleanUser,
-          fullName: payload.fullName || cleanUser,
-          businessName: payload.businessName || payload.fullName || cleanUser,
-          phone: payload.phone || "",
-          role: "ADMIN",
-          tier,
-          validUntil,
-          monthlyScanLimit: tierCfg.monthlyScanLimit,
-          usedScansThisMonth: 0,
-          createdAt: new Date().toISOString(),
-          status: "active",
-        })
+        await queryPg(
+          `INSERT INTO admin_accounts (username, password, role, "fullName", "businessName", phone, tier, "validUntil", "monthlyScanLimit", "usedScansThisMonth", status, "createdAt", "updatedAt")
+           VALUES ($1, $2, 'ADMIN', $3, $4, $5, $6, $7, $8, 0, 'active', NOW(), NOW())
+           ON CONFLICT (username) DO UPDATE SET 
+             "fullName" = EXCLUDED."fullName",
+             "businessName" = EXCLUDED."businessName",
+             tier = EXCLUDED.tier,
+             "validUntil" = EXCLUDED."validUntil",
+             "monthlyScanLimit" = EXCLUDED."monthlyScanLimit",
+             status = 'active',
+             "updatedAt" = NOW()`,
+          [
+            cleanUser,
+            payload.password,
+            payload.fullName || cleanUser,
+            payload.businessName || payload.fullName || cleanUser,
+            payload.phone || "",
+            tier,
+            validUntil,
+            tierCfg.monthlyScanLimit,
+          ]
+        )
       } catch (err) {
-        console.warn("createTenantManual Supabase insert notice:", err)
+        console.warn("createTenantManual PostgreSQL insert notice:", err)
       }
     }
 
@@ -416,26 +417,20 @@ export async function getTenantDetail(username: string) {
   let totalOmset = 0
   let recentReceipts: any[] = []
 
-  if (isSupabaseConfigured) {
+  if (isDatabaseConfigured) {
     try {
-      const { data: dbReceipts } = await supabase
-        .from("receipts")
-        .select("*")
-        .order("tanggal", { ascending: false })
-        .limit(10)
-
-      if (dbReceipts) {
-        receiptsCount = dbReceipts.length
-        recentReceipts = dbReceipts
-        totalOmset = dbReceipts.reduce((sum, r) => sum + (Number(r.total) || 0), 0)
+      const res = await queryPg<any>(
+        `SELECT id, "merchantName", date, "totalAmount", "createdAt" FROM receipts ORDER BY "createdAt" DESC LIMIT 10`
+      )
+      if (res.rows) {
+        receiptsCount = res.rows.length
+        recentReceipts = res.rows
+        totalOmset = res.rows.reduce((sum, r) => sum + (Number(r.totalAmount) || 0), 0)
       }
     } catch (err) {}
   }
 
-  // Get staff list
   const staffList: any[] = []
-
-  // Invoices list
   const invoices: any[] = []
 
   // Audit logs for this tenant

@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase"
+import { queryPg, isDatabaseConfigured } from "@/lib/pgDb"
 
 export const DAILY_SCAN_LIMIT = 999999
 
@@ -9,11 +9,9 @@ export interface RateLimitResult {
   resetAt: Date
 }
 
-// In-memory cache for Rate Limiting to prevent repeated Supabase queries
+// In-memory cache for Rate Limiting to prevent repeated DB queries
 const rateLimitCache = new Map<string, { result: RateLimitResult; timestamp: number }>()
 const RATE_LIMIT_CACHE_TTL = 60 * 1000 // 60 seconds cache
-
-const SCAN_LIMITS_SELECT = "id, ipAddress, scanCount, lastScanAt, resetAt"
 
 /**
  * Normalizes IP address strings (e.g. ::1, ::ffff:127.0.0.1, 127.0.0.1) to unified keys
@@ -31,7 +29,7 @@ export function normalizeIp(ipAddress?: string | null): string {
 }
 
 /**
- * Checks rate limit using persistent Supabase database tracking with in-memory caching.
+ * Checks rate limit using persistent PostgreSQL database tracking with in-memory caching.
  */
 export async function checkRateLimit(ipAddress: string): Promise<RateLimitResult> {
   const now = new Date()
@@ -42,70 +40,54 @@ export async function checkRateLimit(ipAddress: string): Promise<RateLimitResult
     return cached.result
   }
 
-  try {
-    const tomorrow = new Date(now)
-    tomorrow.setHours(tomorrow.getHours() + 24)
+  const tomorrow = new Date(now.getTime() + 86400000)
 
-    const { data: existingRecord } = await supabase
-      .from("scan_limits")
-      .select(SCAN_LIMITS_SELECT)
-      .eq("ipAddress", cleanIp)
-      .maybeSingle()
-
-    let limitRecord = existingRecord
-
-    if (!limitRecord) {
-      const { data: newRecord } = await supabase
-        .from("scan_limits")
-        .insert({
-          ipAddress: cleanIp,
-          scanCount: 0,
-          lastScanAt: now.toISOString(),
-          resetAt: tomorrow.toISOString(),
-        })
-        .select(SCAN_LIMITS_SELECT)
-        .maybeSingle()
-
-      limitRecord = newRecord || existingRecord
+  if (!isDatabaseConfigured) {
+    const res: RateLimitResult = {
+      allowed: true,
+      remaining: DAILY_SCAN_LIMIT,
+      current: 0,
+      resetAt: tomorrow,
     }
+    rateLimitCache.set(cleanIp, { result: res, timestamp: now.getTime() })
+    return res
+  }
+
+  try {
+    const existingRes = await queryPg<{ id: string; scanCount: number; resetAt: string }>(
+      `SELECT id, "scanCount", "resetAt" FROM scan_limits WHERE "ipAddress" = $1 LIMIT 1`,
+      [cleanIp]
+    )
+    let limitRecord = existingRes.rows?.[0]
 
     if (!limitRecord) {
-      const res: RateLimitResult = {
-        allowed: true,
-        remaining: DAILY_SCAN_LIMIT,
-        current: 0,
-        resetAt: tomorrow,
-      }
-      rateLimitCache.set(cleanIp, { result: res, timestamp: now.getTime() })
-      return res
+      const createRes = await queryPg<{ id: string; scanCount: number; resetAt: string }>(
+        `INSERT INTO scan_limits ("ipAddress", "scanCount", "lastScanAt", "resetAt", "createdAt", "updatedAt")
+         VALUES ($1, 0, NOW(), $2, NOW(), NOW())
+         ON CONFLICT ("ipAddress") DO NOTHING
+         RETURNING id, "scanCount", "resetAt"`,
+        [cleanIp, tomorrow.toISOString()]
+      )
+      limitRecord = createRes.rows?.[0] || { id: "temp", scanCount: 0, resetAt: tomorrow.toISOString() }
     }
 
     const resetAtDate = new Date(limitRecord.resetAt)
 
     // Reset daily counter if 24 hours elapsed
     if (now > resetAtDate) {
-      const nextReset = new Date(now)
-      nextReset.setHours(nextReset.getHours() + 24)
-
-      const { data: updated } = await supabase
-        .from("scan_limits")
-        .update({
-          scanCount: 0,
-          resetAt: nextReset.toISOString(),
-        })
-        .eq("id", limitRecord.id)
-        .select(SCAN_LIMITS_SELECT)
-        .maybeSingle()
-
-      if (updated) limitRecord = updated
+      const nextReset = new Date(now.getTime() + 86400000)
+      const updateRes = await queryPg<{ id: string; scanCount: number; resetAt: string }>(
+        `UPDATE scan_limits SET "scanCount" = 0, "resetAt" = $1, "updatedAt" = NOW() WHERE id = $2 RETURNING id, "scanCount", "resetAt"`,
+        [nextReset.toISOString(), limitRecord.id]
+      )
+      if (updateRes.rows?.[0]) limitRecord = updateRes.rows[0]
     }
 
     const current = limitRecord.scanCount || 0
     const remaining = Math.max(DAILY_SCAN_LIMIT - current, 0)
-    const allowed = true
 
     const result: RateLimitResult = {
-      allowed,
+      allowed: true,
       remaining,
       current,
       resetAt: new Date(limitRecord.resetAt || tomorrow),
@@ -119,13 +101,13 @@ export async function checkRateLimit(ipAddress: string): Promise<RateLimitResult
       allowed: true,
       remaining: DAILY_SCAN_LIMIT,
       current: 0,
-      resetAt: new Date(now.getTime() + 86400000),
+      resetAt: tomorrow,
     }
   }
 }
 
 /**
- * Atomically increments the scan count in Supabase for the normalized IP.
+ * Atomically increments the scan count in PostgreSQL for the normalized IP.
  */
 export async function incrementRateLimit(ipAddress: string): Promise<number> {
   const cleanIp = normalizeIp(ipAddress)
@@ -134,40 +116,22 @@ export async function incrementRateLimit(ipAddress: string): Promise<number> {
 
   rateLimitCache.delete(cleanIp)
 
+  if (!isDatabaseConfigured) {
+    return DAILY_SCAN_LIMIT - 1
+  }
+
   try {
-    const { data: record } = await supabase
-      .from("scan_limits")
-      .select(SCAN_LIMITS_SELECT)
-      .eq("ipAddress", cleanIp)
-      .maybeSingle()
+    const res = await queryPg<{ scanCount: number }>(
+      `INSERT INTO scan_limits ("ipAddress", "scanCount", "lastScanAt", "resetAt", "createdAt", "updatedAt")
+       VALUES ($1, 1, NOW(), $2, NOW(), NOW())
+       ON CONFLICT ("ipAddress")
+       DO UPDATE SET "scanCount" = scan_limits."scanCount" + 1, "lastScanAt" = NOW(), "updatedAt" = NOW()
+       RETURNING "scanCount"`,
+      [cleanIp, tomorrow.toISOString()]
+    )
 
-    if (!record) {
-      const { data: created } = await supabase
-        .from("scan_limits")
-        .insert({
-          ipAddress: cleanIp,
-          scanCount: 1,
-          lastScanAt: now.toISOString(),
-          resetAt: tomorrow.toISOString(),
-        })
-        .select(SCAN_LIMITS_SELECT)
-        .maybeSingle()
-
-      return Math.max(DAILY_SCAN_LIMIT - (created?.scanCount || 1), 0)
-    }
-
-    const newCount = (record.scanCount || 0) + 1
-    const { data: updated } = await supabase
-      .from("scan_limits")
-      .update({
-        scanCount: newCount,
-        lastScanAt: now.toISOString(),
-      })
-      .eq("id", record.id)
-      .select(SCAN_LIMITS_SELECT)
-      .maybeSingle()
-
-    return Math.max(DAILY_SCAN_LIMIT - (updated?.scanCount || newCount), 0)
+    const updatedCount = res.rows?.[0]?.scanCount || 1
+    return Math.max(DAILY_SCAN_LIMIT - updatedCount, 0)
   } catch (error) {
     console.error("Error incrementing rate limit count:", error)
     return DAILY_SCAN_LIMIT - 1

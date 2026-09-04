@@ -160,10 +160,10 @@ Karena banyak halaman di atas saling pakai pola yang sama, buat dulu komponen da
 
 ## 9. Pengambilan Data (Data Fetching Pattern)
 
-Karena pakai Next.js App Router + Supabase:
+Karena pakai Next.js App Router + PostgreSQL:
 
 - **Server Components** untuk halaman yang cukup fetch data sekali saat render (Overview, List Tenant awal)
-  - Fetch langsung di `page.tsx` pakai Supabase server client (service role, server-only)
+  - Fetch langsung di `page.tsx` atau backend service layer via PostgreSQL Pool (`queryPg`)
 - **API Routes** (`/app/api/superadmin/...`) untuk aksi yang butuh interaksi client (suspend, ubah plan, search/filter dinamis, pagination)
 - Gunakan **React Server Actions** sebagai alternatif API routes untuk form-form aksi sederhana (mis. suspend tenant) — lebih ringkas daripada bikin route terpisah
 

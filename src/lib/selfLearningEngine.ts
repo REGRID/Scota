@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase"
+import { queryPg, isDatabaseConfigured } from "@/lib/pgDb"
 import { getOrSeedCategories } from "@/lib/categories"
 
 /**
@@ -8,33 +8,20 @@ export async function recordVerifiedReceiptLearning(
   merchantName: string,
   items: { name: string; category: string; subCategory?: string; price: number }[]
 ) {
+  if (!isDatabaseConfigured) return
+
   try {
     const cleanMerchant = merchantName ? merchantName.trim() : ""
     if (cleanMerchant && cleanMerchant !== "Nota / Toko") {
       const rawKey = cleanMerchant.toLowerCase()
 
-      const { data: existingMerchant } = await supabase
-        .from("merchant_dictionaries")
-        .select("id, verifiedCount")
-        .eq("rawPattern", rawKey)
-        .maybeSingle()
-
-      if (existingMerchant) {
-        await supabase
-          .from("merchant_dictionaries")
-          .update({
-            cleanName: cleanMerchant,
-            verifiedCount: (existingMerchant.verifiedCount || 1) + 1,
-            updatedAt: new Date().toISOString(),
-          })
-          .eq("id", existingMerchant.id)
-      } else {
-        await supabase.from("merchant_dictionaries").insert({
-          rawPattern: rawKey,
-          cleanName: cleanMerchant,
-          verifiedCount: 1,
-        })
-      }
+      await queryPg(
+        `INSERT INTO merchant_dictionaries ("rawPattern", "cleanName", "verifiedCount", "updatedAt")
+         VALUES ($1, $2, 1, NOW())
+         ON CONFLICT ("rawPattern")
+         DO UPDATE SET "cleanName" = EXCLUDED."cleanName", "verifiedCount" = merchant_dictionaries."verifiedCount" + 1, "updatedAt" = NOW()`,
+        [rawKey, cleanMerchant]
+      )
     }
 
     const officialHierarchy = await getOrSeedCategories()
@@ -68,34 +55,19 @@ export async function recordVerifiedReceiptLearning(
     }
 
     for (const [rawKey, item] of uniqueItemsMap.entries()) {
-      const { data: existingProd } = await supabase
-        .from("product_dictionaries")
-        .select("id, verifiedCount")
-        .eq("rawName", rawKey)
-        .maybeSingle()
-
-      if (existingProd) {
-        await supabase
-          .from("product_dictionaries")
-          .update({
-            verifiedName: item.name,
-            category: item.category,
-            subCategory: item.subCategory,
-            lastKnownPrice: Number(item.price) || 0,
-            verifiedCount: (existingProd.verifiedCount || 1) + 1,
-            updatedAt: new Date().toISOString(),
-          })
-          .eq("id", existingProd.id)
-      } else {
-        await supabase.from("product_dictionaries").insert({
-          rawName: rawKey,
-          verifiedName: item.name,
-          category: item.category,
-          subCategory: item.subCategory,
-          lastKnownPrice: Number(item.price) || 0,
-          verifiedCount: 1,
-        })
-      }
+      await queryPg(
+        `INSERT INTO product_dictionaries ("rawName", "verifiedName", category, "subCategory", "lastKnownPrice", "verifiedCount", "updatedAt")
+         VALUES ($1, $2, $3, $4, $5, 1, NOW())
+         ON CONFLICT ("rawName")
+         DO UPDATE SET 
+           "verifiedName" = EXCLUDED."verifiedName",
+           category = EXCLUDED.category,
+           "subCategory" = EXCLUDED."subCategory",
+           "lastKnownPrice" = EXCLUDED."lastKnownPrice",
+           "verifiedCount" = product_dictionaries."verifiedCount" + 1,
+           "updatedAt" = NOW()`,
+        [rawKey, item.name, item.category, item.subCategory, Number(item.price) || 0]
+      )
     }
   } catch (error) {
     console.warn("Self-learning memory recording warning:", error)
@@ -103,24 +75,22 @@ export async function recordVerifiedReceiptLearning(
 }
 
 /**
- * Retrieves learned merchant & product context from Supabase database to inject into Gemini prompt.
+ * Retrieves learned merchant & product context from PostgreSQL database to inject into Gemini prompt.
  */
 export async function getLearnedKnowledgeContext(): Promise<string> {
+  if (!isDatabaseConfigured) return ""
+
   try {
-    const { data: topMerchantsData } = await supabase
-      .from("merchant_dictionaries")
-      .select("cleanName, verifiedCount")
-      .order("verifiedCount", { ascending: false })
-      .limit(10)
+    const topMerchantsRes = await queryPg<{ cleanName: string; verifiedCount: number }>(
+      `SELECT "cleanName", "verifiedCount" FROM merchant_dictionaries ORDER BY "verifiedCount" DESC LIMIT 10`
+    )
 
-    const { data: topProductsData } = await supabase
-      .from("product_dictionaries")
-      .select("verifiedName, category, subCategory, lastKnownPrice")
-      .order("verifiedCount", { ascending: false })
-      .limit(15)
+    const topProductsRes = await queryPg<{ verifiedName: string; category: string; subCategory: string; lastKnownPrice: number }>(
+      `SELECT "verifiedName", category, "subCategory", "lastKnownPrice" FROM product_dictionaries ORDER BY "verifiedCount" DESC LIMIT 15`
+    )
 
-    const topMerchants = topMerchantsData || []
-    const topProducts = topProductsData || []
+    const topMerchants = topMerchantsRes.rows || []
+    const topProducts = topProductsRes.rows || []
 
     if (topMerchants.length === 0 && topProducts.length === 0) {
       return ""
@@ -130,14 +100,14 @@ export async function getLearnedKnowledgeContext(): Promise<string> {
 
     if (topMerchants.length > 0) {
       knowledgeText += "Nama Toko / PT yang Pernah Diverifikasi:\n"
-      topMerchants.forEach((m: any) => {
+      topMerchants.forEach((m) => {
         knowledgeText += `- "${m.cleanName}" (Terverifikasi ${m.verifiedCount}x)\n`
       })
     }
 
     if (topProducts.length > 0) {
       knowledgeText += "Daftar Barang, Kategori Utama & Sub-Kategori Terverifikasi:\n"
-      topProducts.forEach((p: any) => {
+      topProducts.forEach((p) => {
         knowledgeText += `- "${p.verifiedName}" -> Kategori Utama: "${p.category}", Sub-Kategori: "${p.subCategory || "Umum"}" (Harga Terakhir: Rp ${Number(p.lastKnownPrice || 0).toLocaleString("id-ID")})\n`
       })
     }
@@ -173,30 +143,30 @@ function calculateItemSimilarityScore(nameA: string, nameB: string): number {
   const unionSize = new Set([...Array.from(tokensA), ...Array.from(tokensB)]).size
   const jaccardScore = matchCount / unionSize
 
-  // Substring bonus if one contains the other
   const substringBonus = cleanA.includes(cleanB) || cleanB.includes(cleanA) ? 0.3 : 0
 
   return Math.min(1.0, jaccardScore + substringBonus)
 }
 
 /**
- * Fast Local Fuzzy Matcher: Matches a raw item name against learned database items in Supabase
+ * Fast Local Fuzzy Matcher: Matches a raw item name against learned database items in PostgreSQL
  */
 export async function matchItemWithLearnedMemory(
   rawItemName: string,
   officialHierarchy: any[]
 ): Promise<{ category: string; subCategory: string; confidence: number } | null> {
+  if (!isDatabaseConfigured) return null
+
   try {
     const cleanRaw = rawItemName.trim()
     if (!cleanRaw || cleanRaw.length < 2) return null
 
-    const { data: allLearnedProducts } = await supabase
-      .from("product_dictionaries")
-      .select("rawName, verifiedName, category, subCategory")
-      .order("verifiedCount", { ascending: false })
-      .limit(100)
+    const allLearnedRes = await queryPg<{ rawName: string; verifiedName: string; category: string; subCategory: string }>(
+      `SELECT "rawName", "verifiedName", category, "subCategory" FROM product_dictionaries ORDER BY "verifiedCount" DESC LIMIT 100`
+    )
+    const allLearnedProducts = allLearnedRes.rows || []
 
-    if (!allLearnedProducts || allLearnedProducts.length === 0) return null
+    if (allLearnedProducts.length === 0) return null
 
     let bestMatch: any = null
     let highestScore = 0

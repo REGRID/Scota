@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { supabase } from "@/lib/supabase"
+import { queryPg, isDatabaseConfigured } from "@/lib/pgDb"
 import { getOrSeedCategories, invalidateCategoriesCache } from "@/lib/categories"
 
 export async function GET() {
@@ -44,83 +44,68 @@ export async function POST(req: NextRequest) {
     invalidateCategoriesCache()
     await getOrSeedCategories()
 
+    if (!isDatabaseConfigured) {
+      const hierarchy = await getOrSeedCategories()
+      return NextResponse.json({ id: `cat-${Date.now()}`, name: cleanName, parentId: parentId || null, hierarchy })
+    }
+
     let resolvedParentId: string | null = null
 
     if (parentId && typeof parentId === "string" && parentId.trim()) {
       const targetParentStr = parentId.trim()
 
-      // 1. Try finding parent by database ID
-      const { data: parentById } = await supabase
-        .from("custom_categories")
-        .select("id")
-        .eq("id", targetParentStr)
-        .maybeSingle()
+      // 1. Try finding parent by ID
+      const parentByIdRes = await queryPg<{ id: string }>(
+        `SELECT id FROM custom_categories WHERE id = $1 LIMIT 1`,
+        [targetParentStr]
+      )
 
-      if (parentById) {
-        resolvedParentId = parentById.id
+      if (parentByIdRes.rows?.[0]) {
+        resolvedParentId = parentByIdRes.rows[0].id
       } else {
-        // 2. Try finding parent by Name (case-insensitive)
-        const { data: allParents } = await supabase
-          .from("custom_categories")
-          .select("id, name")
-          .is("parentId", null)
-
-        const parentByName = (allParents || []).find(
-          (c: any) => c.name.toLowerCase().trim() === targetParentStr.toLowerCase().trim()
+        // 2. Try finding parent by Name
+        const parentByNameRes = await queryPg<{ id: string }>(
+          `SELECT id FROM custom_categories WHERE LOWER(name) = LOWER($1) AND "parentId" IS NULL LIMIT 1`,
+          [targetParentStr]
         )
 
-        if (parentByName) {
-          resolvedParentId = parentByName.id
+        if (parentByNameRes.rows?.[0]) {
+          resolvedParentId = parentByNameRes.rows[0].id
         } else {
           // 3. Create parent category if not found
-          const { data: createdParent } = await supabase
-            .from("custom_categories")
-            .insert({
-              name: targetParentStr,
-              parentId: null,
-            })
-            .select("id")
-            .single()
-
-          if (createdParent) resolvedParentId = createdParent.id
+          const createdParentRes = await queryPg<{ id: string }>(
+            `INSERT INTO custom_categories (name, "parentId", "createdAt") VALUES ($1, NULL, NOW()) RETURNING id`,
+            [targetParentStr]
+          )
+          resolvedParentId = createdParentRes.rows?.[0]?.id || null
         }
       }
     }
 
-    // Check if duplicate exists (case-insensitive)
-    let siblingQuery = supabase
-      .from("custom_categories")
-      .select("id, name")
-
+    // Check if duplicate exists
+    let existingRes
     if (resolvedParentId) {
-      siblingQuery = siblingQuery.eq("parentId", resolvedParentId)
+      existingRes = await queryPg<{ id: string; name: string }>(
+        `SELECT id, name FROM custom_categories WHERE LOWER(name) = LOWER($1) AND "parentId" = $2 LIMIT 1`,
+        [cleanName, resolvedParentId]
+      )
     } else {
-      siblingQuery = siblingQuery.is("parentId", null)
+      existingRes = await queryPg<{ id: string; name: string }>(
+        `SELECT id, name FROM custom_categories WHERE LOWER(name) = LOWER($1) AND "parentId" IS NULL LIMIT 1`,
+        [cleanName]
+      )
     }
 
-    const { data: siblings } = await siblingQuery
-
-    const existing = (siblings || []).find(
-      (c: any) => c.name.toLowerCase().trim() === cleanName.toLowerCase().trim()
-    )
-
-    if (existing) {
+    if (existingRes.rows?.[0]) {
       const updatedHierarchy = await getOrSeedCategories()
-      return NextResponse.json({ ...existing, hierarchy: updatedHierarchy }, { status: 200 })
+      return NextResponse.json({ ...existingRes.rows[0], hierarchy: updatedHierarchy }, { status: 200 })
     }
 
-    const { data: created, error: createErr } = await supabase
-      .from("custom_categories")
-      .insert({
-        name: cleanName,
-        parentId: resolvedParentId,
-      })
-      .select("*")
-      .single()
-
-    if (createErr) {
-      throw new Error(createErr.message)
-    }
+    const createRes = await queryPg(
+      `INSERT INTO custom_categories (name, "parentId", "createdAt") VALUES ($1, $2, NOW()) RETURNING *`,
+      [cleanName, resolvedParentId]
+    )
+    const created = createRes.rows?.[0]
 
     invalidateCategoriesCache()
     const finalHierarchy = await getOrSeedCategories()

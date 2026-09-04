@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase"
+import { queryPg, isDatabaseConfigured } from "@/lib/pgDb"
 
 export type SubscriptionTier = "trial" | "starter" | "pro" | "enterprise"
 
@@ -100,10 +100,10 @@ export const DEFAULT_STUDIO_PROFILE: StudioProfile = {
 
 // In-memory fallback if database table not yet migrated
 let inMemorySubscription: SubscriptionInfo = {
-  tier: "trial",
-  status: "trial",
-  validUntil: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(), // 14 days default trial
-  monthlyScanLimit: 30,
+  tier: "starter",
+  status: "active",
+  validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+  monthlyScanLimit: 150,
   usedScansThisMonth: 0,
   studioProfile: { ...DEFAULT_STUDIO_PROFILE },
 }
@@ -112,46 +112,47 @@ let inMemorySubscription: SubscriptionInfo = {
  * Get active subscription status and studio profile
  */
 export async function getSubscriptionInfo(): Promise<SubscriptionInfo> {
-  try {
-    const { data, error } = await supabase
-      .from("subscriptions")
-      .select("*")
-      .limit(1)
-      .maybeSingle()
+  if (isDatabaseConfigured) {
+    try {
+      const res = await queryPg<any>(
+        `SELECT * FROM subscriptions ORDER BY "createdAt" ASC LIMIT 1`
+      )
+      const data = res.rows?.[0]
 
-    if (data && !error) {
-      const validUntil = new Date(data.validUntil)
-      const now = new Date()
-      const isExpired = validUntil < now
-      const isExpiring = !isExpired && validUntil.getTime() - now.getTime() < 5 * 24 * 60 * 60 * 1000
+      if (data) {
+        const validUntil = new Date(data.validUntil || Date.now() + 30 * 86400000)
+        const now = new Date()
+        const isExpired = validUntil < now
+        const isExpiring = !isExpired && validUntil.getTime() - now.getTime() < 5 * 24 * 60 * 60 * 1000
 
-      let status: SubscriptionInfo["status"] = "active"
-      if (data.tier === "trial") status = isExpired ? "expired" : "trial"
-      else if (isExpired) status = "expired"
-      else if (isExpiring) status = "expiring"
+        let status: SubscriptionInfo["status"] = "active"
+        if (data.tier === "trial") status = isExpired ? "expired" : "trial"
+        else if (isExpired) status = "expired"
+        else if (isExpiring) status = "expiring"
 
-      const profile: StudioProfile = {
-        studioName: data.studioName || DEFAULT_STUDIO_PROFILE.studioName,
-        tagline: data.tagline || DEFAULT_STUDIO_PROFILE.tagline,
-        address: data.address || DEFAULT_STUDIO_PROFILE.address,
-        phone: data.phone || DEFAULT_STUDIO_PROFILE.phone,
-        logoUrl: data.logoUrl || undefined,
-        invoiceFooter: data.invoiceFooter || DEFAULT_STUDIO_PROFILE.invoiceFooter,
-        taxNumber: data.taxNumber || undefined,
+        const profile: StudioProfile = {
+          studioName: data.studioName || DEFAULT_STUDIO_PROFILE.studioName,
+          tagline: data.tagline || DEFAULT_STUDIO_PROFILE.tagline,
+          address: data.address || DEFAULT_STUDIO_PROFILE.address,
+          phone: data.phone || DEFAULT_STUDIO_PROFILE.phone,
+          logoUrl: data.logoUrl || undefined,
+          invoiceFooter: data.invoiceFooter || DEFAULT_STUDIO_PROFILE.invoiceFooter,
+          taxNumber: data.taxNumber || undefined,
+        }
+
+        return {
+          tier: (data.tier as SubscriptionTier) || "starter",
+          status,
+          validUntil: data.validUntil || validUntil.toISOString(),
+          monthlyScanLimit: data.monthlyScanLimit || TIER_CONFIG[(data.tier as SubscriptionTier) || "starter"]?.monthlyScanLimit || 150,
+          usedScansThisMonth: data.usedScansThisMonth || 0,
+          studioProfile: profile,
+          activeLicenseKey: data.activeLicenseKey,
+        }
       }
-
-      return {
-        tier: data.tier || "trial",
-        status,
-        validUntil: data.validUntil,
-        monthlyScanLimit: data.monthlyScanLimit || TIER_CONFIG[data.tier as SubscriptionTier]?.monthlyScanLimit || 30,
-        usedScansThisMonth: data.usedScansThisMonth || 0,
-        studioProfile: profile,
-        activeLicenseKey: data.activeLicenseKey,
-      }
+    } catch (e) {
+      console.warn("Could not query PostgreSQL subscriptions table, using local cache:", e)
     }
-  } catch (e) {
-    console.warn("Could not query subscriptions table, using local cache:", e)
   }
 
   // Fallback to in-memory state
@@ -167,11 +168,6 @@ export async function getSubscriptionInfo(): Promise<SubscriptionInfo> {
 
 /**
  * Activate or upgrade subscription with a License Voucher Key
- * Supported License Key Formats:
- * - NP-PRO-30D-XXXX (Pro 30 Days)
- * - NP-PRO-1Y-XXXX (Pro 1 Year)
- * - NP-ENT-1Y-XXXX (Enterprise 1 Year)
- * - NP-STARTER-30D-XXXX (Starter 30 Days)
  */
 export async function activateLicenseKey(licenseKey: string): Promise<{ success: boolean; message: string; sub?: SubscriptionInfo }> {
   const cleanKey = licenseKey.trim().toUpperCase()
@@ -208,36 +204,38 @@ export async function activateLicenseKey(licenseKey: string): Promise<{ success:
   const newValidUntil = new Date(baseDate.getTime() + durationDays * 24 * 60 * 60 * 1000).toISOString()
   const monthlyScanLimit = TIER_CONFIG[tier].monthlyScanLimit
 
-  try {
-    const { data: existing } = await supabase.from("subscriptions").select("id").limit(1).maybeSingle()
+  if (isDatabaseConfigured) {
+    try {
+      const existingRes = await queryPg(`SELECT id FROM subscriptions LIMIT 1`)
+      const existing = existingRes.rows?.[0]
 
-    if (existing) {
-      await supabase
-        .from("subscriptions")
-        .update({
-          tier,
-          validUntil: newValidUntil,
-          monthlyScanLimit,
-          activeLicenseKey: cleanKey,
-          updatedAt: new Date().toISOString(),
-        })
-        .eq("id", existing.id)
-    } else {
-      await supabase.from("subscriptions").insert({
-        tier,
-        validUntil: newValidUntil,
-        monthlyScanLimit,
-        usedScansThisMonth: 0,
-        activeLicenseKey: cleanKey,
-        studioName: currentInfo.studioProfile.studioName,
-        tagline: currentInfo.studioProfile.tagline,
-        address: currentInfo.studioProfile.address,
-        phone: currentInfo.studioProfile.phone,
-        invoiceFooter: currentInfo.studioProfile.invoiceFooter,
-      })
+      if (existing) {
+        await queryPg(
+          `UPDATE subscriptions 
+           SET tier = $1, "validUntil" = $2, "monthlyScanLimit" = $3, "activeLicenseKey" = $4, "updatedAt" = NOW()
+           WHERE id = $5`,
+          [tier, newValidUntil, monthlyScanLimit, cleanKey, existing.id]
+        )
+      } else {
+        await queryPg(
+          `INSERT INTO subscriptions (tier, "validUntil", "monthlyScanLimit", "usedScansThisMonth", "activeLicenseKey", "studioName", tagline, address, phone, "invoiceFooter", "createdAt", "updatedAt")
+           VALUES ($1, $2, $3, 0, $4, $5, $6, $7, $8, $9, NOW(), NOW())`,
+          [
+            tier,
+            newValidUntil,
+            monthlyScanLimit,
+            cleanKey,
+            currentInfo.studioProfile.studioName,
+            currentInfo.studioProfile.tagline,
+            currentInfo.studioProfile.address,
+            currentInfo.studioProfile.phone,
+            currentInfo.studioProfile.invoiceFooter,
+          ]
+        )
+      }
+    } catch (err) {
+      console.warn("Could not save to PostgreSQL subscriptions table:", err)
     }
-  } catch (err) {
-    console.warn("Could not save to Supabase subscriptions table:", err)
   }
 
   inMemorySubscription = {
@@ -266,39 +264,49 @@ export async function updateStudioProfile(profile: Partial<StudioProfile>): Prom
     ...profile,
   }
 
-  try {
-    const { data: existing } = await supabase.from("subscriptions").select("id").limit(1).maybeSingle()
-    if (existing) {
-      await supabase
-        .from("subscriptions")
-        .update({
-          studioName: updatedProfile.studioName,
-          tagline: updatedProfile.tagline,
-          address: updatedProfile.address,
-          phone: updatedProfile.phone,
-          logoUrl: updatedProfile.logoUrl,
-          invoiceFooter: updatedProfile.invoiceFooter,
-          taxNumber: updatedProfile.taxNumber,
-          updatedAt: new Date().toISOString(),
-        })
-        .eq("id", existing.id)
-    } else {
-      await supabase.from("subscriptions").insert({
-        tier: current.tier,
-        validUntil: current.validUntil,
-        monthlyScanLimit: current.monthlyScanLimit,
-        usedScansThisMonth: current.usedScansThisMonth,
-        studioName: updatedProfile.studioName,
-        tagline: updatedProfile.tagline,
-        address: updatedProfile.address,
-        phone: updatedProfile.phone,
-        logoUrl: updatedProfile.logoUrl,
-        invoiceFooter: updatedProfile.invoiceFooter,
-        taxNumber: updatedProfile.taxNumber,
-      })
+  if (isDatabaseConfigured) {
+    try {
+      const existingRes = await queryPg(`SELECT id FROM subscriptions LIMIT 1`)
+      const existing = existingRes.rows?.[0]
+
+      if (existing) {
+        await queryPg(
+          `UPDATE subscriptions
+           SET "studioName" = $1, tagline = $2, address = $3, phone = $4, "logoUrl" = $5, "invoiceFooter" = $6, "taxNumber" = $7, "updatedAt" = NOW()
+           WHERE id = $8`,
+          [
+            updatedProfile.studioName,
+            updatedProfile.tagline,
+            updatedProfile.address,
+            updatedProfile.phone,
+            updatedProfile.logoUrl || null,
+            updatedProfile.invoiceFooter,
+            updatedProfile.taxNumber || null,
+            existing.id,
+          ]
+        )
+      } else {
+        await queryPg(
+          `INSERT INTO subscriptions (tier, "validUntil", "monthlyScanLimit", "usedScansThisMonth", "studioName", tagline, address, phone, "logoUrl", "invoiceFooter", "taxNumber", "createdAt", "updatedAt")
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())`,
+          [
+            current.tier,
+            current.validUntil,
+            current.monthlyScanLimit,
+            current.usedScansThisMonth,
+            updatedProfile.studioName,
+            updatedProfile.tagline,
+            updatedProfile.address,
+            updatedProfile.phone,
+            updatedProfile.logoUrl || null,
+            updatedProfile.invoiceFooter,
+            updatedProfile.taxNumber || null,
+          ]
+        )
+      }
+    } catch (err) {
+      console.warn("Could not persist studio profile to PostgreSQL database:", err)
     }
-  } catch (err) {
-    console.warn("Could not persist studio profile to database:", err)
   }
 
   inMemorySubscription.studioProfile = updatedProfile
@@ -311,47 +319,56 @@ export async function updateStudioProfile(profile: Partial<StudioProfile>): Prom
 export async function saveSubscriptionInfo(info: SubscriptionInfo): Promise<SubscriptionInfo> {
   inMemorySubscription = { ...info }
 
-  try {
-    const { data: existing } = await supabase.from("subscriptions").select("id").limit(1).maybeSingle()
-    if (existing) {
-      await supabase
-        .from("subscriptions")
-        .update({
-          tier: info.tier,
-          validUntil: info.validUntil,
-          monthlyScanLimit: info.monthlyScanLimit,
-          usedScansThisMonth: info.usedScansThisMonth,
-          studioName: info.studioProfile.studioName,
-          tagline: info.studioProfile.tagline,
-          address: info.studioProfile.address,
-          phone: info.studioProfile.phone,
-          logoUrl: info.studioProfile.logoUrl,
-          invoiceFooter: info.studioProfile.invoiceFooter,
-          taxNumber: info.studioProfile.taxNumber,
-          activeLicenseKey: info.activeLicenseKey,
-          updatedAt: new Date().toISOString(),
-        })
-        .eq("id", existing.id)
-    } else {
-      await supabase.from("subscriptions").insert({
-        tier: info.tier,
-        validUntil: info.validUntil,
-        monthlyScanLimit: info.monthlyScanLimit,
-        usedScansThisMonth: info.usedScansThisMonth,
-        studioName: info.studioProfile.studioName,
-        tagline: info.studioProfile.tagline,
-        address: info.studioProfile.address,
-        phone: info.studioProfile.phone,
-        logoUrl: info.studioProfile.logoUrl,
-        invoiceFooter: info.studioProfile.invoiceFooter,
-        taxNumber: info.studioProfile.taxNumber,
-        activeLicenseKey: info.activeLicenseKey,
-      })
+  if (isDatabaseConfigured) {
+    try {
+      const existingRes = await queryPg(`SELECT id FROM subscriptions LIMIT 1`)
+      const existing = existingRes.rows?.[0]
+
+      if (existing) {
+        await queryPg(
+          `UPDATE subscriptions
+           SET tier = $1, "validUntil" = $2, "monthlyScanLimit" = $3, "usedScansThisMonth" = $4, "studioName" = $5, tagline = $6, address = $7, phone = $8, "logoUrl" = $9, "invoiceFooter" = $10, "taxNumber" = $11, "activeLicenseKey" = $12, "updatedAt" = NOW()
+           WHERE id = $13`,
+          [
+            info.tier,
+            info.validUntil,
+            info.monthlyScanLimit,
+            info.usedScansThisMonth,
+            info.studioProfile.studioName,
+            info.studioProfile.tagline,
+            info.studioProfile.address,
+            info.studioProfile.phone,
+            info.studioProfile.logoUrl || null,
+            info.studioProfile.invoiceFooter,
+            info.studioProfile.taxNumber || null,
+            info.activeLicenseKey || null,
+            existing.id,
+          ]
+        )
+      } else {
+        await queryPg(
+          `INSERT INTO subscriptions (tier, "validUntil", "monthlyScanLimit", "usedScansThisMonth", "studioName", tagline, address, phone, "logoUrl", "invoiceFooter", "taxNumber", "activeLicenseKey", "createdAt", "updatedAt")
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())`,
+          [
+            info.tier,
+            info.validUntil,
+            info.monthlyScanLimit,
+            info.usedScansThisMonth,
+            info.studioProfile.studioName,
+            info.studioProfile.tagline,
+            info.studioProfile.address,
+            info.studioProfile.phone,
+            info.studioProfile.logoUrl || null,
+            info.studioProfile.invoiceFooter,
+            info.studioProfile.taxNumber || null,
+            info.activeLicenseKey || null,
+          ]
+        )
+      }
+    } catch (err) {
+      console.warn("Could not save full subscription info to PostgreSQL database:", err)
     }
-  } catch (err) {
-    console.warn("Could not save full subscription info to database:", err)
   }
 
   return inMemorySubscription
 }
-

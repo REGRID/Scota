@@ -322,7 +322,7 @@ export default function SuperadminAiSettingsPage() {
             </div>
 
             <p className="text-[11px] text-slate-400 leading-relaxed">
-              Saat pengguna mengoreksi nama merchant atau kategori barang, sistem otomatis menyimpan memori tersebut ke database Postgres Supabase sehingga nota serupa di masa depan langsung terkategori dengan benar.
+              Saat pengguna mengoreksi nama merchant atau kategori barang, sistem otomatis menyimpan memori tersebut ke database PostgreSQL sehingga nota serupa di masa depan langsung terkategori dengan benar.
             </p>
 
             <div className="flex items-center justify-between p-3 rounded-xl bg-slate-950 border border-slate-800">

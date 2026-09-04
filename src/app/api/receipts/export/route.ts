@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
-import { supabase } from "@/lib/supabase"
+import { queryPg, isDatabaseConfigured } from "@/lib/pgDb"
 import * as XLSX from "xlsx"
-
-const EXPORT_SELECT =
-  "id, merchantName, date, subtotal, discountAmount, taxAmount, totalAmount, paymentMethod, paymentStatus, note, staffName, createdAt, updatedAt, items:receipt_items(id, name, category, subCategory, price, quantity, createdAt)"
 
 export async function GET(req: NextRequest) {
   try {
@@ -22,20 +19,52 @@ export async function GET(req: NextRequest) {
       ? paymentMethodsParam.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean)
       : []
 
-    const sortDirection = order === "desc" ? "desc" : "asc"
+    const sortDirection = order === "desc" ? "DESC" : "ASC"
     const rootKeyword = category ? category.split("/")[0].trim() : ""
 
-    const { data: rawReceipts, error } = await supabase
-      .from("receipts")
-      .select(EXPORT_SELECT)
-      .order("date", { ascending: sortDirection === "asc" })
-      .order("createdAt", { ascending: sortDirection === "asc" })
+    let receipts: any[] = []
 
-    if (error) {
-      throw new Error(error.message)
+    if (isDatabaseConfigured) {
+      try {
+        const pgRes = await queryPg(
+          `SELECT 
+            r.id, 
+            r."merchantName", 
+            r.date, 
+            r.subtotal,
+            r."discountAmount",
+            r."taxAmount",
+            r."totalAmount",
+            r."paymentMethod",
+            r."paymentStatus",
+            r.note,
+            r."staffName",
+            r."createdAt", 
+            r."updatedAt",
+            COALESCE(
+              json_agg(
+                json_build_object(
+                  'id', i.id,
+                  'name', i.name,
+                  'category', i.category,
+                  'subCategory', i."subCategory",
+                  'price', i.price,
+                  'quantity', i.quantity,
+                  'createdAt', i."createdAt"
+                )
+              ) FILTER (WHERE i.id IS NOT NULL),
+              '[]'::json
+            ) as items
+          FROM receipts r
+          LEFT JOIN receipt_items i ON i."receiptId" = r.id
+          GROUP BY r.id
+          ORDER BY r.date ${sortDirection}, r."createdAt" ${sortDirection}`
+        )
+        receipts = pgRes.rows || []
+      } catch (err) {
+        console.warn("Export query error:", err)
+      }
     }
-
-    let receipts = rawReceipts || []
 
     const todayStr = new Date().toISOString().split("T")[0]
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
@@ -255,7 +284,6 @@ export async function GET(req: NextRequest) {
       const jurnalRows: any[] = []
       receipts.forEach((r: any, idx: number) => {
         const transNo = `SC-${r.date.replace(/-/g, "")}-${String(idx + 1).padStart(4, "0")}`
-        // Debit: Beban Operasional / Barang
         jurnalRows.push({
           "No Transaksi": transNo,
           "Tanggal Transaksi": r.date,
@@ -266,7 +294,6 @@ export async function GET(req: NextRequest) {
           "Kredit": 0,
           "Nama Kontak / Toko": r.merchantName,
         })
-        // Kredit: Kas / Bank
         jurnalRows.push({
           "No Transaksi": transNo,
           "Tanggal Transaksi": r.date,

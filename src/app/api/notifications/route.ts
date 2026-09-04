@@ -1,11 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
-import { supabase, isSupabaseConfigured } from "@/lib/supabase"
+import { queryPg, isDatabaseConfigured } from "@/lib/pgDb"
 import { getAdminUserFromRequest, getAdminRoleFromRequest } from "@/lib/authHelper"
 
-const NOTIF_SELECT =
-  "id, recipient, sender, type, title, message, receiptId, approvalId, isRead, createdAt"
-
-// In-memory cache per user/role to reduce Supabase Egress during polling
+// In-memory cache per user/role
 let notifCache: Map<string, { data: any; timestamp: number }> = new Map()
 const CACHE_TTL_MS = 8000 // 8 seconds cache
 
@@ -28,34 +25,37 @@ export async function GET(req: NextRequest) {
       return res
     }
 
-    if (!isSupabaseConfigured) {
+    if (!isDatabaseConfigured) {
       const fallbackPayload = { notifications: [], unreadCount: 0 }
       return NextResponse.json(fallbackPayload)
     }
 
-    let query = supabase
-      .from("notifications")
-      .select(NOTIF_SELECT)
-      .order("createdAt", { ascending: false })
-      .limit(30)
+    let notifications: any[] = []
 
-    if (userRole === "ADMIN") {
-      query = query.or(`recipient.eq.${cleanUser},recipient.eq.admin,recipient.eq.all,recipient.eq.*,recipient.eq.rama,recipient.eq.refo`)
-    } else {
-      // Role KARYAWAN: Only receive notifications targeted to karyawan/all
-      query = query.or(`recipient.eq.karyawan,recipient.eq.all,recipient.eq.${cleanUser},recipient.eq.*`)
+    try {
+      let query = `
+        SELECT id, recipient, sender, type, title, message, "approvalId", "isRead", "createdAt"
+        FROM notifications
+      `
+      const params: any[] = []
+
+      if (userRole === "ADMIN") {
+        query += ` WHERE recipient = ANY($1::text[])`
+        params.push([cleanUser, "admin", "all", "*", "rama", "refo"])
+      } else {
+        query += ` WHERE recipient = ANY($1::text[])`
+        params.push(["karyawan", "all", cleanUser, "*"])
+      }
+
+      query += ` ORDER BY "createdAt" DESC LIMIT 30`
+
+      const { rows } = await queryPg(query, params)
+      notifications = rows || []
+    } catch (dbErr) {
+      console.warn("GET Notifications Notice:", dbErr)
     }
 
-    const { data: rawNotifications, error } = await query
-
-    if (error) {
-      console.warn("GET Notifications Notice (Supabase):", error.message)
-      return NextResponse.json({ notifications: [], unreadCount: 0 })
-    }
-
-    let notifications = rawNotifications || []
-
-    // Strict Filter for KARYAWAN: Only see notifications from fellow Karyawan inputs
+    // Filter for KARYAWAN
     if (userRole === "KARYAWAN") {
       const knownStaff = ["karyawan", "reza", "ummu", "cheisa", "novi", "titis"]
       notifications = notifications.filter((n) => {
@@ -100,27 +100,31 @@ export async function PATCH(req: NextRequest) {
 
     invalidateNotificationsCache()
 
-    if (!isSupabaseConfigured) {
+    if (!isDatabaseConfigured) {
       return NextResponse.json({ success: true })
     }
 
-    if (markAllRead) {
-      if (userRole === "KARYAWAN") {
-        await supabase
-          .from("notifications")
-          .update({ isRead: true })
-          .or(`recipient.eq.karyawan,recipient.eq.all,recipient.eq.${cleanUser},recipient.eq.*`)
-      } else {
-        await supabase
-          .from("notifications")
-          .update({ isRead: true })
-          .or(`recipient.eq.${cleanUser},recipient.eq.admin,recipient.eq.all,recipient.eq.*`)
+    try {
+      if (markAllRead) {
+        if (userRole === "KARYAWAN") {
+          await queryPg(
+            `UPDATE notifications SET "isRead" = true WHERE recipient = ANY($1::text[])`,
+            [["karyawan", "all", cleanUser, "*"]]
+          )
+        } else {
+          await queryPg(
+            `UPDATE notifications SET "isRead" = true WHERE recipient = ANY($1::text[])`,
+            [[cleanUser, "admin", "all", "*", "rama", "refo"]]
+          )
+        }
+      } else if (id) {
+        await queryPg(
+          `UPDATE notifications SET "isRead" = true WHERE id = $1`,
+          [id]
+        )
       }
-    } else if (id) {
-      await supabase
-        .from("notifications")
-        .update({ isRead: true })
-        .eq("id", id)
+    } catch (err) {
+      console.warn("PATCH Notification DB update notice:", err)
     }
 
     return NextResponse.json({ success: true })

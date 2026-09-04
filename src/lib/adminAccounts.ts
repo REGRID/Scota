@@ -1,4 +1,4 @@
-import { supabase, isSupabaseConfigured } from "@/lib/supabase"
+import { queryPg, isDatabaseConfigured } from "@/lib/pgDb"
 import fs from "fs"
 import path from "path"
 
@@ -88,26 +88,24 @@ function updateEnvFilePassword(username: string, newPass: string) {
 
 /**
  * Fetch active password for a given admin username (rama / refo / admin1 / admin2).
- * Supabase `admin_accounts` table is the PRIMARY source of truth.
+ * PostgreSQL `admin_accounts` table is the PRIMARY source of truth.
  */
 export async function getAdminPassword(username: string): Promise<string | null> {
   try {
     const cleanUser = normalizeAdminUsername(username)
 
-    // 1. Primary: Check Supabase Database Table `admin_accounts` if configured
-    if (isSupabaseConfigured) {
+    // 1. Primary: Check PostgreSQL Database Table `admin_accounts` if configured
+    if (isDatabaseConfigured) {
       try {
-        const { data: dbAccount } = await supabase
-          .from("admin_accounts")
-          .select("password")
-          .eq("username", cleanUser)
-          .maybeSingle()
-
-        if (dbAccount && dbAccount.password) {
-          return dbAccount.password.trim()
+        const res = await queryPg<{ password: string }>(
+          `SELECT password FROM admin_accounts WHERE LOWER(username) = LOWER($1) LIMIT 1`,
+          [cleanUser]
+        )
+        if (res.rows && res.rows[0]?.password) {
+          return res.rows[0].password.trim()
         }
       } catch (e) {
-        console.warn("Supabase admin_accounts query notice:", e)
+        console.warn("PostgreSQL admin_accounts query notice:", e)
       }
     }
 
@@ -167,19 +165,18 @@ export async function validateAdminCredentials(username: string, inputPass: stri
 export async function getUserAccountDetails(username: string): Promise<{ username: string; role: string; password?: string } | null> {
   try {
     const cleanUser = normalizeAdminUsername(username)
-    if (isSupabaseConfigured) {
+    if (isDatabaseConfigured) {
       try {
-        const { data: dbAccount } = await supabase
-          .from("admin_accounts")
-          .select("username, password, role")
-          .eq("username", cleanUser)
-          .maybeSingle()
-
-        if (dbAccount) {
+        const res = await queryPg<{ username: string; password?: string; role: string }>(
+          `SELECT username, password, role FROM admin_accounts WHERE LOWER(username) = LOWER($1) LIMIT 1`,
+          [cleanUser]
+        )
+        if (res.rows && res.rows[0]) {
+          const row = res.rows[0]
           return {
-            username: dbAccount.username,
-            password: dbAccount.password,
-            role: dbAccount.role || (cleanUser === "karyawan" ? "KARYAWAN" : "ADMIN"),
+            username: row.username,
+            password: row.password,
+            role: row.role || (cleanUser === "karyawan" ? "KARYAWAN" : "ADMIN"),
           }
         }
       } catch (e) {}
@@ -204,7 +201,7 @@ export async function getUserAccountDetails(username: string): Promise<{ usernam
 
 /**
  * Update password for a given admin username (rama / refo).
- * Writes directly to Supabase DB `admin_accounts` table as primary, and updates local fallbacks.
+ * Writes directly to PostgreSQL DB `admin_accounts` table as primary, and updates local fallbacks.
  */
 export async function updateAdminPassword(username: string, newPass: string): Promise<boolean> {
   try {
@@ -213,33 +210,18 @@ export async function updateAdminPassword(username: string, newPass: string): Pr
 
     if (!cleanUser || !cleanPass) return false
 
-    // 1. Primary: Update or Insert into Supabase `admin_accounts` table if configured
-    if (isSupabaseConfigured) {
+    // 1. Primary: Update or Insert into PostgreSQL `admin_accounts` table if configured
+    if (isDatabaseConfigured) {
       try {
-        const { data: existing } = await supabase
-          .from("admin_accounts")
-          .select("id")
-          .eq("username", cleanUser)
-          .maybeSingle()
-
-        if (existing) {
-          await supabase
-            .from("admin_accounts")
-            .update({
-              password: cleanPass,
-              updatedAt: new Date().toISOString(),
-            })
-            .eq("id", existing.id)
-        } else {
-          await supabase
-            .from("admin_accounts")
-            .insert({
-              username: cleanUser,
-              password: cleanPass,
-            })
-        }
+        await queryPg(
+          `INSERT INTO admin_accounts (username, password, role, "updatedAt")
+           VALUES ($1, $2, 'ADMIN', NOW())
+           ON CONFLICT (username) 
+           DO UPDATE SET password = EXCLUDED.password, "updatedAt" = NOW()`,
+          [cleanUser, cleanPass]
+        )
       } catch (dbErr) {
-        console.warn("Supabase admin_accounts update warning:", dbErr)
+        console.warn("PostgreSQL admin_accounts update warning:", dbErr)
       }
     }
 
@@ -285,21 +267,24 @@ export async function registerAdminAccount(params: {
       return { success: false, username: cleanUser, role: "ADMIN", error: "ID Pengguna sudah terdaftar. Silakan gunakan ID lain atau masuk." }
     }
 
-    // 1. Try to save to Supabase `admin_accounts` table if configured
-    if (isSupabaseConfigured) {
+    // 1. Try to save to PostgreSQL `admin_accounts` table if configured
+    if (isDatabaseConfigured) {
       try {
-        await supabase.from("admin_accounts").insert({
-          username: cleanUser,
-          password: cleanPass,
-          role: "ADMIN",
-          fullName: params.fullName || "",
-          businessName: params.businessName || "",
-          phone: params.phone || "",
-          tier: params.tier || "trial",
-          createdAt: new Date().toISOString(),
-        })
+        await queryPg(
+          `INSERT INTO admin_accounts (username, password, role, "fullName", "businessName", phone, tier, "createdAt", "updatedAt")
+           VALUES ($1, $2, 'ADMIN', $3, $4, $5, $6, NOW(), NOW())
+           ON CONFLICT (username) DO NOTHING`,
+          [
+            cleanUser,
+            cleanPass,
+            params.fullName || "",
+            params.businessName || "",
+            params.phone || "",
+            params.tier || "starter",
+          ]
+        )
       } catch (dbErr) {
-        console.warn("Supabase insert admin_accounts notice:", dbErr)
+        console.warn("PostgreSQL insert admin_accounts notice:", dbErr)
       }
     }
 

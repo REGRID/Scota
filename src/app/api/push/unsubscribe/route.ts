@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { supabase } from "@/lib/supabase"
+import { queryPg, isDatabaseConfigured } from "@/lib/pgDb"
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,13 +10,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing endpoint" }, { status: 400 })
     }
 
-    const { error } = await supabase
-      .from("push_subscriptions")
-      .delete()
-      .eq("endpoint", endpoint)
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+    if (isDatabaseConfigured) {
+      await queryPg(`DELETE FROM push_subscriptions WHERE endpoint = $1`, [endpoint])
     }
 
     return NextResponse.json({ success: true })

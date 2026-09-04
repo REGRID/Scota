@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { supabase } from "@/lib/supabase"
+import { queryPg, isDatabaseConfigured } from "@/lib/pgDb"
 import { getAdminUserFromRequest, getAdminRoleFromRequest } from "@/lib/authHelper"
 import { sendWebPushNotification } from "@/lib/serverPush"
 import { invalidateApprovalsCache } from "@/app/api/approvals/route"
@@ -22,19 +22,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         error: "Akses Ditolak: Role Karyawan tidak diizinkan menolak/memverifikasi permintaan. Penolakan/Persetujuan wajib dilakukan oleh Admin (Rama / Refo).",
       }, { status: 403 })
     }
+
+    if (!isDatabaseConfigured) {
+      return NextResponse.json({ error: "Database belum terkonfigurasi" }, { status: 500 })
+    }
+
     const body = await req.json()
     const { reason } = body || {}
 
-    const { data: pendingApproval, error: findErr } = await supabase
-      .from("pending_approvals")
-      .select("*")
-      .eq("id", cleanId)
-      .maybeSingle()
-
-    if (findErr) {
-      console.error("Supabase Find Approval Error:", findErr)
-      return NextResponse.json({ error: "Gagal membaca permintaan verifikasi" }, { status: 500 })
-    }
+    const findRes = await queryPg<any>(
+      `SELECT * FROM pending_approvals WHERE id = $1 LIMIT 1`,
+      [cleanId]
+    )
+    const pendingApproval = findRes.rows?.[0]
 
     if (!pendingApproval) {
       return NextResponse.json({ error: "Permintaan verifikasi tidak ditemukan" }, { status: 404 })
@@ -52,28 +52,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     // Dual-Control Enforcement: Prevent Self-Rejection only for destructive items
     const isDestructive = pendingApproval.actionType === "DELETE" || pendingApproval.actionType === "BULK_DELETE" || pendingApproval.actionType === "EDIT"
-    if (isDestructive && pendingApproval.requestedBy.trim().toLowerCase() === cleanRejectingAdmin) {
+    if (isDestructive && (pendingApproval.requestedBy || "").trim().toLowerCase() === cleanRejectingAdmin) {
       return NextResponse.json({
         error: `Akses Ditolak: Permintaan diajukan oleh Anda (${rejectingAdmin}). Verifikasi/penolakan harus dilakukan oleh Admin lain.`,
       }, { status: 403 })
     }
 
-    const { data: updatedApproval, error: updateErr } = await supabase
-      .from("pending_approvals")
-      .update({
-        status: "REJECTED",
-        approvedBy: rejectingAdmin,
-        rejectionReason: reason || "Ditolak oleh admin",
-        updatedAt: new Date().toISOString(),
-      })
-      .eq("id", cleanId)
-      .select("*")
-      .maybeSingle()
-
-    if (updateErr) {
-      console.error("Update Reject Status Error:", updateErr)
-      throw new Error(updateErr.message)
-    }
+    const updateRes = await queryPg(
+      `UPDATE pending_approvals 
+       SET status = 'REJECTED', "approvedBy" = $1, "rejectionReason" = $2, "updatedAt" = NOW()
+       WHERE id = $3
+       RETURNING *`,
+      [rejectingAdmin, reason || "Ditolak oleh admin", cleanId]
+    )
+    const updatedApproval = updateRes.rows?.[0]
 
     // Invalidate caches immediately
     invalidateApprovalsCache()
@@ -91,15 +83,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         ? `Admin ${rejectingAdmin} menolak pengajuan nota baru dari "${payloadObj.merchantName || 'Nota'}". Alasan: ${reason || "Tidak disetujui"}.`
         : `Admin ${rejectingAdmin} menolak permintaan ${pendingApproval.actionType} Anda. Alasan: ${reason || "Tidak disetujui"}.`
 
-      await supabase.from("notifications").insert({
-        recipient: "all",
-        sender: rejectingAdmin,
-        type: "REJECT",
-        title: notifTitle,
-        message: notifMsg,
-        approvalId: cleanId,
-        isRead: false,
-      })
+      await queryPg(
+        `INSERT INTO notifications (recipient, sender, type, title, message, "approvalId", "isRead", "createdAt")
+         VALUES ('all', $1, 'REJECT', $2, $3, $4::uuid, false, NOW())`,
+        [rejectingAdmin, notifTitle, notifMsg, cleanId]
+      ).catch(() => {})
 
       sendWebPushNotification({
         title: notifTitle,

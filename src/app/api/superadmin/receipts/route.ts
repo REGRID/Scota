@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
-import { supabase, isSupabaseConfigured } from "@/lib/supabase"
+import { queryPg, isDatabaseConfigured } from "@/lib/pgDb"
 
 export async function GET(req: NextRequest) {
   try {
-    if (!isSupabaseConfigured) {
+    if (!isDatabaseConfigured) {
       return NextResponse.json({ success: true, receipts: [] })
     }
 
@@ -11,21 +11,17 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(searchParams.get("limit") || "100")
     const search = (searchParams.get("search") || "").trim()
 
-    let query = supabase
-      .from("receipts")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(limit)
+    let query = `SELECT * FROM receipts`
+    const params: any[] = []
 
     if (search) {
-      query = query.ilike("merchantName", `%${search}%`)
+      query += ` WHERE "merchantName" ILIKE $1`
+      params.push(`%${search}%`)
     }
 
-    const { data: receipts, error } = await query
+    query += ` ORDER BY "createdAt" DESC LIMIT ${limit}`
 
-    if (error) {
-      return NextResponse.json({ success: true, receipts: [] })
-    }
+    const { rows: receipts } = await queryPg(query, params)
 
     return NextResponse.json({ success: true, receipts: receipts || [] })
   } catch (error: any) {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { supabase } from "@/lib/supabase"
+import { queryPg, isDatabaseConfigured } from "@/lib/pgDb"
 import { VAPID_PUBLIC_KEY } from "@/lib/serverPush"
 
 // GET: Returns VAPID Public Key for client-side subscription
@@ -13,7 +13,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { subscription, username = "all", role = "ALL", userAgent = "" } = body
+    const { subscription, username = "all", role = "ALL" } = body
 
     if (!subscription || !subscription.endpoint || !subscription.keys) {
       return NextResponse.json(
@@ -32,29 +32,17 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Upsert into push_subscriptions
-    const { data, error } = await supabase
-      .from("push_subscriptions")
-      .upsert(
-        {
-          endpoint,
-          p256dh,
-          auth,
-          username: username.toLowerCase(),
-          role: role.toUpperCase(),
-          userAgent: userAgent || req.headers.get("user-agent") || "",
-          updatedAt: new Date().toISOString(),
-        },
-        { onConflict: "endpoint" }
+    if (isDatabaseConfigured) {
+      await queryPg(
+        `INSERT INTO push_subscriptions (endpoint, p256dh, auth, username, role, "createdAt", "updatedAt")
+         VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+         ON CONFLICT (endpoint)
+         DO UPDATE SET p256dh = EXCLUDED.p256dh, auth = EXCLUDED.auth, username = EXCLUDED.username, role = EXCLUDED.role, "updatedAt" = NOW()`,
+        [endpoint, p256dh, auth, (username || "all").toLowerCase(), (role || "ALL").toUpperCase()]
       )
-      .select()
-
-    if (error) {
-      console.error("[API push/subscribe error]:", error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ success: true, data })
+    return NextResponse.json({ success: true })
   } catch (err: any) {
     console.error("[API push/subscribe catch]:", err)
     return NextResponse.json({ error: err.message || "Internal Error" }, { status: 500 })

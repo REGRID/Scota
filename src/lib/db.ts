@@ -1,6 +1,10 @@
-import { supabase } from "@/lib/supabase"
+import { queryPg, getPgPool, isDatabaseConfigured } from "@/lib/pgDb"
 
 /**
- * Direct re-export of Supabase JS Client for database access.
+ * Standard PostgreSQL Database Client Interface
  */
-export const db = supabase
+export const db = {
+  query: queryPg,
+  getPool: getPgPool,
+  isConfigured: isDatabaseConfigured,
+}

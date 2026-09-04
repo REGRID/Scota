@@ -807,7 +807,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
     fetchPendingApprovals()
     fetchNotifications()
 
-    // Smart Polling: Poll at 25s intervals only when tab is active to heavily conserve Supabase Egress
+    // Smart Polling: Poll at 25s intervals only when tab is active to conserve network egress
     const interval = setInterval(() => {
       if (typeof document !== "undefined" && document.visibilityState === "visible") {
         fetchPendingApprovals()
@@ -4924,7 +4924,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                                 <span className="font-bold flex items-center gap-1.5">
                                   <AlertCircle className="w-4 h-4 text-red-600 shrink-0" /> Peringatan Penghapusan Nota:
                                 </span>
-                                <p>Nota di atas akan <strong>dihapus secara permanen</strong> dari database Supabase jika Anda menyetujui permintaan ini.</p>
+                                <p>Nota di atas akan <strong>dihapus secara permanen</strong> dari database jika Anda menyetujui permintaan ini.</p>
                               </div>
                             )}
                           </div>

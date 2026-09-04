@@ -1,20 +1,27 @@
 import { Pool } from "pg"
 
 const connectionString =
-  process.env.DIRECT_URL ||
   process.env.DATABASE_URL ||
-  "postgresql://postgres.pvdumvhgnnfdxsijslmz:Xinora088258@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres"
+  process.env.POSTGRES_URL ||
+  process.env.DIRECT_URL ||
+  ""
 
-const cleanUrl = connectionString.replace(/\?.*$/, "")
+export const isDatabaseConfigured = Boolean(connectionString && connectionString.trim().length > 0)
+
+const cleanUrl = connectionString ? connectionString.replace(/\?.*$/, "") : ""
 
 let globalPool: Pool | null = null
 
-export function getPgPool(): Pool {
+export function getPgPool(): Pool | null {
+  if (!isDatabaseConfigured) {
+    return null
+  }
   if (!globalPool) {
+    const isSslRequired = process.env.NODE_ENV === "production" || connectionString.includes("sslmode=require") || connectionString.includes(".cloud")
     globalPool = new Pool({
-      connectionString: cleanUrl,
-      ssl: { rejectUnauthorized: false },
-      max: 10,
+      connectionString: cleanUrl || connectionString,
+      ssl: isSslRequired ? { rejectUnauthorized: false } : undefined,
+      max: Number(process.env.DB_POOL_MAX || 10),
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 10000,
     })
@@ -23,6 +30,9 @@ export function getPgPool(): Pool {
 }
 
 export async function queryPg<T = any>(text: string, params?: any[]): Promise<{ rows: T[] }> {
-  const p = getPgPool()
-  return p.query(text, params)
+  const pool = getPgPool()
+  if (!pool) {
+    return { rows: [] }
+  }
+  return pool.query(text, params)
 }

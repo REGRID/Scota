@@ -1,4 +1,4 @@
-import { supabase, isSupabaseConfigured } from "@/lib/supabase"
+import { queryPg, isDatabaseConfigured } from "@/lib/pgDb"
 
 export interface CategoryHierarchyItem {
   id: string
@@ -71,7 +71,7 @@ export async function getOrSeedCategories(): Promise<CategoryHierarchyItem[]> {
     return cachedCategories
   }
 
-  if (!isSupabaseConfigured) {
+  if (!isDatabaseConfigured) {
     return DEFAULT_SEED_CATEGORIES.map((cat, idx) => ({
       id: `default-${idx}`,
       name: cat.name,
@@ -80,50 +80,46 @@ export async function getOrSeedCategories(): Promise<CategoryHierarchyItem[]> {
   }
 
   try {
-    let { data: customCats, error } = await supabase
-      .from("custom_categories")
-      .select("id, name, parentId")
-      .order("createdAt", { ascending: true })
+    let res = await queryPg<{ id: string; name: string; parentId: string | null }>(
+      `SELECT id, name, "parentId" FROM custom_categories ORDER BY "createdAt" ASC`
+    )
+    let customCats = res.rows || []
 
     // Auto-seed default categories if empty
-    if (error || !customCats || customCats.length === 0) {
+    if (customCats.length === 0) {
       for (const catGroup of DEFAULT_SEED_CATEGORIES) {
-        const { data: createdParent } = await supabase
-          .from("custom_categories")
-          .insert({
-            name: catGroup.name,
-            parentId: null,
-          })
-          .select("id")
-          .single()
+        const parentRes = await queryPg<{ id: string }>(
+          `INSERT INTO custom_categories (name, "parentId", "createdAt") VALUES ($1, NULL, NOW()) RETURNING id`,
+          [catGroup.name]
+        )
+        const parentId = parentRes.rows?.[0]?.id
 
-        if (createdParent) {
+        if (parentId) {
           for (const subName of catGroup.subs) {
-            await supabase.from("custom_categories").insert({
-              name: subName,
-              parentId: createdParent.id,
-            })
+            await queryPg(
+              `INSERT INTO custom_categories (name, "parentId", "createdAt") VALUES ($1, $2, NOW())`,
+              [subName, parentId]
+            )
           }
         }
       }
 
       // Re-fetch after seeding
-      const refetched = await supabase
-        .from("custom_categories")
-        .select("id, name, parentId")
-        .order("createdAt", { ascending: true })
-      customCats = refetched.data || []
+      const refetched = await queryPg<{ id: string; name: string; parentId: string | null }>(
+        `SELECT id, name, "parentId" FROM custom_categories ORDER BY "createdAt" ASC`
+      )
+      customCats = refetched.rows || []
     }
 
-    const parents = customCats.filter((c: any) => !c.parentId)
-    const subs = customCats.filter((c: any) => c.parentId)
+    const parents = customCats.filter((c) => !c.parentId)
+    const subs = customCats.filter((c) => Boolean(c.parentId))
 
-    const hierarchy: CategoryHierarchyItem[] = parents.map((parent: any) => ({
+    const hierarchy: CategoryHierarchyItem[] = parents.map((parent) => ({
       id: parent.id,
       name: parent.name,
       subCategories: subs
-        .filter((sub: any) => sub.parentId === parent.id)
-        .map((sub: any) => ({ id: sub.id, name: sub.name })),
+        .filter((sub) => sub.parentId === parent.id)
+        .map((sub) => ({ id: sub.id, name: sub.name })),
     }))
 
     cachedCategories = hierarchy

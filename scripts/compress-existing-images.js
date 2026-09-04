@@ -22,9 +22,14 @@ function loadEnv() {
 loadEnv();
 
 const connectionString =
-  process.env.DIRECT_URL ||
   process.env.DATABASE_URL ||
-  "postgresql://postgres.pvdumvhgnnfdxsijslmz:Xinora088258@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres";
+  process.env.POSTGRES_URL ||
+  process.env.DIRECT_URL;
+
+if (!connectionString) {
+  console.error('❌ Error: DATABASE_URL is not set. Please provide a standard PostgreSQL connection string in .env.local');
+  process.exit(1);
+}
 
 const cleanUrl = connectionString.replace(/\?.*$/, "");
 
@@ -49,15 +54,15 @@ async function compressImageBuffer(base64Str) {
 }
 
 async function main() {
-  console.log('[Image Compression] Connecting to Supabase PostgreSQL...');
+  console.log('[Image Compression] Connecting to PostgreSQL database...');
   const client = new Client({
     connectionString: cleanUrl,
-    ssl: { rejectUnauthorized: false },
+    ssl: connectionString.includes('sslmode=require') || connectionString.includes('.cloud') ? { rejectUnauthorized: false } : undefined,
   });
 
   try {
     await client.connect();
-    console.log('✓ Connected to Supabase PostgreSQL!');
+    console.log('✓ Connected to PostgreSQL database!');
 
     console.log('[Image Compression] Fetching receipt IDs with images...');
     const res = await client.query('SELECT id FROM public.receipts WHERE "imageUrl" IS NOT NULL AND "imageUrl" != \'\';');

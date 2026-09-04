@@ -4,6 +4,8 @@ import { getAdminUserFromRequest, getAdminRoleFromRequest } from "@/lib/authHelp
 import { sendWebPushNotification } from "@/lib/serverPush"
 import { invalidateApprovalsCache } from "@/app/api/approvals/route"
 import { invalidateNotificationsCache } from "@/app/api/notifications/route"
+import { getSubscriptionInfo } from "@/lib/subscriptionServer"
+import { DEFAULT_APPROVAL_WORKFLOW } from "@/lib/subscription"
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -19,12 +21,33 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     if (userRole === "KARYAWAN") {
       return NextResponse.json({
-        error: "Akses Ditolak: Role Karyawan tidak diizinkan menolak/memverifikasi permintaan. Penolakan/Persetujuan wajib dilakukan oleh Admin (Rama / Refo).",
+        error: "Akses Ditolak: Role Karyawan tidak diizinkan menolak/memverifikasi permintaan. Penolakan wajib dilakukan oleh Admin atau Superadmin.",
       }, { status: 403 })
     }
 
     if (!isDatabaseConfigured) {
       return NextResponse.json({ error: "Database belum terkonfigurasi" }, { status: 500 })
+    }
+
+    // Check approval workflow config
+    const subInfo = await getSubscriptionInfo().catch(() => null)
+    const workflow = subInfo?.approvalWorkflow || DEFAULT_APPROVAL_WORKFLOW
+    const target = workflow.approverTarget || workflow.approvalTargetRole || "ANY_ADMIN"
+
+    if (userRole !== "SUPERADMIN") {
+      if (target === "SPECIFIC_USER" && workflow.designatedApproverUsername) {
+        if (rejectingAdmin.trim().toLowerCase() !== workflow.designatedApproverUsername.trim().toLowerCase()) {
+          return NextResponse.json({
+            error: `Akses Ditolak: Hak penolakan/persetujuan saat ini ditugaskan khusus kepada akun "${workflow.designatedApproverUsername}".`,
+          }, { status: 403 })
+        }
+      } else if (target !== "ANY_ADMIN") {
+        if (userRole.toUpperCase() !== target.toUpperCase()) {
+          return NextResponse.json({
+            error: `Akses Ditolak: Penolakan membutuhkan akun dengan role ${target}.`,
+          }, { status: 403 })
+        }
+      }
     }
 
     const body = await req.json()
@@ -41,18 +64,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
 
     const cleanRejectingAdmin = rejectingAdmin.trim().toLowerCase()
-    const isRamaAdmin1 = cleanRejectingAdmin === "rama" || cleanRejectingAdmin === "admin1"
 
-    // Exclusive Rejection for New Receipts (CREATE): Only Admin 1 (Rama) is authorized to reject new receipts
-    if (pendingApproval.actionType === "CREATE" && !isRamaAdmin1) {
-      return NextResponse.json({
-        error: "Akses Ditolak: Hak penolakan/persetujuan nota baru hanya dimiliki khusus oleh Admin 1 (Rama).",
-      }, { status: 403 })
-    }
-
-    // Dual-Control Enforcement: Prevent Self-Rejection only for destructive items
+    // Dual-Control Enforcement: Prevent Self-Rejection only for destructive items (unless Superadmin)
     const isDestructive = pendingApproval.actionType === "DELETE" || pendingApproval.actionType === "BULK_DELETE" || pendingApproval.actionType === "EDIT"
-    if (isDestructive && (pendingApproval.requestedBy || "").trim().toLowerCase() === cleanRejectingAdmin) {
+    if (userRole !== "SUPERADMIN" && isDestructive && (pendingApproval.requestedBy || "").trim().toLowerCase() === cleanRejectingAdmin) {
       return NextResponse.json({
         error: `Akses Ditolak: Permintaan diajukan oleh Anda (${rejectingAdmin}). Verifikasi/penolakan harus dilakukan oleh Admin lain.`,
       }, { status: 403 })

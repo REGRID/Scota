@@ -23,9 +23,7 @@ export function getAdminUserFromRequest(req: NextRequest): string {
     }
   }
 
-  if (user === "admin 1" || user === "admin1" || user === "admin_1") return "rama"
-  if (user === "admin 2" || user === "admin2" || user === "admin_2") return "refo"
-  return user
+  return user.trim().toLowerCase()
 }
 
 export function getAdminRoleFromRequest(req: NextRequest): string {
@@ -34,9 +32,23 @@ export function getAdminRoleFromRequest(req: NextRequest): string {
     return customRoleHeader.trim().toUpperCase()
   }
 
+  const sessionCookie = req.cookies.get("nota_admin_session")?.value
+  const authHeader = req.headers.get("authorization")?.replace("Bearer ", "")
+  const currentToken = sessionCookie || authHeader
+
+  if (currentToken) {
+    try {
+      const decoded = Buffer.from(currentToken, "base64").toString("utf-8")
+      const parts = decoded.split(":")
+      if (parts.length >= 3 && parts[2] && parts[2].trim()) {
+        return parts[2].trim().toUpperCase()
+      }
+    } catch (err) {}
+  }
+
   const user = getAdminUserFromRequest(req)
+  if (user === "superadmin" || user === "developer") return "SUPERADMIN"
   if (user === "karyawan") return "KARYAWAN"
-  if (user === "rama" || user === "refo" || user === "admin1" || user === "admin2" || user === "admin") return "ADMIN"
 
   return user ? "ADMIN" : "KARYAWAN"
 }

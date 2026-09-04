@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getAuditLogs, recordAuditLog } from "@/lib/superadmin"
+import { requireSuperadmin } from "@/lib/superadminGuard"
 
 export async function GET(req: NextRequest) {
   try {
+    const auth = await requireSuperadmin(req)
+    if (!auth.ok) return auth.response
+
     const logs = await getAuditLogs()
     return NextResponse.json({ success: true, logs })
   } catch (error: any) {
@@ -12,13 +16,16 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { superadmin, action, targetTenant, detail } = await req.json()
+    const auth = await requireSuperadmin(req)
+    if (!auth.ok) return auth.response
+
+    const { action, targetTenant, detail } = await req.json()
     if (!action || !targetTenant) {
       return NextResponse.json({ error: "Action dan targetTenant wajib diisi" }, { status: 400 })
     }
 
     await recordAuditLog({
-      superadmin: superadmin || "Superadmin",
+      superadmin: auth.username,
       action,
       targetTenant,
       detail: detail || "",

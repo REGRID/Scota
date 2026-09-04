@@ -51,7 +51,7 @@ export function MainApp({
 
   // Admin Auth Gate State
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
-  const [adminUser, setAdminUser] = useState<string>("rama")
+  const [adminUser, setAdminUser] = useState<string>("admin")
   const [staffName, setStaffName] = useState<string>("Staf")
   const [authInitialMode, setAuthInitialMode] = useState<"login" | "register">(
     initialView === "register" ? "register" : "login"

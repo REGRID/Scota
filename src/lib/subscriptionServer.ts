@@ -3,11 +3,13 @@ import {
   SubscriptionInfo,
   SubscriptionTier,
   StudioProfile,
+  ApprovalWorkflowConfig,
   TIER_CONFIG,
   DEFAULT_STUDIO_PROFILE,
+  DEFAULT_APPROVAL_WORKFLOW,
 } from "@/lib/subscription"
 
-// In-memory fallback if database table not yet configured
+// In-memory fallback
 let inMemorySubscription: SubscriptionInfo = {
   tier: "starter",
   status: "active",
@@ -15,10 +17,11 @@ let inMemorySubscription: SubscriptionInfo = {
   monthlyScanLimit: 150,
   usedScansThisMonth: 0,
   studioProfile: { ...DEFAULT_STUDIO_PROFILE },
+  approvalWorkflow: { ...DEFAULT_APPROVAL_WORKFLOW },
 }
 
 /**
- * Get active subscription status and studio profile
+ * Get active subscription status, studio profile, and approval workflow configuration
  */
 export async function getSubscriptionInfo(): Promise<SubscriptionInfo> {
   if (isDatabaseConfigured) {
@@ -49,6 +52,14 @@ export async function getSubscriptionInfo(): Promise<SubscriptionInfo> {
           taxNumber: data.taxNumber || undefined,
         }
 
+        let workflow: ApprovalWorkflowConfig = { ...DEFAULT_APPROVAL_WORKFLOW }
+        if (data.approvalWorkflow) {
+          try {
+            const parsed = typeof data.approvalWorkflow === "string" ? JSON.parse(data.approvalWorkflow) : data.approvalWorkflow
+            workflow = { ...DEFAULT_APPROVAL_WORKFLOW, ...parsed }
+          } catch (e) {}
+        }
+
         return {
           tier: (data.tier as SubscriptionTier) || "starter",
           status,
@@ -57,6 +68,7 @@ export async function getSubscriptionInfo(): Promise<SubscriptionInfo> {
           usedScansThisMonth: data.usedScansThisMonth || 0,
           studioProfile: profile,
           activeLicenseKey: data.activeLicenseKey,
+          approvalWorkflow: workflow,
         }
       }
     } catch (e) {
@@ -73,6 +85,42 @@ export async function getSubscriptionInfo(): Promise<SubscriptionInfo> {
   }
 
   return { ...inMemorySubscription }
+}
+
+/**
+ * Update Approval Workflow settings for tenant
+ */
+export async function updateApprovalWorkflow(workflow: Partial<ApprovalWorkflowConfig>): Promise<ApprovalWorkflowConfig> {
+  const current = await getSubscriptionInfo()
+  const updatedWorkflow: ApprovalWorkflowConfig = {
+    ...(current.approvalWorkflow || DEFAULT_APPROVAL_WORKFLOW),
+    ...workflow,
+  }
+
+  if (isDatabaseConfigured) {
+    try {
+      const existingRes = await queryPg(`SELECT id FROM subscriptions LIMIT 1`)
+      const existing = existingRes.rows?.[0]
+
+      if (existing) {
+        await queryPg(
+          `UPDATE subscriptions SET "approvalWorkflow" = $1, "updatedAt" = NOW() WHERE id = $2`,
+          [JSON.stringify(updatedWorkflow), existing.id]
+        )
+      } else {
+        await queryPg(
+          `INSERT INTO subscriptions (tier, "studioName", "approvalWorkflow", "createdAt", "updatedAt")
+           VALUES ('starter', 'Scota Business', $1, NOW(), NOW())`,
+          [JSON.stringify(updatedWorkflow)]
+        )
+      }
+    } catch (err) {
+      console.warn("Could not persist approval workflow to PostgreSQL database:", err)
+    }
+  }
+
+  inMemorySubscription.approvalWorkflow = updatedWorkflow
+  return updatedWorkflow
 }
 
 /**
@@ -236,8 +284,8 @@ export async function saveSubscriptionInfo(info: SubscriptionInfo): Promise<Subs
       if (existing) {
         await queryPg(
           `UPDATE subscriptions
-           SET tier = $1, "validUntil" = $2, "monthlyScanLimit" = $3, "usedScansThisMonth" = $4, "studioName" = $5, tagline = $6, address = $7, phone = $8, "logoUrl" = $9, "invoiceFooter" = $10, "taxNumber" = $11, "activeLicenseKey" = $12, "updatedAt" = NOW()
-           WHERE id = $13`,
+           SET tier = $1, "validUntil" = $2, "monthlyScanLimit" = $3, "usedScansThisMonth" = $4, "studioName" = $5, tagline = $6, address = $7, phone = $8, "logoUrl" = $9, "invoiceFooter" = $10, "taxNumber" = $11, "activeLicenseKey" = $12, "approvalWorkflow" = $13, "updatedAt" = NOW()
+           WHERE id = $14`,
           [
             info.tier,
             info.validUntil,
@@ -251,13 +299,14 @@ export async function saveSubscriptionInfo(info: SubscriptionInfo): Promise<Subs
             info.studioProfile.invoiceFooter,
             info.studioProfile.taxNumber || null,
             info.activeLicenseKey || null,
+            info.approvalWorkflow ? JSON.stringify(info.approvalWorkflow) : null,
             existing.id,
           ]
         )
       } else {
         await queryPg(
-          `INSERT INTO subscriptions (tier, "validUntil", "monthlyScanLimit", "usedScansThisMonth", "studioName", tagline, address, phone, "logoUrl", "invoiceFooter", "taxNumber", "activeLicenseKey", "createdAt", "updatedAt")
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())`,
+          `INSERT INTO subscriptions (tier, "validUntil", "monthlyScanLimit", "usedScansThisMonth", "studioName", tagline, address, phone, "logoUrl", "invoiceFooter", "taxNumber", "activeLicenseKey", "approvalWorkflow", "createdAt", "updatedAt")
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())`,
           [
             info.tier,
             info.validUntil,
@@ -271,6 +320,7 @@ export async function saveSubscriptionInfo(info: SubscriptionInfo): Promise<Subs
             info.studioProfile.invoiceFooter,
             info.studioProfile.taxNumber || null,
             info.activeLicenseKey || null,
+            info.approvalWorkflow ? JSON.stringify(info.approvalWorkflow) : null,
           ]
         )
       }

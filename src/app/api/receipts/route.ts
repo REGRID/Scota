@@ -7,6 +7,8 @@ import { sendWebPushNotification } from "@/lib/serverPush"
 import { invalidateApprovalsCache } from "@/app/api/approvals/route"
 import { invalidateNotificationsCache } from "@/app/api/notifications/route"
 import { queryPg, isDatabaseConfigured } from "@/lib/pgDb"
+import { getSubscriptionInfo } from "@/lib/subscriptionServer"
+import { DEFAULT_APPROVAL_WORKFLOW } from "@/lib/subscription"
 
 let listCache: { key: string; data: any; timestamp: number } | null = null
 const LIST_CACHE_TTL = 5000 // 5 seconds cache
@@ -256,7 +258,104 @@ export async function POST(req: NextRequest) {
       })),
     }
 
-    // 2. Insert into pending_approvals for Dual-Admin Verification
+    // Check Tenant Approval Workflow Configuration
+    const subInfo = await getSubscriptionInfo().catch(() => null)
+    const workflow = subInfo?.approvalWorkflow || DEFAULT_APPROVAL_WORKFLOW
+
+    const requiresApproval =
+      workflow.enableApproval &&
+      workflow.requireForCreate &&
+      ((Number(totalAmount) || 0) >= (workflow.minAmountThreshold || 0))
+
+    // Direct Publish / Auto-Approve if Approval Workflow is Disabled or Excluded
+    if (!requiresApproval) {
+      let createdReceipt: any = null
+
+      if (isDatabaseConfigured) {
+        const insertRes = await queryPg<{ id: string }>(
+          `INSERT INTO receipts ("merchantName", date, "imageUrl", subtotal, "discountAmount", "taxAmount", "totalAmount", "paymentMethod", "paymentStatus", note, "staffName", "createdAt", "updatedAt")
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
+           RETURNING id, "merchantName", date, "totalAmount", "paymentMethod", "paymentStatus", "createdAt"`,
+          [
+            payloadObj.merchantName,
+            payloadObj.date,
+            payloadObj.imageUrl,
+            payloadObj.subtotal,
+            payloadObj.discountAmount,
+            payloadObj.taxAmount,
+            payloadObj.totalAmount,
+            payloadObj.paymentMethod,
+            payloadObj.paymentStatus,
+            payloadObj.note,
+            payloadObj.staffName,
+          ]
+        )
+        createdReceipt = insertRes.rows?.[0]
+
+        if (createdReceipt?.id) {
+          for (const item of payloadObj.items) {
+            await queryPg(
+              `INSERT INTO receipt_items ("receiptId", name, category, "subCategory", price, quantity, "createdAt")
+               VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+              [
+                createdReceipt.id,
+                item.name,
+                item.category,
+                item.subCategory,
+                item.price,
+                item.quantity,
+              ]
+            )
+          }
+
+          // Background auto-learning into dictionaries
+          try {
+            if (payloadObj.merchantName) {
+              await queryPg(
+                `INSERT INTO merchant_dictionaries ("rawPattern", "cleanName", "verifiedCount", "updatedAt")
+                 VALUES ($1, $2, 1, NOW())
+                 ON CONFLICT ("rawPattern")
+                 DO UPDATE SET "cleanName" = EXCLUDED."cleanName", "verifiedCount" = merchant_dictionaries."verifiedCount" + 1, "updatedAt" = NOW()`,
+                [payloadObj.merchantName.toLowerCase().trim(), payloadObj.merchantName.trim()]
+              )
+            }
+            for (const itm of payloadObj.items) {
+              if (itm.name) {
+                await queryPg(
+                  `INSERT INTO product_dictionaries ("rawName", "verifiedName", category, "subCategory", "lastKnownPrice", "verifiedCount", "updatedAt")
+                   VALUES ($1, $2, $3, $4, $5, 1, NOW())
+                   ON CONFLICT ("rawName")
+                   DO UPDATE SET 
+                     "verifiedName" = EXCLUDED."verifiedName",
+                     category = EXCLUDED.category,
+                     "subCategory" = EXCLUDED."subCategory",
+                     "lastKnownPrice" = EXCLUDED."lastKnownPrice",
+                     "verifiedCount" = product_dictionaries."verifiedCount" + 1,
+                     "updatedAt" = NOW()`,
+                  [
+                    itm.name.toLowerCase().trim(),
+                    itm.name.trim(),
+                    itm.category,
+                    itm.subCategory,
+                    itm.price,
+                  ]
+                )
+              }
+            }
+          } catch (dictErr) {
+            console.warn("Direct publish background learning notice:", dictErr)
+          }
+        }
+      }
+
+      return NextResponse.json({
+        directPublished: true,
+        message: `Nota dari "${payloadObj.merchantName}" berhasil disimpan langsung ke pembukuan.`,
+        receipt: createdReceipt || { id: `rcpt-${Date.now()}`, ...payloadObj },
+      }, { status: 201 })
+    }
+
+    // Insert into pending_approvals for Approval Workflow
     let newApproval: any = {
       id: `appr-${Date.now()}`,
       actionType: "CREATE",
@@ -280,16 +379,20 @@ export async function POST(req: NextRequest) {
     invalidateApprovalsCache()
     invalidateNotificationsCache()
 
-    // 3. Insert Notification & Send Real Web Push to Other Admins
+    // Insert Notification & Send Real Web Push to Approvers
     try {
       const notifTitle = "Pengajuan Nota Baru Menunggu Approval"
-      const notifMessage = `${uploaderName} telah mengajukan nota baru dari "${merchantName || 'Nota / Toko'}" sebesar Rp ${(Number(totalAmount) || 0).toLocaleString("id-ID")}. Menunggu persetujuan Admin lain.`
+      const notifMessage = `${uploaderName} telah mengajukan nota baru dari "${merchantName || 'Nota / Toko'}" sebesar Rp ${(Number(totalAmount) || 0).toLocaleString("id-ID")}. Menunggu persetujuan.`
+
+      const targetMode = workflow.approverTarget || workflow.approvalTargetRole || "ANY_ADMIN"
+      const designatedRecipient = targetMode === "SPECIFIC_USER" ? (workflow.designatedApproverUsername || "admin") : "all"
+      const recipientRole = (targetMode === "KARYAWAN" ? "KARYAWAN" : targetMode === "ALL" ? "ALL" : "ADMIN") as "ADMIN" | "ALL" | "KARYAWAN"
 
       if (isDatabaseConfigured && newApproval.id) {
         await queryPg(
           `INSERT INTO notifications (recipient, sender, type, title, message, "approvalId", "isRead", "createdAt")
-           VALUES ('all', $1, 'REQUEST', $2, $3, $4::uuid, false, NOW())`,
-          [uploaderName, notifTitle, notifMessage, newApproval.id.startsWith("appr-") ? null : newApproval.id]
+           VALUES ($1, $2, 'REQUEST', $3, $4, $5::uuid, false, NOW())`,
+          [designatedRecipient, uploaderName, notifTitle, notifMessage, newApproval.id.startsWith("appr-") ? null : newApproval.id]
         ).catch(() => {})
       }
 
@@ -297,7 +400,7 @@ export async function POST(req: NextRequest) {
         title: notifTitle,
         message: notifMessage,
         url: "/",
-        recipientRole: "ADMIN",
+        recipientRole,
         excludeUsername: uploaderName,
       }).catch((pErr: any) => console.warn("[WebPush Error on New Receipt Request]:", pErr))
     } catch (nErr) {
@@ -306,7 +409,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       pendingApproval: true,
-      message: `Nota baru dari "${merchantName || 'Nota / Toko'}" berhasil diajukan oleh ${uploaderName}. Menunggu persetujuan (approval) dari admin lain.`,
+      message: `Nota baru dari "${merchantName || 'Nota / Toko'}" berhasil diajukan oleh ${uploaderName}. Menunggu persetujuan (approval).`,
       approval: newApproval,
       ...payloadObj,
     }, { status: 201 })
@@ -327,6 +430,20 @@ export async function DELETE(req: NextRequest) {
     invalidateReceiptsListCache()
     invalidateApprovalsCache()
     invalidateNotificationsCache()
+
+    const subInfo = await getSubscriptionInfo().catch(() => null)
+    const workflow = subInfo?.approvalWorkflow || DEFAULT_APPROVAL_WORKFLOW
+
+    // Direct delete if approval is not required for delete
+    if (!workflow.enableApproval || !workflow.requireForDelete) {
+      if (isDatabaseConfigured) {
+        await queryPg(`DELETE FROM receipts WHERE id = ANY($1::uuid[])`, [ids])
+      }
+      return NextResponse.json({
+        directPublished: true,
+        message: `Berhasil menghapus ${ids.length} nota secara langsung.`,
+      })
+    }
 
     let approval: any = {
       id: `appr-bulk-del-${Date.now()}`,
@@ -351,7 +468,7 @@ export async function DELETE(req: NextRequest) {
     // Insert Notification for other admin & Send Web Push
     try {
       const notifTitle = `Permintaan Hapus Massal (${ids.length} Nota)`
-      const notifMsg = `Admin ${adminUser} mengajukan penghapusan massal untuk ${ids.length} nota.`
+      const notifMsg = `Pengguna ${adminUser} mengajukan penghapusan massal untuk ${ids.length} nota.`
 
       if (isDatabaseConfigured && approval.id) {
         await queryPg(
@@ -374,7 +491,7 @@ export async function DELETE(req: NextRequest) {
 
     return NextResponse.json({
       pendingApproval: true,
-      message: `Permintaan hapus massal (${ids.length} nota) berhasil diajukan oleh ${adminUser}. Menunggu verifikasi dari admin lain.`,
+      message: `Permintaan hapus massal (${ids.length} nota) berhasil diajukan oleh ${adminUser}. Menunggu verifikasi dari pengelola.`,
       approval,
     })
   } catch (error: any) {
@@ -397,6 +514,23 @@ export async function PATCH(req: NextRequest) {
 
     const statusToSet = paymentStatus || "Sudah Dilunasi"
     const compressedProof = proofImageUrl ? await compressBase64Image(proofImageUrl) : null
+
+    const subInfo = await getSubscriptionInfo().catch(() => null)
+    const workflow = subInfo?.approvalWorkflow || DEFAULT_APPROVAL_WORKFLOW
+
+    // Direct settle if approval is not required for settle
+    if (!workflow.enableApproval || !workflow.requireForSettle) {
+      if (isDatabaseConfigured) {
+        await queryPg(
+          `UPDATE receipts SET "paymentStatus" = $1, "updatedAt" = NOW() WHERE id = ANY($2::uuid[])`,
+          [statusToSet, ids]
+        )
+      }
+      return NextResponse.json({
+        directPublished: true,
+        message: `Berhasil melunasi ${ids.length} nota secara langsung.`,
+      })
+    }
 
     const payloadObj = {
       ids,
@@ -429,7 +563,7 @@ export async function PATCH(req: NextRequest) {
     // Insert Notification for all admins & Send Web Push
     try {
       const notifTitle = `Pengajuan Pelunasan (${ids.length} Nota)`
-      const notifMsg = `Admin ${adminUser} mengajukan pelunasan untuk ${ids.length} nota${personName ? ` (${personName})` : ''} sebesar Rp ${(Number(totalAmount) || 0).toLocaleString("id-ID")}.`
+      const notifMsg = `Pengguna ${adminUser} mengajukan pelunasan untuk ${ids.length} nota${personName ? ` (${personName})` : ''} sebesar Rp ${(Number(totalAmount) || 0).toLocaleString("id-ID")}.`
 
       if (isDatabaseConfigured && approval.id) {
         await queryPg(
@@ -452,7 +586,7 @@ export async function PATCH(req: NextRequest) {
 
     return NextResponse.json({
       pendingApproval: true,
-      message: `Permintaan pelunasan massal (${ids.length} nota) berhasil diajukan oleh ${adminUser}. Menunggu verifikasi dari admin lain.`,
+      message: `Permintaan pelunasan massal (${ids.length} nota) berhasil diajukan oleh ${adminUser}. Menunggu verifikasi dari pengelola.`,
       approval,
     })
   } catch (error: any) {

@@ -6,6 +6,8 @@ import { invalidateApprovalsCache } from "@/app/api/approvals/route"
 import { invalidateNotificationsCache } from "@/app/api/notifications/route"
 import { compressBase64Image } from "@/lib/imageCompressor"
 import { queryPg, isDatabaseConfigured } from "@/lib/pgDb"
+import { getSubscriptionInfo } from "@/lib/subscriptionServer"
+import { DEFAULT_APPROVAL_WORKFLOW } from "@/lib/subscription"
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> | { id: string } }) {
   try {
@@ -82,7 +84,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const { id } = await params
     const adminUser = getAdminUserFromRequest(req)
     const body = await req.json()
-    const { date, items } = body
+    const { date, items, merchantName, subtotal, discountAmount, taxAmount, totalAmount, paymentMethod, paymentStatus, note, imageUrl } = body
 
     if (!date) {
       return NextResponse.json({ error: "Tanggal nota wajib diisi" }, { status: 400 })
@@ -95,6 +97,77 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     invalidateReceiptsListCache()
     invalidateApprovalsCache()
     invalidateNotificationsCache()
+
+    const subInfo = await getSubscriptionInfo().catch(() => null)
+    const workflow = subInfo?.approvalWorkflow || DEFAULT_APPROVAL_WORKFLOW
+
+    // Direct Edit if Approval Workflow is Disabled or Excluded for Edit
+    if (!workflow.enableApproval || !workflow.requireForEdit) {
+      const compressedImageUrl = imageUrl ? await compressBase64Image(imageUrl) : null
+
+      if (isDatabaseConfigured) {
+        await queryPg(`DELETE FROM receipt_items WHERE "receiptId" = $1`, [id])
+
+        if (compressedImageUrl) {
+          await queryPg(
+            `UPDATE receipts 
+             SET "merchantName" = $1, date = $2, subtotal = $3, "discountAmount" = $4, "taxAmount" = $5, "totalAmount" = $6, "paymentMethod" = $7, "paymentStatus" = $8, note = $9, "imageUrl" = $10, "updatedAt" = NOW()
+             WHERE id = $11`,
+            [
+              merchantName || "Nota / Toko",
+              date,
+              Number(subtotal) || 0,
+              Number(discountAmount) || 0,
+              Number(taxAmount) || 0,
+              Number(totalAmount) || 0,
+              paymentMethod || "Cash",
+              paymentStatus || "Lunas",
+              note || null,
+              compressedImageUrl,
+              id,
+            ]
+          )
+        } else {
+          await queryPg(
+            `UPDATE receipts 
+             SET "merchantName" = $1, date = $2, subtotal = $3, "discountAmount" = $4, "taxAmount" = $5, "totalAmount" = $6, "paymentMethod" = $7, "paymentStatus" = $8, note = $9, "updatedAt" = NOW()
+             WHERE id = $10`,
+            [
+              merchantName || "Nota / Toko",
+              date,
+              Number(subtotal) || 0,
+              Number(discountAmount) || 0,
+              Number(taxAmount) || 0,
+              Number(totalAmount) || 0,
+              paymentMethod || "Cash",
+              paymentStatus || "Lunas",
+              note || null,
+              id,
+            ]
+          )
+        }
+
+        for (const it of items) {
+          await queryPg(
+            `INSERT INTO receipt_items ("receiptId", name, category, "subCategory", price, quantity, "createdAt")
+             VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+            [
+              id,
+              it.name || "Item",
+              it.category || "Lain-lain",
+              it.subCategory || "Umum",
+              Number(it.price) || 0,
+              Number(it.quantity) || 1,
+            ]
+          )
+        }
+      }
+
+      return NextResponse.json({
+        directPublished: true,
+        message: "Perubahan nota berhasil disimpan langsung ke sistem.",
+      })
+    }
 
     // Dual-Admin Control: Create Pending Approval for EDIT action
     let approval: any = {
@@ -121,7 +194,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     // Insert Notification for all admins & Trigger Web Push
     try {
       const notifTitle = "Permintaan Edit Nota"
-      const notifMsg = `Admin ${adminUser} mengajukan perubahan data nota "${body.merchantName || 'Nota'}".`
+      const notifMsg = `Pengguna ${adminUser} mengajukan perubahan data nota "${body.merchantName || 'Nota'}".`
 
       if (isDatabaseConfigured && approval.id) {
         await queryPg(
@@ -145,7 +218,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     return NextResponse.json({
       pendingApproval: true,
-      message: `Permintaan edit nota berhasil diajukan oleh ${adminUser}. Menunggu verifikasi dari admin lain.`,
+      message: `Permintaan edit nota berhasil diajukan oleh ${adminUser}. Menunggu verifikasi dari pengelola.`,
       approval,
     })
   } catch (error: any) {
@@ -162,6 +235,20 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     invalidateReceiptsListCache()
     invalidateApprovalsCache()
     invalidateNotificationsCache()
+
+    const subInfo = await getSubscriptionInfo().catch(() => null)
+    const workflow = subInfo?.approvalWorkflow || DEFAULT_APPROVAL_WORKFLOW
+
+    // Direct Delete if Approval Workflow is Disabled or Excluded for Delete
+    if (!workflow.enableApproval || !workflow.requireForDelete) {
+      if (isDatabaseConfigured) {
+        await queryPg(`DELETE FROM receipts WHERE id = $1`, [id])
+      }
+      return NextResponse.json({
+        directPublished: true,
+        message: "Nota berhasil dihapus secara langsung.",
+      })
+    }
 
     let approval: any = {
       id: `appr-del-${Date.now()}`,
@@ -187,7 +274,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     // Insert Notification for all admins & Trigger Web Push
     try {
       const notifTitle = "Permintaan Hapus Nota"
-      const notifMsg = `Admin ${adminUser} mengajukan penghapusan nota.`
+      const notifMsg = `Pengguna ${adminUser} mengajukan penghapusan nota.`
 
       if (isDatabaseConfigured && approval.id) {
         await queryPg(
@@ -211,7 +298,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
     return NextResponse.json({
       pendingApproval: true,
-      message: `Permintaan hapus nota berhasil diajukan oleh ${adminUser}. Menunggu verifikasi dari admin lain.`,
+      message: `Permintaan hapus nota berhasil diajukan oleh ${adminUser}. Menunggu verifikasi dari pengelola.`,
       approval,
     })
   } catch (error: any) {

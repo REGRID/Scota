@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
 import { queryPg, isDatabaseConfigured } from "@/lib/pgDb"
+import { requireSuperadmin } from "@/lib/superadminGuard"
 
 export async function GET(req: NextRequest) {
   try {
+    const auth = await requireSuperadmin(req)
+    if (!auth.ok) return auth.response
+
     if (!isDatabaseConfigured) {
       return NextResponse.json({ success: true, receipts: [] })
     }

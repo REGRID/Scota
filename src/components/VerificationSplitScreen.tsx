@@ -330,14 +330,14 @@ export function VerificationSplitScreen({
     setPaymentMethod(selectedMethod)
     if (selectedMethod === "Dana Pribadi Owner") {
       setPaymentStatus("Belum Direimburse")
-      if (paidByPerson !== "Rama" && paidByPerson !== "Refo") {
-        setPaidByPerson("Rama")
+      if (!paidByPerson) {
+        setPaidByPerson("Owner")
       }
     } else if (selectedMethod === "Talangan Karyawan") {
       setPaymentStatus("Belum Direimburse")
       const staffList = ["Reza", "Ummu", "Cheisa", "Novi", "Titis"]
       if (!staffList.includes(paidByPerson)) {
-        setPaidByPerson(activeStaffName)
+        setPaidByPerson(activeStaffName || "Staf")
       }
     } else if (selectedMethod === "Hutang Supplier") {
       setPaymentStatus("Tempo (Hutang Supplier)")
@@ -784,15 +784,13 @@ export function VerificationSplitScreen({
 
                     {paymentMethod === "Dana Pribadi Owner" ? (
                       <div className="relative">
-                        <select
-                          value={paidByPerson === "Refo" || paidByPerson === "refo" ? "Refo" : "Rama"}
+                        <input
+                          type="text"
+                          value={paidByPerson || "Owner"}
                           onChange={(e) => setPaidByPerson(e.target.value)}
-                          className="w-full appearance-none pl-3.5 pr-9 py-2.5 rounded-xl border border-emerald-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 text-sm font-bold text-slate-900 bg-emerald-50/50 cursor-pointer transition-all"
-                        >
-                          <option value="Rama">Rama (Owner)</option>
-                          <option value="Refo">Refo (Owner)</option>
-                        </select>
-                        <ChevronDown className="w-4 h-4 text-emerald-600 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                          placeholder="Nama Owner / Pemilik"
+                          className="w-full pl-3.5 pr-3.5 py-2 rounded-xl border border-emerald-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 text-sm font-bold text-slate-900 bg-emerald-50/50 transition-all"
+                        />
                       </div>
                     ) : (
                       <div className="relative">

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getAllBillingTransactions, recordAuditLog } from "@/lib/superadmin"
+import { requireSuperadmin } from "@/lib/superadminGuard"
 import fs from "fs"
 import path from "path"
 
@@ -7,6 +8,9 @@ const BILLING_FILE = path.join(process.cwd(), "superadmin_billing.json")
 
 export async function GET(req: NextRequest) {
   try {
+    const auth = await requireSuperadmin(req)
+    if (!auth.ok) return auth.response
+
     const transactions = await getAllBillingTransactions()
     return NextResponse.json({ success: true, transactions })
   } catch (error: any) {
@@ -19,6 +23,9 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requireSuperadmin(req)
+    if (!auth.ok) return auth.response
+
     const { tenantUsername, businessName, tier, amount, paymentMethod, status } = await req.json()
 
     if (!tenantUsername || !amount) {
@@ -50,7 +57,7 @@ export async function POST(req: NextRequest) {
     fs.writeFileSync(BILLING_FILE, JSON.stringify(list, null, 2))
 
     await recordAuditLog({
-      superadmin: "Superadmin",
+      superadmin: auth.username,
       action: "CREATE_BILLING_INVOICE",
       targetTenant: tenantUsername,
       detail: `Pencatatan invoice ${newTrx.invoiceNumber} senilai Rp ${Number(amount).toLocaleString(

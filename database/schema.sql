@@ -108,12 +108,12 @@ CREATE TABLE IF NOT EXISTS admin_accounts (
     "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Default Accounts
-INSERT INTO admin_accounts (username, password, role, "businessName")
+-- Default Seed Accounts (1 Default Developer/Superadmin + 1 Default Admin + 1 Staff)
+INSERT INTO admin_accounts (username, password, role, "fullName", "businessName")
 VALUES 
-    ('rama', 'adminnota123', 'ADMIN', 'Studio Rama'),
-    ('refo', 'adminnota456', 'ADMIN', 'Studio Refo'),
-    ('karyawan', 'StudioPhoto2026', 'KARYAWAN', 'Staff Kasir')
+    ('superadmin', 'superadmin2026!', 'SUPERADMIN', 'Developer / Superadmin', 'Scota Central Management'),
+    ('admin', 'adminnota123', 'ADMIN', 'Administrator', 'Scota Business'),
+    ('karyawan', 'StudioPhoto2026', 'KARYAWAN', 'Staff Kasir', 'Scota Business')
 ON CONFLICT (username) DO NOTHING;
 
 -- 9. Table: subscriptions
@@ -131,6 +131,7 @@ CREATE TABLE IF NOT EXISTS subscriptions (
     "logoUrl" TEXT,
     "invoiceFooter" TEXT DEFAULT 'Terima kasih atas kerja sama Anda dengan usaha kami.',
     "taxNumber" TEXT,
+    "approvalWorkflow" TEXT,
     "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now(),
     "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now()
 );

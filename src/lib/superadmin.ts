@@ -1,19 +1,23 @@
 import { queryPg, isDatabaseConfigured } from "@/lib/pgDb"
-import { TIER_CONFIG, SubscriptionTier } from "@/lib/subscription"
+import { TIER_CONFIG, SubscriptionTier, ApprovalWorkflowConfig, DEFAULT_APPROVAL_WORKFLOW } from "@/lib/subscription"
 import { getUserAccountDetails, updateAdminPassword } from "@/lib/adminAccounts"
 import fs from "fs"
 import path from "path"
 
-export const SUPERADMIN_USERNAMES = ["rama", "refo", "admin1", "admin2", "developer", "superadmin"]
-
 /**
- * Check whether a given username has Superadmin / Platform Owner privileges
+ * Check whether a given username has Superadmin / Platform Owner / Developer privileges.
+ * 100% dynamic: checks against environment variables and database role.
  */
 export async function isSuperadminUser(username: string): Promise<boolean> {
   const clean = (username || "").trim().toLowerCase()
   if (!clean) return false
 
-  if (SUPERADMIN_USERNAMES.includes(clean)) return true
+  const envSuperadmins = [
+    process.env.SUPERADMIN_USERNAME || "superadmin",
+    process.env.DEVELOPER_USERNAME || "developer",
+  ].map((u) => u.trim().toLowerCase())
+
+  if (envSuperadmins.includes(clean)) return true
 
   try {
     const account = await getUserAccountDetails(clean)
@@ -42,6 +46,7 @@ export interface TenantSummary {
   totalReceiptsCount?: number
   totalReceiptsAmount?: number
   totalUsersCount?: number
+  approvalWorkflow?: ApprovalWorkflowConfig
 }
 
 export interface PlatformStats {
@@ -92,7 +97,6 @@ const BILLING_FILE = path.join(process.cwd(), "superadmin_billing.json")
 export async function getAllTenants(): Promise<TenantSummary[]> {
   const tenantsMap = new Map<string, TenantSummary>()
 
-  // 1. Load from PostgreSQL `admin_accounts` if configured
   if (isDatabaseConfigured) {
     try {
       const res = await queryPg<any>(
@@ -109,6 +113,14 @@ export async function getAllTenants(): Promise<TenantSummary[]> {
           const validDate = new Date(acc.validUntil || Date.now() + 30 * 24 * 60 * 60 * 1000)
           const isExpired = validDate < new Date()
 
+          let workflow: ApprovalWorkflowConfig = { ...DEFAULT_APPROVAL_WORKFLOW }
+          if (acc.approvalWorkflow) {
+            try {
+              const parsed = typeof acc.approvalWorkflow === "string" ? JSON.parse(acc.approvalWorkflow) : acc.approvalWorkflow
+              workflow = { ...DEFAULT_APPROVAL_WORKFLOW, ...parsed }
+            } catch (e) {}
+          }
+
           tenantsMap.set(cleanUser, {
             username: cleanUser,
             fullName: acc.fullName || cleanUser,
@@ -121,6 +133,7 @@ export async function getAllTenants(): Promise<TenantSummary[]> {
             usedScansThisMonth: acc.usedScansThisMonth || 0,
             createdAt: acc.createdAt || new Date().toISOString(),
             status: acc.status === "suspended" ? "suspended" : (isExpired ? "expired" : (tier === "trial" ? "trial" : "active")),
+            approvalWorkflow: workflow,
           })
         }
       }
@@ -129,7 +142,7 @@ export async function getAllTenants(): Promise<TenantSummary[]> {
     }
   }
 
-  // 2. Load from local passwords store as fallback / complement
+  // Fallback from local passwords store if empty
   try {
     const localPassFile = path.join(process.cwd(), "admin_passwords.json")
     if (fs.existsSync(localPassFile)) {
@@ -149,6 +162,7 @@ export async function getAllTenants(): Promise<TenantSummary[]> {
             usedScansThisMonth: 0,
             createdAt: new Date().toISOString(),
             status: "active",
+            approvalWorkflow: { ...DEFAULT_APPROVAL_WORKFLOW },
           })
         }
       }
@@ -169,7 +183,6 @@ export async function getSuperadminPlatformStats(): Promise<PlatformStats> {
 
   let totalReceipts = 0
 
-  // 1. Calculate receipts count from PostgreSQL if configured
   if (isDatabaseConfigured) {
     try {
       const res = await queryPg<{ count: string }>(`SELECT count(*) as count FROM receipts`)
@@ -181,7 +194,6 @@ export async function getSuperadminPlatformStats(): Promise<PlatformStats> {
     }
   }
 
-  // 2. Count tier breakdown & calculate actual SaaS subscription earnings (Revenue & MRR)
   const tierBreakdown = {
     trial: 0,
     starter: 0,
@@ -215,7 +227,6 @@ export async function getSuperadminPlatformStats(): Promise<PlatformStats> {
       expiringSoonTenants.push(t)
     }
 
-    // Calculate revenue from paid tiers
     if (tTier !== "trial") {
       paidTenantsCount++
       const cfg = TIER_CONFIG[tTier]
@@ -249,7 +260,8 @@ export async function updateTenantSubscription(
     durationDays?: number
     customValidUntil?: string
     customScanLimit?: number
-  }
+  },
+  actorUsername: string = "Superadmin"
 ): Promise<{ success: boolean; message: string }> {
   try {
     const cleanUser = username.trim().toLowerCase()
@@ -265,7 +277,6 @@ export async function updateTenantSubscription(
 
     const monthlyScanLimit = params.customScanLimit || tierConfig.monthlyScanLimit
 
-    // 1. Update in PostgreSQL if configured
     if (isDatabaseConfigured) {
       try {
         await queryPg(
@@ -280,7 +291,7 @@ export async function updateTenantSubscription(
     }
 
     await recordAuditLog({
-      superadmin: "Superadmin",
+      superadmin: actorUsername,
       action: "UPDATE_SUBSCRIPTION",
       targetTenant: cleanUser,
       detail: `Paket diubah ke ${tierConfig.name} (Valid s/d ${new Date(validUntilIso).toLocaleDateString("id-ID")})`,
@@ -296,11 +307,57 @@ export async function updateTenantSubscription(
 }
 
 /**
+ * Superadmin update of a tenant's approval workflow configuration
+ */
+export async function updateTenantApprovalConfig(
+  username: string,
+  workflow: Partial<ApprovalWorkflowConfig>,
+  actorUsername: string = "Superadmin"
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const cleanUser = username.trim().toLowerCase()
+    const tenants = await getAllTenants()
+    const tenant = tenants.find((t) => t.username === cleanUser)
+
+    const updatedWorkflow: ApprovalWorkflowConfig = {
+      ...(tenant?.approvalWorkflow || DEFAULT_APPROVAL_WORKFLOW),
+      ...workflow,
+    }
+
+    if (isDatabaseConfigured) {
+      try {
+        await queryPg(
+          `UPDATE admin_accounts SET "approvalWorkflow" = $1, "updatedAt" = NOW() WHERE LOWER(username) = LOWER($2)`,
+          [JSON.stringify(updatedWorkflow), cleanUser]
+        )
+      } catch (err) {
+        console.warn("updateTenantApprovalConfig PostgreSQL notice:", err)
+      }
+    }
+
+    await recordAuditLog({
+      superadmin: actorUsername,
+      action: "UPDATE_APPROVAL_WORKFLOW",
+      targetTenant: cleanUser,
+      detail: `Alur verifikasi diubah: ${updatedWorkflow.enableApproval ? 'Aktif (Dual-Approval)' : 'Nonaktif (Auto-Approve)'}, Target: ${updatedWorkflow.approvalTargetRole}`,
+    })
+
+    return {
+      success: true,
+      message: `Konfigurasi alur approval untuk ${cleanUser} berhasil diperbarui.`,
+    }
+  } catch (error: any) {
+    return { success: false, message: error.message || "Gagal memperbarui konfigurasi approval" }
+  }
+}
+
+/**
  * Superadmin toggle tenant suspension
  */
 export async function toggleTenantStatus(
   username: string,
-  newStatus: "active" | "suspended"
+  newStatus: "active" | "suspended",
+  actorUsername: string = "Superadmin"
 ): Promise<{ success: boolean; message: string }> {
   try {
     const cleanUser = username.trim().toLowerCase()
@@ -317,7 +374,7 @@ export async function toggleTenantStatus(
     }
 
     await recordAuditLog({
-      superadmin: "Superadmin",
+      superadmin: actorUsername,
       action: newStatus === "suspended" ? "SUSPEND_TENANT" : "ACTIVATE_TENANT",
       targetTenant: cleanUser,
       detail: `Status tenant diubah menjadi ${newStatus.toUpperCase()}`,
@@ -335,15 +392,19 @@ export async function toggleTenantStatus(
 /**
  * Create a new tenant manually by Superadmin
  */
-export async function createTenantManual(payload: {
-  username: string
-  password: string
-  fullName: string
-  businessName: string
-  phone?: string
-  tier: SubscriptionTier
-  durationDays?: number
-}): Promise<{ success: boolean; message: string }> {
+export async function createTenantManual(
+  payload: {
+    username: string
+    password: string
+    fullName: string
+    businessName: string
+    phone?: string
+    tier: SubscriptionTier
+    durationDays?: number
+    role?: string
+  },
+  actorUsername: string = "Superadmin"
+): Promise<{ success: boolean; message: string }> {
   try {
     const cleanUser = payload.username.trim().toLowerCase()
     if (!cleanUser || !payload.password) {
@@ -354,19 +415,21 @@ export async function createTenantManual(payload: {
     const tierCfg = TIER_CONFIG[tier] || TIER_CONFIG.starter
     const durationDays = payload.durationDays || 30
     const validUntil = new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000).toISOString()
+    const role = payload.role || "ADMIN"
 
     // 1. Save password
     await updateAdminPassword(cleanUser, payload.password)
 
-    // 2. Insert into PostgreSQL if configured
+    // 2. Insert into database
     if (isDatabaseConfigured) {
       try {
         await queryPg(
           `INSERT INTO admin_accounts (username, password, role, "fullName", "businessName", phone, tier, "validUntil", "monthlyScanLimit", "usedScansThisMonth", status, "createdAt", "updatedAt")
-           VALUES ($1, $2, 'ADMIN', $3, $4, $5, $6, $7, $8, 0, 'active', NOW(), NOW())
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 0, 'active', NOW(), NOW())
            ON CONFLICT (username) DO UPDATE SET 
              "fullName" = EXCLUDED."fullName",
              "businessName" = EXCLUDED."businessName",
+             role = EXCLUDED.role,
              tier = EXCLUDED.tier,
              "validUntil" = EXCLUDED."validUntil",
              "monthlyScanLimit" = EXCLUDED."monthlyScanLimit",
@@ -375,6 +438,7 @@ export async function createTenantManual(payload: {
           [
             cleanUser,
             payload.password,
+            role,
             payload.fullName || cleanUser,
             payload.businessName || payload.fullName || cleanUser,
             payload.phone || "",
@@ -389,10 +453,10 @@ export async function createTenantManual(payload: {
     }
 
     await recordAuditLog({
-      superadmin: "Superadmin",
+      superadmin: actorUsername,
       action: "CREATE_TENANT",
       targetTenant: cleanUser,
-      detail: `Pendaftaran manual tenant ${payload.businessName} paket ${tierCfg.name}`,
+      detail: `Pendaftaran manual tenant ${payload.businessName} (Role: ${role}, Paket: ${tierCfg.name})`,
     })
 
     return { success: true, message: `Tenant ${cleanUser} berhasil didaftarkan.` }
@@ -412,7 +476,6 @@ export async function getTenantDetail(username: string) {
     return null
   }
 
-  // Get tenant receipts
   let receiptsCount = 0
   let totalOmset = 0
   let recentReceipts: any[] = []
@@ -430,10 +493,6 @@ export async function getTenantDetail(username: string) {
     } catch (err) {}
   }
 
-  const staffList: any[] = []
-  const invoices: any[] = []
-
-  // Audit logs for this tenant
   const allLogs = await getAuditLogs()
   const tenantLogs = allLogs.filter(
     (l) => l.targetTenant.toLowerCase().includes(cleanUser) || l.detail.toLowerCase().includes(cleanUser)
@@ -451,8 +510,8 @@ export async function getTenantDetail(username: string) {
         limit: tenant.monthlyScanLimit || 500,
       },
     },
-    staffList,
-    invoices,
+    staffList: [],
+    invoices: [],
     recentReceipts,
     auditLogs: tenantLogs,
   }
@@ -494,7 +553,7 @@ export async function recordAuditLog(payload: {
     }
 
     logs.unshift(entry)
-    if (logs.length > 500) logs = logs.slice(0, 500) // keep latest 500
+    if (logs.length > 500) logs = logs.slice(0, 500)
     fs.writeFileSync(AUDIT_LOG_FILE, JSON.stringify(logs, null, 2))
   } catch (err) {
     console.warn("recordAuditLog notice:", err)

@@ -10,6 +10,18 @@ export interface StudioProfile {
   taxNumber?: string
 }
 
+export interface ApprovalWorkflowConfig {
+  enableApproval: boolean             // true: butuh verifikasi, false: auto-approve langsung terbit
+  approvalTargetRole?: string         // "ANY_ADMIN" | "ADMIN" | "MANAGER" | "OWNER" | "SUPERADMIN"
+  approverTarget?: string             // "ANY_ADMIN" | "ADMIN" | "MANAGER" | "OWNER" | "SUPERADMIN" | "SPECIFIC_USER"
+  designatedApproverUsername?: string // Username spesifik jika jalur diarahkan ke satu orang
+  requireForCreate: boolean           // Butuh approval untuk nota baru
+  requireForEdit: boolean             // Butuh approval untuk edit nota
+  requireForDelete: boolean           // Butuh approval untuk hapus nota
+  requireForSettle: boolean           // Butuh approval untuk pelunasan nota
+  minAmountThreshold: number          // 0 = semua nominal, atau misal > 500000 saja
+}
+
 export interface SubscriptionInfo {
   tier: SubscriptionTier
   status: "active" | "expiring" | "expired" | "trial"
@@ -18,6 +30,7 @@ export interface SubscriptionInfo {
   usedScansThisMonth: number
   studioProfile: StudioProfile
   activeLicenseKey?: string
+  approvalWorkflow?: ApprovalWorkflowConfig
 }
 
 export interface TierConfig {
@@ -27,6 +40,17 @@ export interface TierConfig {
   priceYearly: number
   maxUsers: number
   features: string[]
+}
+
+export const DEFAULT_APPROVAL_WORKFLOW: ApprovalWorkflowConfig = {
+  enableApproval: true,
+  approvalTargetRole: "ANY_ADMIN",
+  approverTarget: "ANY_ADMIN",
+  requireForCreate: true,
+  requireForEdit: true,
+  requireForDelete: true,
+  requireForSettle: true,
+  minAmountThreshold: 0,
 }
 
 export const TIER_CONFIG: Record<SubscriptionTier, TierConfig> = {
@@ -53,7 +77,7 @@ export const TIER_CONFIG: Record<SubscriptionTier, TierConfig> = {
       "150 Scan Nota AI / bulan",
       "Kustomisasi Nama & Logo Usaha",
       "Ekspor Laporan PDF & Excel Resmi",
-      "Multi-Akun (Admin 1, Admin 2, Karyawan)",
+      "Multi-Akun (Admin, Karyawan, Kasir)",
       "PWA Notifikasi Kasir & Admin",
     ],
   },

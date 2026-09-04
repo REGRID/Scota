@@ -72,6 +72,19 @@ export default function TenantDetailPage({ params }: TenantDetailPageProps) {
   const [showSuspendDialog, setShowSuspendDialog] = useState(false)
   const [isTogglingSuspend, setIsTogglingSuspend] = useState(false)
 
+  // Approval Workflow State
+  const [tenantWorkflow, setTenantWorkflow] = useState<any>({
+    enableApproval: true,
+    approverTarget: "ANY_ADMIN",
+    designatedApproverUsername: "",
+    requireForCreate: true,
+    requireForEdit: true,
+    requireForDelete: true,
+    requireForSettle: true,
+    minAmountThreshold: 0,
+  })
+  const [isSavingWorkflow, setIsSavingWorkflow] = useState(false)
+
   const [toastMsg, setToastMsg] = useState<string | null>(null)
 
   const showToast = (msg: string) => {
@@ -87,6 +100,14 @@ export default function TenantDetailPage({ params }: TenantDetailPageProps) {
       if (json.success && json.data) {
         setData(json.data)
         setNewTier(json.data.tenant.tier)
+        if (json.data.tenant.approvalWorkflow) {
+          try {
+            const parsed = typeof json.data.tenant.approvalWorkflow === "string"
+              ? JSON.parse(json.data.tenant.approvalWorkflow)
+              : json.data.tenant.approvalWorkflow
+            setTenantWorkflow((prev: any) => ({ ...prev, ...parsed }))
+          } catch {}
+        }
       }
     } catch (e) {
       console.error("Failed to load tenant detail:", e)
@@ -98,6 +119,34 @@ export default function TenantDetailPage({ params }: TenantDetailPageProps) {
   useEffect(() => {
     fetchTenantDetail()
   }, [tenantId])
+
+  // Handle Save Tenant Approval Workflow
+  const handleSaveTenantWorkflow = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsSavingWorkflow(true)
+    try {
+      const res = await fetch("/api/superadmin/tenants", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: tenantId,
+          action: "update_approval_workflow",
+          workflow: tenantWorkflow,
+        }),
+      })
+      const resData = await res.json()
+      if (resData.success) {
+        showToast("Konfigurasi Approval Workflow tenant berhasil disimpan!")
+        fetchTenantDetail()
+      } else {
+        alert(resData.error || "Gagal menyimpan konfigurasi approval")
+      }
+    } catch {
+      alert("Terjadi kesalahan jaringan")
+    } finally {
+      setIsSavingWorkflow(false)
+    }
+  }
 
   // Handle Save Subscription Upgrade
   const handleSaveSubscription = async (e: React.FormEvent) => {
@@ -549,6 +598,130 @@ export default function TenantDetailPage({ params }: TenantDetailPageProps) {
               </div>
             </div>
           </div>
+
+          {/* Tenant Approval Workflow Management Card (Superadmin Control) */}
+          <form onSubmit={handleSaveTenantWorkflow} className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+              <div>
+                <h3 className="text-sm font-black text-white flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                  <span>Konfigurasi Alur Verifikasi & Persetujuan (Dual-Approval)</span>
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Kontrol Superadmin untuk menghidupkan/mematikan verifikasi serta mengatur jalur approval tenant ini.
+                </p>
+              </div>
+              <button
+                type="submit"
+                disabled={isSavingWorkflow}
+                className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-950 text-xs font-black transition-all shadow-md cursor-pointer shrink-0"
+              >
+                {isSavingWorkflow ? "Menyimpan..." : "Simpan Pengaturan Approval"}
+              </button>
+            </div>
+
+            {/* Toggle enableApproval */}
+            <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-950 border border-slate-800">
+              <div>
+                <p className="text-xs font-bold text-white">Status Verifikasi Dual-Control / Approval</p>
+                <p className="text-[11px] text-slate-400">
+                  {tenantWorkflow.enableApproval ? "AKTIF (Menunggu persetujuan)" : "NONAKTIF (Semua nota langsung Auto-Publish)"}
+                </p>
+              </div>
+              <input
+                type="checkbox"
+                checked={tenantWorkflow.enableApproval}
+                onChange={(e) => setTenantWorkflow({ ...tenantWorkflow, enableApproval: e.target.checked })}
+                className="w-5 h-5 rounded text-emerald-500 focus:ring-emerald-400 border-slate-700 cursor-pointer"
+              />
+            </div>
+
+            {tenantWorkflow.enableApproval && (
+              <div className="space-y-4 pt-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-300">Jalur Penerima Approval (Approver Target)</label>
+                    <select
+                      value={tenantWorkflow.approverTarget || "ANY_ADMIN"}
+                      onChange={(e) => setTenantWorkflow({ ...tenantWorkflow, approverTarget: e.target.value })}
+                      className="w-full px-3 py-2 text-xs rounded-xl bg-slate-950 border border-slate-800 text-white font-bold"
+                    >
+                      <option value="ANY_ADMIN">Semua Admin (Admin manapun selain pengaju)</option>
+                      <option value="ADMIN">Khusus Role ADMIN</option>
+                      <option value="MANAGER">Khusus Role MANAGER</option>
+                      <option value="OWNER">Khusus Role OWNER</option>
+                      <option value="SPECIFIC_USER">Akun Tertentu (Username Khusus)</option>
+                    </select>
+                  </div>
+
+                  {tenantWorkflow.approverTarget === "SPECIFIC_USER" && (
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-300">Username Approver Khusus</label>
+                      <input
+                        type="text"
+                        value={tenantWorkflow.designatedApproverUsername || ""}
+                        onChange={(e) => setTenantWorkflow({ ...tenantWorkflow, designatedApproverUsername: e.target.value })}
+                        placeholder="Contoh: manager1"
+                        className="w-full px-3 py-2 text-xs rounded-xl bg-slate-950 border border-slate-800 text-white font-mono"
+                      />
+                    </div>
+                  )}
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-300">Ambang Batas Nominal Minimal (Rp)</label>
+                    <input
+                      type="number"
+                      value={tenantWorkflow.minAmountThreshold || 0}
+                      onChange={(e) => setTenantWorkflow({ ...tenantWorkflow, minAmountThreshold: Number(e.target.value) || 0 })}
+                      className="w-full px-3 py-2 text-xs rounded-xl bg-slate-950 border border-slate-800 text-white font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2 pt-2 border-t border-slate-800">
+                  <label className="text-xs font-bold text-slate-300">Trigger Persetujuan yang Diwajibkan:</label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={tenantWorkflow.requireForCreate}
+                        onChange={(e) => setTenantWorkflow({ ...tenantWorkflow, requireForCreate: e.target.checked })}
+                        className="w-4 h-4 rounded text-emerald-500 border-slate-700"
+                      />
+                      <span>Nota Baru</span>
+                    </label>
+                    <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={tenantWorkflow.requireForEdit}
+                        onChange={(e) => setTenantWorkflow({ ...tenantWorkflow, requireForEdit: e.target.checked })}
+                        className="w-4 h-4 rounded text-emerald-500 border-slate-700"
+                      />
+                      <span>Edit Nota</span>
+                    </label>
+                    <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={tenantWorkflow.requireForDelete}
+                        onChange={(e) => setTenantWorkflow({ ...tenantWorkflow, requireForDelete: e.target.checked })}
+                        className="w-4 h-4 rounded text-emerald-500 border-slate-700"
+                      />
+                      <span>Hapus Nota</span>
+                    </label>
+                    <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={tenantWorkflow.requireForSettle}
+                        onChange={(e) => setTenantWorkflow({ ...tenantWorkflow, requireForSettle: e.target.checked })}
+                        className="w-4 h-4 rounded text-emerald-500 border-slate-700"
+                      />
+                      <span>Pelunasan</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            )}
+          </form>
         </div>
       )}
 

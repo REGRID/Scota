@@ -4,11 +4,16 @@ import {
   updateTenantSubscription,
   toggleTenantStatus,
   createTenantManual,
+  updateTenantApprovalConfig,
 } from "@/lib/superadmin"
 import { updateAdminPassword } from "@/lib/adminAccounts"
+import { requireSuperadmin } from "@/lib/superadminGuard"
 
 export async function GET(req: NextRequest) {
   try {
+    const auth = await requireSuperadmin(req)
+    if (!auth.ok) return auth.response
+
     const tenants = await getAllTenants()
     return NextResponse.json({ success: true, tenants })
   } catch (error: any) {
@@ -18,8 +23,11 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requireSuperadmin(req)
+    if (!auth.ok) return auth.response
+
     const body = await req.json()
-    const result = await createTenantManual(body)
+    const result = await createTenantManual(body, auth.username)
     if (!result.success) {
       return NextResponse.json({ error: result.message }, { status: 400 })
     }
@@ -31,7 +39,10 @@ export async function POST(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   try {
-    const { username, action, tier, durationDays, newPassword, status } = await req.json()
+    const auth = await requireSuperadmin(req)
+    if (!auth.ok) return auth.response
+
+    const { username, action, tier, durationDays, newPassword, status, approvalWorkflow } = await req.json()
 
     if (!username) {
       return NextResponse.json({ error: "Username tenant harus diisi" }, { status: 400 })
@@ -41,7 +52,15 @@ export async function PUT(req: NextRequest) {
       const result = await updateTenantSubscription(username, {
         tier: tier || "pro",
         durationDays: durationDays || 30,
-      })
+      }, auth.username)
+      if (!result.success) {
+        return NextResponse.json({ error: result.message }, { status: 400 })
+      }
+      return NextResponse.json({ success: true, message: result.message })
+    }
+
+    if (action === "update_approval_workflow") {
+      const result = await updateTenantApprovalConfig(username, approvalWorkflow || {}, auth.username)
       if (!result.success) {
         return NextResponse.json({ error: result.message }, { status: 400 })
       }
@@ -49,7 +68,7 @@ export async function PUT(req: NextRequest) {
     }
 
     if (action === "toggle_status") {
-      const result = await toggleTenantStatus(username, status === "suspended" ? "suspended" : "active")
+      const result = await toggleTenantStatus(username, status === "suspended" ? "suspended" : "active", auth.username)
       if (!result.success) {
         return NextResponse.json({ error: result.message }, { status: 400 })
       }
@@ -64,7 +83,7 @@ export async function PUT(req: NextRequest) {
       if (!updated) {
         return NextResponse.json({ error: "Gagal me-reset password tenant" }, { status: 400 })
       }
-      return NextResponse.json({ success: true, message: `Password untuk tenant ${username} berhasil di-reset.` })
+      return NextResponse.json({ success: true, message: `Password untuk tenant ${username} berhasil di-reset oleh ${auth.username}.` })
     }
 
     return NextResponse.json({ error: "Action tidak dikenal" }, { status: 400 })

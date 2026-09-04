@@ -39,9 +39,9 @@ export async function GET(req: NextRequest) {
       `
       const params: any[] = []
 
-      if (userRole === "ADMIN") {
+      if (userRole === "ADMIN" || userRole === "SUPERADMIN" || userRole === "MANAGER" || userRole === "OWNER") {
         query += ` WHERE recipient = ANY($1::text[])`
-        params.push([cleanUser, "admin", "all", "*", "rama", "refo"])
+        params.push([cleanUser, "admin", "superadmin", "manager", "owner", "all", "*"])
       } else {
         query += ` WHERE recipient = ANY($1::text[])`
         params.push(["karyawan", "all", cleanUser, "*"])
@@ -114,7 +114,7 @@ export async function PATCH(req: NextRequest) {
         } else {
           await queryPg(
             `UPDATE notifications SET "isRead" = true WHERE recipient = ANY($1::text[])`,
-            [[cleanUser, "admin", "all", "*", "rama", "refo"]]
+            [[cleanUser, "admin", "superadmin", "manager", "owner", "all", "*"]]
           )
         }
       } else if (id) {

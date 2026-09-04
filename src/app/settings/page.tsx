@@ -57,14 +57,14 @@ export default function SettingsPage() {
   >("users")
 
   // Current logged in admin
-  const [currentUser, setCurrentUser] = useState<string>("refo")
+  const [currentUser, setCurrentUser] = useState<string>("admin")
 
   // 1. User & Role Management State
   const [accounts, setAccounts] = useState<UserAccount[]>([
     {
       id: "1",
-      name: "Refo Gangga",
-      username: "refo",
+      name: "Admin Utama",
+      username: "admin",
       pin: "••••••",
       role: "ADMIN",
       status: "active",
@@ -72,12 +72,12 @@ export default function SettingsPage() {
     },
     {
       id: "2",
-      name: "Rama Adhitya",
-      username: "rama",
-      pin: "••••••",
-      role: "ADMIN",
+      name: "Budi Santoso (Supervisor)",
+      username: "manajer_budi",
+      pin: "5678",
+      role: "MANAJER",
       status: "active",
-      createdAt: "2026-08-01",
+      createdAt: "2026-08-20",
     },
     {
       id: "3",
@@ -87,15 +87,6 @@ export default function SettingsPage() {
       role: "KASIR",
       status: "active",
       createdAt: "2026-08-15",
-    },
-    {
-      id: "4",
-      name: "Budi Santoso (Supervisor)",
-      username: "manajer_budi",
-      pin: "5678",
-      role: "MANAJER",
-      status: "active",
-      createdAt: "2026-08-20",
     },
   ])
 
@@ -121,11 +112,17 @@ export default function SettingsPage() {
   const [autoSyncOnPaid, setAutoSyncOnPaid] = useState(true)
   const [isTestingPos, setIsTestingPos] = useState(false)
 
-  // 5. Security State
+  // 5. Approval Workflow & Security State
   const [oldPassword, setOldPassword] = useState("")
   const [newPassword, setNewPassword] = useState("")
-  const [approvalThreshold, setApprovalThreshold] = useState("1000000")
-  const [dualControlEnabled, setDualControlEnabled] = useState(true)
+  const [enableApproval, setEnableApproval] = useState(true)
+  const [approverTarget, setApproverTarget] = useState<"ANY_ADMIN" | "ADMIN" | "MANAGER" | "OWNER" | "SPECIFIC_USER">("ANY_ADMIN")
+  const [designatedApprover, setDesignatedApprover] = useState("")
+  const [requireForCreate, setRequireForCreate] = useState(true)
+  const [requireForEdit, setRequireForEdit] = useState(true)
+  const [requireForDelete, setRequireForDelete] = useState(true)
+  const [requireForSettle, setRequireForSettle] = useState(true)
+  const [minAmountThreshold, setMinAmountThreshold] = useState("0")
 
   // 6. Business Profile State
   const [businessName, setBusinessName] = useState("Scota Business")
@@ -135,7 +132,7 @@ export default function SettingsPage() {
   // Load Persisted Settings on Mount
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const storedUser = localStorage.getItem("nota_admin_user") || "refo"
+      const storedUser = localStorage.getItem("nota_admin_user") || "admin"
       setCurrentUser(storedUser)
 
       const storedAccounts = localStorage.getItem("scota_user_accounts")
@@ -149,10 +146,28 @@ export default function SettingsPage() {
       if (storedStockDest) setStockDestination(storedStockDest)
 
       const storedThreshold = localStorage.getItem("scota_approval_threshold")
-      if (storedThreshold) setApprovalThreshold(storedThreshold)
+      if (storedThreshold) setMinAmountThreshold(storedThreshold)
 
       const storedDual = localStorage.getItem("scota_dual_control_enabled")
-      if (storedDual !== null) setDualControlEnabled(storedDual === "true")
+      if (storedDual !== null) setEnableApproval(storedDual === "true")
+
+      const storedTarget = localStorage.getItem("scota_approver_target") as any
+      if (storedTarget) setApproverTarget(storedTarget)
+
+      const storedDesignated = localStorage.getItem("scota_designated_approver")
+      if (storedDesignated) setDesignatedApprover(storedDesignated)
+
+      const storedReqCreate = localStorage.getItem("scota_req_create")
+      if (storedReqCreate !== null) setRequireForCreate(storedReqCreate === "true")
+
+      const storedReqEdit = localStorage.getItem("scota_req_edit")
+      if (storedReqEdit !== null) setRequireForEdit(storedReqEdit === "true")
+
+      const storedReqDelete = localStorage.getItem("scota_req_delete")
+      if (storedReqDelete !== null) setRequireForDelete(storedReqDelete === "true")
+
+      const storedReqSettle = localStorage.getItem("scota_req_settle")
+      if (storedReqSettle !== null) setRequireForSettle(storedReqSettle === "true")
 
       const storedBiz = localStorage.getItem("scota_business_name")
       if (storedBiz) setBusinessName(storedBiz)
@@ -233,19 +248,47 @@ export default function SettingsPage() {
     }, 1000)
   }
 
-  // Handle Save Threshold & Dual Control
-  const handleSaveSecurity = () => {
-    localStorage.setItem("scota_approval_threshold", approvalThreshold)
-    localStorage.setItem("scota_dual_control_enabled", String(dualControlEnabled))
+  // Handle Save Approval Workflow & Security
+  const handleSaveSecurity = async () => {
+    localStorage.setItem("scota_approval_threshold", minAmountThreshold)
+    localStorage.setItem("scota_dual_control_enabled", String(enableApproval))
+    localStorage.setItem("scota_approver_target", approverTarget)
+    localStorage.setItem("scota_designated_approver", designatedApprover)
+    localStorage.setItem("scota_req_create", String(requireForCreate))
+    localStorage.setItem("scota_req_edit", String(requireForEdit))
+    localStorage.setItem("scota_req_delete", String(requireForDelete))
+    localStorage.setItem("scota_req_settle", String(requireForSettle))
+
     if (typeof window !== "undefined") {
       window.dispatchEvent(new Event("storage"))
     }
+
+    try {
+      await fetch("/api/superadmin/tenants", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "update_approval_workflow",
+          workflow: {
+            enableApproval,
+            approverTarget,
+            designatedApproverUsername: designatedApprover.trim().toLowerCase() || undefined,
+            requireForCreate,
+            requireForEdit,
+            requireForDelete,
+            requireForSettle,
+            minAmountThreshold: Number(minAmountThreshold) || 0,
+          },
+        }),
+      }).catch(() => {})
+    } catch {}
+
     if (newPassword.trim()) {
-      toast.success("Sandi & kebijakan verifikasi dual-control berhasil diperbarui!")
+      toast.success("Sandi & kebijakan alur persetujuan (Dual-Approval) berhasil diperbarui!")
       setOldPassword("")
       setNewPassword("")
     } else {
-      toast.success("Pengaturan keamanan & verifikasi dual-control berhasil disimpan!")
+      toast.success("Pengaturan alur persetujuan (Dual-Approval) berhasil disimpan!")
     }
   }
 
@@ -726,15 +769,15 @@ export default function SettingsPage() {
             </div>
           )}
 
-          {/* TAB 5: SECURITY & DUAL CONTROL */}
+          {/* TAB 5: SECURITY & DUAL APPROVAL WORKFLOW */}
           {activeTab === "security" && (
             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 sm:p-6 space-y-6 shadow-xs">
               <div className="pb-4 border-b border-slate-100 dark:border-slate-800">
                 <h2 className="text-base font-black text-slate-900 dark:text-white">
-                  Keamanan & Kebijakan Persetujuan Dual-Control
+                  Alur Verifikasi & Kebijakan Persetujuan (Dual-Approval Workflow)
                 </h2>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Proteksi integritas pengeluaran dengan verifikasi wajib 2 admin untuk nominal transaksi besar.
+                  Konfigurasikan apakah transaksi memerlukan verifikasi admin lain atau langsung diterbitkan (auto-publish), serta tentukan jalur penerima persetujuan.
                 </p>
               </div>
 
@@ -743,59 +786,136 @@ export default function SettingsPage() {
                 <div className="space-y-0.5">
                   <span className="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1.5">
                     <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                    Aktifkan Fitur Verifikasi Dual-Control
+                    Status Alur Persetujuan (Approval Workflow)
                   </span>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Menampilkan ikon verifikasi di header atas dan mewajibkan otorisasi admin untuk nominal di atas batas.
+                    {enableApproval
+                      ? "AKTIF: Transaksi yang memerlukan verifikasi akan masuk ke antrean pending dan wajib disetujui pihak berwenang."
+                      : "NONAKTIF: Seluruh nota dan perubahan langsung disimpan/diterbitkan (Auto-Publish) tanpa menunggu persetujuan."}
                   </p>
                 </div>
                 <button
                   type="button"
-                  onClick={() => {
-                    const nextVal = !dualControlEnabled
-                    setDualControlEnabled(nextVal)
-                    localStorage.setItem("scota_dual_control_enabled", String(nextVal))
-                    if (typeof window !== "undefined") {
-                      window.dispatchEvent(new Event("storage"))
-                    }
-                  }}
+                  onClick={() => setEnableApproval(!enableApproval)}
                   className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
-                    dualControlEnabled ? "bg-emerald-500" : "bg-slate-300 dark:bg-slate-700"
+                    enableApproval ? "bg-emerald-500" : "bg-slate-300 dark:bg-slate-700"
                   }`}
                 >
                   <span
                     className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
-                      dualControlEnabled ? "translate-x-5" : "translate-x-0"
+                      enableApproval ? "translate-x-5" : "translate-x-0"
                     }`}
                   />
                 </button>
               </div>
 
-              {/* Dual Control Threshold */}
-              <div className="space-y-3">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                  Ambang Batas Nominal Verifikasi Dual-Control (IDR)
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-bold text-xs text-slate-400">
-                    Rp
-                  </span>
-                  <input
-                    type="number"
-                    value={approvalThreshold}
-                    onChange={(e) => setApprovalThreshold(e.target.value)}
-                    className="w-full pl-10 pr-3.5 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white font-mono font-bold"
-                  />
+              {enableApproval && (
+                <div className="space-y-5 p-4 rounded-xl bg-slate-50/70 dark:bg-slate-850/40 border border-slate-200 dark:border-slate-800">
+                  {/* Approval Routing Target */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                      Jalur & Sasaran Penerima Persetujuan (Approver Target)
+                    </label>
+                    <select
+                      value={approverTarget}
+                      onChange={(e: any) => setApproverTarget(e.target.value)}
+                      className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white font-bold"
+                    >
+                      <option value="ANY_ADMIN">Semua Admin (Admin manapun selain pengaju)</option>
+                      <option value="ADMIN">Khusus Role ADMIN</option>
+                      <option value="MANAGER">Khusus Role MANAGER / MANAJER</option>
+                      <option value="OWNER">Khusus Role OWNER</option>
+                      <option value="SPECIFIC_USER">Akun Tertentu (Tunjuk Username Khusus)</option>
+                    </select>
+                  </div>
+
+                  {approverTarget === "SPECIFIC_USER" && (
+                    <div className="space-y-1.5 animate-in fade-in duration-150">
+                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                        Username Approver yang Ditunjuk
+                      </label>
+                      <input
+                        type="text"
+                        value={designatedApprover}
+                        onChange={(e) => setDesignatedApprover(e.target.value)}
+                        placeholder="Contoh: admin_utama atau spv_budi"
+                        className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white font-mono lowercase"
+                      />
+                    </div>
+                  )}
+
+                  {/* Trigger Checkboxes */}
+                  <div className="space-y-2.5 pt-2 border-t border-slate-200/80 dark:border-slate-800">
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                      Aktivitas yang Mewajibkan Persetujuan:
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={requireForCreate}
+                          onChange={(e) => setRequireForCreate(e.target.checked)}
+                          className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 dark:border-slate-700"
+                        />
+                        <span>Penerbitan Nota Baru</span>
+                      </label>
+                      <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={requireForEdit}
+                          onChange={(e) => setRequireForEdit(e.target.checked)}
+                          className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 dark:border-slate-700"
+                        />
+                        <span>Perubahan / Edit Data Nota</span>
+                      </label>
+                      <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={requireForDelete}
+                          onChange={(e) => setRequireForDelete(e.target.checked)}
+                          className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 dark:border-slate-700"
+                        />
+                        <span>Penghapusan Nota</span>
+                      </label>
+                      <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={requireForSettle}
+                          onChange={(e) => setRequireForSettle(e.target.checked)}
+                          className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 dark:border-slate-700"
+                        />
+                        <span>Pelunasan Tagihan / Reimburse</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Dual Control Threshold */}
+                  <div className="space-y-2 pt-2 border-t border-slate-200/80 dark:border-slate-800">
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                      Ambang Batas Nominal Minimal Persetujuan (IDR)
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-bold text-xs text-slate-400">
+                        Rp
+                      </span>
+                      <input
+                        type="number"
+                        value={minAmountThreshold}
+                        onChange={(e) => setMinAmountThreshold(e.target.value)}
+                        className="w-full pl-10 pr-3.5 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white font-mono font-bold"
+                      />
+                    </div>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Masukkan <strong>0</strong> jika seluruh nota tanpa batas minimum harus melalui persetujuan, atau isi nominal (misal: 1.000.000) agar nota di bawah nominal tersebut dapat auto-publish.
+                    </p>
+                  </div>
                 </div>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                  Nota pengeluaran di atas nominal ini akan otomatis masuk ke status <strong>Pending Dual-Control</strong> dan membutuhkan otorisasi dari admin kedua sebelum sah dibukukan.
-                </p>
-              </div>
+              )}
 
               {/* Password Change */}
               <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800">
                 <h3 className="text-xs font-black text-slate-900 dark:text-white">
-                  Ubah Kata Sandi Admin ({currentUser.toUpperCase()})
+                  Ubah Kata Sandi Akun Aktif ({currentUser.toUpperCase()})
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <input
@@ -821,7 +941,7 @@ export default function SettingsPage() {
                   onClick={handleSaveSecurity}
                   className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs font-black transition-all shadow-xs cursor-pointer"
                 >
-                  Simpan Kebijakan Keamanan
+                  Simpan Kebijakan Persetujuan & Keamanan
                 </button>
               </div>
             </div>

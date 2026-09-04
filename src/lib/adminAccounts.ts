@@ -2,19 +2,8 @@ import { queryPg, isDatabaseConfigured } from "@/lib/pgDb"
 import fs from "fs"
 import path from "path"
 
-export const DEFAULT_ADMINS = [
-  { username: "rama", defaultPass: process.env.ADMIN_A_PASSWORD || "", role: "ADMIN" },
-  { username: "admin1", defaultPass: process.env.ADMIN_A_PASSWORD || "", role: "ADMIN" },
-  { username: "refo", defaultPass: process.env.ADMIN_B_PASSWORD || "", role: "ADMIN" },
-  { username: "admin2", defaultPass: process.env.ADMIN_B_PASSWORD || "", role: "ADMIN" },
-  { username: "karyawan", defaultPass: process.env.KARYAWAN_PASSWORD || "", role: "KARYAWAN" },
-]
-
 export function normalizeAdminUsername(input: string): string {
-  const clean = (input || "").trim().toLowerCase()
-  if (clean === "admin 1" || clean === "admin1" || clean === "admin_1" || clean === "admin 1 (rama)") return "rama"
-  if (clean === "admin 2" || clean === "admin2" || clean === "admin_2" || clean === "admin 2 (refo)") return "refo"
-  return clean
+  return (input || "").trim().toLowerCase()
 }
 
 const LOCAL_PASSWORDS_FILE = path.join(process.cwd(), "admin_passwords.json")
@@ -41,7 +30,7 @@ function getLocalPasswords(): Record<string, string> {
 }
 
 function setLocalPassword(username: string, pass: string): boolean {
-  const cleanKey = username.toLowerCase()
+  const cleanKey = normalizeAdminUsername(username)
   IN_MEMORY_PASSWORDS.set(cleanKey, pass)
 
   try {
@@ -55,46 +44,15 @@ function setLocalPassword(username: string, pass: string): boolean {
 }
 
 /**
- * Programmatically rewrite .env.local file to ensure changed password remains default permanently
- */
-function updateEnvFilePassword(username: string, newPass: string) {
-  try {
-    const cleanUser = username.trim().toLowerCase()
-
-    if (cleanUser === "rama" || cleanUser === "admin1" || cleanUser === (process.env.ADMIN_A_USERNAME || "rama").toLowerCase()) {
-      process.env.ADMIN_A_PASSWORD = newPass
-    }
-    if (cleanUser === "refo" || cleanUser === "admin2" || cleanUser === (process.env.ADMIN_B_USERNAME || "refo").toLowerCase()) {
-      process.env.ADMIN_B_PASSWORD = newPass
-    }
-
-    const envPath = path.join(process.cwd(), ".env.local")
-    if (fs.existsSync(envPath)) {
-      let content = fs.readFileSync(envPath, "utf-8")
-      if (cleanUser === "rama" || cleanUser === "admin1" || cleanUser === (process.env.ADMIN_A_USERNAME || "rama").toLowerCase()) {
-        content = content.replace(/ADMIN_A_PASSWORD=["'][^"']*["']/g, `ADMIN_A_PASSWORD="${newPass}"`)
-        content = content.replace(/ADMIN_A_PASSWORD=[^\r\n]+/g, `ADMIN_A_PASSWORD="${newPass}"`)
-      }
-      if (cleanUser === "refo" || cleanUser === "admin2" || cleanUser === (process.env.ADMIN_B_USERNAME || "refo").toLowerCase()) {
-        content = content.replace(/ADMIN_B_PASSWORD=["'][^"']*["']/g, `ADMIN_B_PASSWORD="${newPass}"`)
-        content = content.replace(/ADMIN_B_PASSWORD=[^\r\n]+/g, `ADMIN_B_PASSWORD="${newPass}"`)
-      }
-      fs.writeFileSync(envPath, content, "utf-8")
-    }
-  } catch (err) {
-    console.warn("Could not update .env.local file:", err)
-  }
-}
-
-/**
- * Fetch active password for a given admin username (rama / refo / admin1 / admin2).
+ * Fetch active password for a given username.
  * PostgreSQL `admin_accounts` table is the PRIMARY source of truth.
  */
 export async function getAdminPassword(username: string): Promise<string | null> {
   try {
     const cleanUser = normalizeAdminUsername(username)
+    if (!cleanUser) return null
 
-    // 1. Primary: Check PostgreSQL Database Table `admin_accounts` if configured
+    // 1. Primary: Check PostgreSQL Database Table `admin_accounts`
     if (isDatabaseConfigured) {
       try {
         const res = await queryPg<{ password: string }>(
@@ -115,20 +73,19 @@ export async function getAdminPassword(username: string): Promise<string | null>
       return localPasses[cleanUser].trim()
     }
 
-    // 3. Fallback: Default Credentials / Environment Variables
-    const defaultItem = DEFAULT_ADMINS.find((a) => a.username === cleanUser)
-    if (defaultItem && defaultItem.defaultPass) {
-      return defaultItem.defaultPass.trim()
+    // 3. Fallback: Environment Variables (e.g. SUPERADMIN_PASSWORD, ADMIN_PASSWORD)
+    const envSuperUser = (process.env.SUPERADMIN_USERNAME || "superadmin").toLowerCase()
+    if (cleanUser === envSuperUser) {
+      return (process.env.SUPERADMIN_PASSWORD || "superadmin123").trim()
     }
 
-    if (cleanUser === (process.env.ADMIN_A_USERNAME || "rama").toLowerCase()) {
-      return (process.env.ADMIN_A_PASSWORD || "").trim()
+    const envAdminUser = (process.env.ADMIN_USERNAME || "admin").toLowerCase()
+    if (cleanUser === envAdminUser) {
+      return (process.env.ADMIN_PASSWORD || "admin123").trim()
     }
-    if (cleanUser === (process.env.ADMIN_B_USERNAME || "refo").toLowerCase()) {
-      return (process.env.ADMIN_B_PASSWORD || "").trim()
-    }
+
     if (cleanUser === (process.env.KARYAWAN_USERNAME || "karyawan").toLowerCase()) {
-      return (process.env.KARYAWAN_PASSWORD || "").trim()
+      return (process.env.KARYAWAN_PASSWORD || "karyawan123").trim()
     }
 
     return null
@@ -149,7 +106,6 @@ export async function validateAdminCredentials(username: string, inputPass: stri
     if (!cleanUser || !cleanPass) return false
 
     const activePassword = await getAdminPassword(cleanUser)
-
     if (!activePassword) return false
 
     return cleanPass === activePassword
@@ -162,13 +118,15 @@ export async function validateAdminCredentials(username: string, inputPass: stri
 /**
  * Fetch full account details including role and password
  */
-export async function getUserAccountDetails(username: string): Promise<{ username: string; role: string; password?: string } | null> {
+export async function getUserAccountDetails(username: string): Promise<{ username: string; role: string; password?: string; fullName?: string; businessName?: string } | null> {
   try {
     const cleanUser = normalizeAdminUsername(username)
+    if (!cleanUser) return null
+
     if (isDatabaseConfigured) {
       try {
-        const res = await queryPg<{ username: string; password?: string; role: string }>(
-          `SELECT username, password, role FROM admin_accounts WHERE LOWER(username) = LOWER($1) LIMIT 1`,
+        const res = await queryPg<{ username: string; password?: string; role: string; fullName?: string; businessName?: string }>(
+          `SELECT username, password, role, "fullName", "businessName" FROM admin_accounts WHERE LOWER(username) = LOWER($1) LIMIT 1`,
           [cleanUser]
         )
         if (res.rows && res.rows[0]) {
@@ -176,14 +134,21 @@ export async function getUserAccountDetails(username: string): Promise<{ usernam
           return {
             username: row.username,
             password: row.password,
-            role: row.role || (cleanUser === "karyawan" ? "KARYAWAN" : "ADMIN"),
+            role: row.role || "ADMIN",
+            fullName: row.fullName || undefined,
+            businessName: row.businessName || undefined,
           }
         }
       } catch (e) {}
     }
 
+    const envSuperUser = (process.env.SUPERADMIN_USERNAME || "superadmin").toLowerCase()
+    if (cleanUser === envSuperUser) {
+      return { username: cleanUser, password: process.env.SUPERADMIN_PASSWORD || "superadmin123", role: "SUPERADMIN" }
+    }
+
     if (cleanUser === "karyawan") {
-      const pass = process.env.KARYAWAN_PASSWORD || (await getAdminPassword("karyawan")) || ""
+      const pass = process.env.KARYAWAN_PASSWORD || (await getAdminPassword("karyawan")) || "karyawan123"
       return { username: "karyawan", password: pass, role: "KARYAWAN" }
     }
 
@@ -200,8 +165,7 @@ export async function getUserAccountDetails(username: string): Promise<{ usernam
 }
 
 /**
- * Update password for a given admin username (rama / refo).
- * Writes directly to PostgreSQL DB `admin_accounts` table as primary, and updates local fallbacks.
+ * Update password for a given username.
  */
 export async function updateAdminPassword(username: string, newPass: string): Promise<boolean> {
   try {
@@ -210,7 +174,6 @@ export async function updateAdminPassword(username: string, newPass: string): Pr
 
     if (!cleanUser || !cleanPass) return false
 
-    // 1. Primary: Update or Insert into PostgreSQL `admin_accounts` table if configured
     if (isDatabaseConfigured) {
       try {
         await queryPg(
@@ -225,15 +188,7 @@ export async function updateAdminPassword(username: string, newPass: string): Pr
       }
     }
 
-    // 2. Secondary: Update local in-memory & file fallbacks
-    const def = DEFAULT_ADMINS.find((a) => a.username === cleanUser)
-    if (def) {
-      def.defaultPass = cleanPass
-    }
-
     setLocalPassword(cleanUser, cleanPass)
-    updateEnvFilePassword(cleanUser, cleanPass)
-
     return true
   } catch (error) {
     console.error("updateAdminPassword error:", error)
@@ -242,41 +197,41 @@ export async function updateAdminPassword(username: string, newPass: string): Pr
 }
 
 /**
- * Register a new Admin account.
- * Role is permanently assigned as "ADMIN".
+ * Register a new Admin / Staff account dynamically.
  */
 export async function registerAdminAccount(params: {
   username: string
   password: string
+  role?: string
   fullName?: string
   businessName?: string
   phone?: string
   tier?: string
 }): Promise<{ success: boolean; username: string; role: string; error?: string }> {
   try {
-    const cleanUser = params.username.trim().toLowerCase()
+    const cleanUser = normalizeAdminUsername(params.username)
     const cleanPass = params.password.trim()
+    const role = (params.role || "ADMIN").toUpperCase()
 
     if (!cleanUser || !cleanPass) {
-      return { success: false, username: cleanUser, role: "ADMIN", error: "ID Pengguna dan Password wajib diisi" }
+      return { success: false, username: cleanUser, role, error: "ID Pengguna dan Password wajib diisi" }
     }
 
-    // Check if user already exists
     const existing = await getUserAccountDetails(cleanUser)
     if (existing) {
-      return { success: false, username: cleanUser, role: "ADMIN", error: "ID Pengguna sudah terdaftar. Silakan gunakan ID lain atau masuk." }
+      return { success: false, username: cleanUser, role, error: "ID Pengguna sudah terdaftar. Silakan gunakan ID lain." }
     }
 
-    // 1. Try to save to PostgreSQL `admin_accounts` table if configured
     if (isDatabaseConfigured) {
       try {
         await queryPg(
           `INSERT INTO admin_accounts (username, password, role, "fullName", "businessName", phone, tier, "createdAt", "updatedAt")
-           VALUES ($1, $2, 'ADMIN', $3, $4, $5, $6, NOW(), NOW())
+           VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
            ON CONFLICT (username) DO NOTHING`,
           [
             cleanUser,
             cleanPass,
+            role,
             params.fullName || "",
             params.businessName || "",
             params.phone || "",
@@ -288,13 +243,10 @@ export async function registerAdminAccount(params: {
       }
     }
 
-    // 2. Always persist in memory and local store
     setLocalPassword(cleanUser, cleanPass)
-    DEFAULT_ADMINS.push({ username: cleanUser, defaultPass: cleanPass, role: "ADMIN" })
-
-    return { success: true, username: cleanUser, role: "ADMIN" }
+    return { success: true, username: cleanUser, role }
   } catch (error: any) {
     console.error("registerAdminAccount error:", error)
-    return { success: false, username: params.username, role: "ADMIN", error: error.message || "Gagal membuat akun" }
+    return { success: false, username: params.username, role: params.role || "ADMIN", error: error.message || "Gagal membuat akun" }
   }
 }

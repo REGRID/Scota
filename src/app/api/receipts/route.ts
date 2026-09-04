@@ -9,6 +9,7 @@ import { invalidateNotificationsCache } from "@/app/api/notifications/route"
 import { queryPg, isDatabaseConfigured } from "@/lib/pgDb"
 import { getSubscriptionInfo } from "@/lib/subscriptionServer"
 import { DEFAULT_APPROVAL_WORKFLOW } from "@/lib/subscription"
+import { DEFAULT_TENANT_ID } from "@/lib/session"
 
 let listCache: { key: string; data: any; timestamp: number } | null = null
 const LIST_CACHE_TTL = 5000 // 5 seconds cache
@@ -19,6 +20,10 @@ export function invalidateReceiptsListCache() {
 
 export async function GET(req: NextRequest) {
   try {
+    const session = await getSession(req)
+    const userRole = session?.role || "ADMIN"
+    const isSuperadmin = userRole === "SUPERADMIN"
+
     const { searchParams } = new URL(req.url)
     const search = searchParams.get("search") || ""
     const category = searchParams.get("category") || ""
@@ -26,7 +31,10 @@ export async function GET(req: NextRequest) {
       ? Math.min(Math.max(Number(searchParams.get("limit") || searchParams.get("take")), 1), 1000)
       : undefined
 
-    const cacheKey = `${search}_${category}_${limit || 'all'}`
+    const requestedTenant = searchParams.get("tenantId")
+    const targetTenantId = isSuperadmin && requestedTenant ? requestedTenant : session?.tenantId || DEFAULT_TENANT_ID
+
+    const cacheKey = `${targetTenantId}_${search}_${category}_${limit || "all"}`
     const now = Date.now()
 
     if (listCache && listCache.key === cacheKey && now - listCache.timestamp < LIST_CACHE_TTL) {
@@ -43,6 +51,7 @@ export async function GET(req: NextRequest) {
         const pgRes = await queryPg(
           `SELECT 
             r.id, 
+            r."tenantId",
             r."merchantName", 
             r.date, 
             r."imageUrl",
@@ -71,9 +80,11 @@ export async function GET(req: NextRequest) {
             ) as items
           FROM receipts r
           LEFT JOIN receipt_items i ON i."receiptId" = r.id
+          WHERE (r."tenantId" = $1 OR r."tenantId" IS NULL)
           GROUP BY r.id
           ORDER BY r."createdAt" DESC
-          ${limit ? `LIMIT ${limit}` : ''}`
+          ${limit ? `LIMIT ${limit}` : ""}`,
+          [targetTenantId]
         )
         receipts = pgRes.rows || []
       } catch (pgErr) {
@@ -149,8 +160,6 @@ export async function GET(req: NextRequest) {
     })
 
     // Role KARYAWAN Data Scoping
-    const session = await getSession(req)
-    const userRole = session?.role || "ADMIN"
     if (userRole === "KARYAWAN") {
       const knownStaff = ["reza", "ummu", "cheisa", "novi", "titis", "karyawan"]
       normalizedReceipts = normalizedReceipts.filter((r: any) => {
@@ -265,7 +274,8 @@ export async function POST(req: NextRequest) {
     }
 
     // Check Tenant Approval Workflow Configuration
-    const subInfo = await getSubscriptionInfo().catch(() => null)
+    const userTenantId = session.tenantId || DEFAULT_TENANT_ID
+    const subInfo = await getSubscriptionInfo(userTenantId).catch(() => null)
     const workflow = subInfo?.approvalWorkflow || DEFAULT_APPROVAL_WORKFLOW
 
     const requiresApproval =
@@ -279,10 +289,11 @@ export async function POST(req: NextRequest) {
 
       if (isDatabaseConfigured) {
         const insertRes = await queryPg<{ id: string }>(
-          `INSERT INTO receipts ("merchantName", date, "imageUrl", subtotal, "discountAmount", "taxAmount", "totalAmount", "paymentMethod", "paymentStatus", note, "staffName", "createdAt", "updatedAt")
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
+          `INSERT INTO receipts ("tenantId", "merchantName", date, "imageUrl", subtotal, "discountAmount", "taxAmount", "totalAmount", "paymentMethod", "paymentStatus", note, "staffName", "createdAt", "updatedAt")
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
            RETURNING id, "merchantName", date, "totalAmount", "paymentMethod", "paymentStatus", "createdAt"`,
           [
+            userTenantId,
             payloadObj.merchantName,
             payloadObj.date,
             payloadObj.imageUrl,
@@ -372,10 +383,10 @@ export async function POST(req: NextRequest) {
 
     if (isDatabaseConfigured) {
       const apprRes = await queryPg<{ id: string; actionType: string; requestedBy: string; status: string; createdAt: string }>(
-        `INSERT INTO pending_approvals ("receiptId", "actionType", "requestedBy", status, payload, "createdAt", "updatedAt")
-         VALUES (NULL, 'CREATE', $1, 'PENDING', $2, NOW(), NOW())
+        `INSERT INTO pending_approvals ("tenantId", "receiptId", "actionType", "requestedBy", status, payload, "createdAt", "updatedAt")
+         VALUES ($1, NULL, 'CREATE', $2, 'PENDING', $3, NOW(), NOW())
          RETURNING id, "actionType", "requestedBy", status, "createdAt"`,
-        [uploaderName, JSON.stringify(payloadObj)]
+        [userTenantId, uploaderName, JSON.stringify(payloadObj)]
       )
       if (apprRes.rows?.[0]) {
         newApproval = apprRes.rows[0]
@@ -396,9 +407,9 @@ export async function POST(req: NextRequest) {
 
       if (isDatabaseConfigured && newApproval.id) {
         await queryPg(
-          `INSERT INTO notifications (recipient, sender, type, title, message, "approvalId", "isRead", "createdAt")
-           VALUES ($1, $2, 'REQUEST', $3, $4, $5::uuid, false, NOW())`,
-          [designatedRecipient, uploaderName, notifTitle, notifMessage, newApproval.id.startsWith("appr-") ? null : newApproval.id]
+          `INSERT INTO notifications ("tenantId", recipient, sender, type, title, message, "approvalId", "isRead", "createdAt")
+           VALUES ($1, $2, $3, 'REQUEST', $4, $5, $6::uuid, false, NOW())`,
+          [userTenantId, designatedRecipient, uploaderName, notifTitle, notifMessage, newApproval.id.startsWith("appr-") ? null : newApproval.id]
         ).catch(() => {})
       }
 
@@ -433,6 +444,7 @@ export async function DELETE(req: NextRequest) {
     }
 
     const adminUser = session.username
+    const userTenantId = session.tenantId || DEFAULT_TENANT_ID
     const { ids } = await req.json()
     if (!ids || !Array.isArray(ids) || ids.length === 0) {
       return NextResponse.json({ error: "ID nota yang akan dihapus tidak valid" }, { status: 400 })
@@ -442,13 +454,16 @@ export async function DELETE(req: NextRequest) {
     invalidateApprovalsCache()
     invalidateNotificationsCache()
 
-    const subInfo = await getSubscriptionInfo().catch(() => null)
+    const subInfo = await getSubscriptionInfo(userTenantId).catch(() => null)
     const workflow = subInfo?.approvalWorkflow || DEFAULT_APPROVAL_WORKFLOW
 
     // Direct delete if approval is not required for delete
     if (!workflow.enableApproval || !workflow.requireForDelete) {
       if (isDatabaseConfigured) {
-        await queryPg(`DELETE FROM receipts WHERE id = ANY($1::uuid[])`, [ids])
+        await queryPg(
+          `DELETE FROM receipts WHERE id = ANY($1::uuid[]) AND ("tenantId" = $2 OR "tenantId" IS NULL)`,
+          [ids, userTenantId]
+        )
       }
       return NextResponse.json({
         directPublished: true,
@@ -466,10 +481,10 @@ export async function DELETE(req: NextRequest) {
 
     if (isDatabaseConfigured) {
       const apprRes = await queryPg<{ id: string; actionType: string; requestedBy: string; status: string; createdAt: string }>(
-        `INSERT INTO pending_approvals ("actionType", "requestedBy", status, payload, "createdAt", "updatedAt")
-         VALUES ('BULK_DELETE', $1, 'PENDING', $2, NOW(), NOW())
+        `INSERT INTO pending_approvals ("tenantId", "actionType", "requestedBy", status, payload, "createdAt", "updatedAt")
+         VALUES ($1, 'BULK_DELETE', $2, 'PENDING', $3, NOW(), NOW())
          RETURNING id, "actionType", "requestedBy", status, "createdAt"`,
-        [adminUser, JSON.stringify({ ids })]
+        [userTenantId, adminUser, JSON.stringify({ ids })]
       )
       if (apprRes.rows?.[0]) {
         approval = apprRes.rows[0]
@@ -483,9 +498,9 @@ export async function DELETE(req: NextRequest) {
 
       if (isDatabaseConfigured && approval.id) {
         await queryPg(
-          `INSERT INTO notifications (recipient, sender, type, title, message, "approvalId", "isRead", "createdAt")
-           VALUES ('all', $1, 'REQUEST', $2, $3, $4::uuid, false, NOW())`,
-          [adminUser, notifTitle, notifMsg, approval.id.startsWith("appr-") ? null : approval.id]
+          `INSERT INTO notifications ("tenantId", recipient, sender, type, title, message, "approvalId", "isRead", "createdAt")
+           VALUES ($1, 'all', $2, 'REQUEST', $3, $4, $5::uuid, false, NOW())`,
+          [userTenantId, adminUser, notifTitle, notifMsg, approval.id.startsWith("appr-") ? null : approval.id]
         ).catch(() => {})
       }
 
@@ -519,6 +534,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     const adminUser = session.username
+    const userTenantId = session.tenantId || DEFAULT_TENANT_ID
     const { ids, paymentStatus, proofImageUrl, personName, totalAmount } = await req.json()
     if (!ids || !Array.isArray(ids) || ids.length === 0) {
       return NextResponse.json({ error: "ID nota yang akan diperbarui tidak valid" }, { status: 400 })
@@ -531,15 +547,17 @@ export async function PATCH(req: NextRequest) {
     const statusToSet = paymentStatus || "Sudah Dilunasi"
     const compressedProof = proofImageUrl ? await compressBase64Image(proofImageUrl) : null
 
-    const subInfo = await getSubscriptionInfo().catch(() => null)
+    const subInfo = await getSubscriptionInfo(userTenantId).catch(() => null)
     const workflow = subInfo?.approvalWorkflow || DEFAULT_APPROVAL_WORKFLOW
 
     // Direct settle if approval is not required for settle
     if (!workflow.enableApproval || !workflow.requireForSettle) {
       if (isDatabaseConfigured) {
         await queryPg(
-          `UPDATE receipts SET "paymentStatus" = $1, "updatedAt" = NOW() WHERE id = ANY($2::uuid[])`,
-          [statusToSet, ids]
+          `UPDATE receipts 
+           SET "paymentStatus" = $1, "updatedAt" = NOW() 
+           WHERE id = ANY($2::uuid[]) AND ("tenantId" = $3 OR "tenantId" IS NULL)`,
+          [statusToSet, ids, userTenantId]
         )
       }
       return NextResponse.json({
@@ -566,10 +584,10 @@ export async function PATCH(req: NextRequest) {
 
     if (isDatabaseConfigured) {
       const apprRes = await queryPg<{ id: string; actionType: string; requestedBy: string; status: string; createdAt: string }>(
-        `INSERT INTO pending_approvals ("actionType", "requestedBy", status, payload, "createdAt", "updatedAt")
-         VALUES ('BULK_SETTLE', $1, 'PENDING', $2, NOW(), NOW())
+        `INSERT INTO pending_approvals ("tenantId", "actionType", "requestedBy", status, payload, "createdAt", "updatedAt")
+         VALUES ($1, 'BULK_SETTLE', $2, 'PENDING', $3, NOW(), NOW())
          RETURNING id, "actionType", "requestedBy", status, "createdAt"`,
-        [adminUser, JSON.stringify(payloadObj)]
+        [userTenantId, adminUser, JSON.stringify(payloadObj)]
       )
       if (apprRes.rows?.[0]) {
         approval = apprRes.rows[0]
@@ -583,9 +601,9 @@ export async function PATCH(req: NextRequest) {
 
       if (isDatabaseConfigured && approval.id) {
         await queryPg(
-          `INSERT INTO notifications (recipient, sender, type, title, message, "approvalId", "isRead", "createdAt")
-           VALUES ('all', $1, 'REQUEST', $2, $3, $4::uuid, false, NOW())`,
-          [adminUser, notifTitle, notifMsg, approval.id.startsWith("appr-") ? null : approval.id]
+          `INSERT INTO notifications ("tenantId", recipient, sender, type, title, message, "approvalId", "isRead", "createdAt")
+           VALUES ($1, 'all', $2, 'REQUEST', $3, $4, $5::uuid, false, NOW())`,
+          [userTenantId, adminUser, notifTitle, notifMsg, approval.id.startsWith("appr-") ? null : approval.id]
         ).catch(() => {})
       }
 
@@ -610,3 +628,4 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "Gagal mengajukan pelunasan nota secara massal" }, { status: 500 })
   }
 }
+

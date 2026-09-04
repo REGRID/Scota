@@ -67,6 +67,7 @@ export async function POST(req: NextRequest) {
     const token = await createSessionToken({
       username: cleanUsername,
       role: "ADMIN",
+      tenantId: regResult.tenantId,
       name: cleanFullName || cleanUsername,
     })
 
@@ -76,6 +77,7 @@ export async function POST(req: NextRequest) {
       user: {
         username: cleanUsername,
         role: "ADMIN",
+        tenantId: regResult.tenantId,
         fullName: cleanFullName,
         businessName: cleanBusinessName,
         tier,

@@ -9,6 +9,7 @@ import { sendWebPushNotification } from "@/lib/serverPush"
 import { syncReceiptToPos } from "@/lib/posSync"
 import { getSubscriptionInfo } from "@/lib/subscriptionServer"
 import { DEFAULT_APPROVAL_WORKFLOW } from "@/lib/subscription"
+import { DEFAULT_TENANT_ID } from "@/lib/session"
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -26,6 +27,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     const approvingAdmin = session.username
     const userRole = session.role
+    const sessionTenantId = session.tenantId || DEFAULT_TENANT_ID
 
     if (userRole === "KARYAWAN") {
       return NextResponse.json({
@@ -38,7 +40,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
 
     // Check approval workflow config
-    const subInfo = await getSubscriptionInfo().catch(() => null)
+    const subInfo = await getSubscriptionInfo(sessionTenantId).catch(() => null)
     const workflow = subInfo?.approvalWorkflow || DEFAULT_APPROVAL_WORKFLOW
     const target = workflow.approverTarget || workflow.approvalTargetRole || "ANY_ADMIN"
 
@@ -68,6 +70,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (!pendingApproval) {
       return NextResponse.json({ error: "Permintaan verifikasi tidak ditemukan" }, { status: 404 })
     }
+
+    // Tenant Isolation Guard: Ensure non-superadmin only approves approvals within their tenant
+    if (userRole !== "SUPERADMIN" && pendingApproval.tenantId && pendingApproval.tenantId !== sessionTenantId) {
+      return NextResponse.json({ error: "Akses Ditolak: Permintaan bukan milik organisasi/toko Anda" }, { status: 403 })
+    }
+
+    const targetTenantId = pendingApproval.tenantId || sessionTenantId
 
     if (pendingApproval.status !== "PENDING") {
       return NextResponse.json({ error: "Permintaan verifikasi ini telah diproses sebelumnya" }, { status: 400 })
@@ -116,10 +125,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       const compressedImageUrl = imageUrl ? await compressBase64Image(imageUrl) : null
 
       const newReceiptRes = await queryPg<{ id: string }>(
-        `INSERT INTO receipts ("merchantName", date, "imageUrl", subtotal, "discountAmount", "taxAmount", "totalAmount", "paymentMethod", "paymentStatus", note, "staffName", "createdAt", "updatedAt")
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
+        `INSERT INTO receipts ("tenantId", "merchantName", date, "imageUrl", subtotal, "discountAmount", "taxAmount", "totalAmount", "paymentMethod", "paymentStatus", note, "staffName", "createdAt", "updatedAt")
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
          RETURNING id`,
         [
+          targetTenantId,
           merchantName || "Nota / Toko",
           date || new Date().toISOString().split("T")[0],
           compressedImageUrl,
@@ -335,12 +345,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         : `Admin ${approvingAdmin} telah memverifikasi & menyetujui permintaan ${pendingApproval.actionType} Anda.`
 
       await queryPg(
-        `INSERT INTO notifications (recipient, sender, type, title, message, "approvalId", "receiptId", "isRead", "createdAt")
-         VALUES ('all', $1, 'APPROVE', $2, $3, $4::uuid, $5, false, NOW())`,
-        [approvingAdmin, notifTitle, notifMsg, cleanId, createdReceiptId || pendingApproval.receiptId || null]
+        `INSERT INTO notifications ("tenantId", recipient, sender, type, title, message, "approvalId", "receiptId", "isRead", "createdAt")
+         VALUES ($1, 'all', $2, 'APPROVE', $3, $4, $5::uuid, $6, false, NOW())`,
+        [targetTenantId, approvingAdmin, notifTitle, notifMsg, cleanId, createdReceiptId || pendingApproval.receiptId || null]
       ).catch(() => {})
 
       sendWebPushNotification({
+        tenantId: targetTenantId,
         title: notifTitle,
         message: notifMsg,
         url: "/",

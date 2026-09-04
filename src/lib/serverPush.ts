@@ -31,6 +31,7 @@ export interface PushPayload {
 }
 
 export interface SendPushOptions {
+  tenantId?: string
   title: string
   message: string
   url?: string
@@ -48,14 +49,19 @@ export async function sendWebPushNotification(options: SendPushOptions) {
   }
 
   try {
-    const { title, message, url = "/", recipientRole = "ALL", excludeUsername, tag } = options
+    const { tenantId, title, message, url = "/", recipientRole = "ALL", excludeUsername, tag } = options
 
-    let query = `SELECT id, endpoint, p256dh, auth, username, role FROM push_subscriptions`
+    let query = `SELECT id, endpoint, p256dh, auth, username, role FROM push_subscriptions WHERE 1=1`
     const params: any[] = []
 
+    if (tenantId) {
+      params.push(tenantId)
+      query += ` AND ("tenantId" = $${params.length} OR "tenantId" IS NULL)`
+    }
+
     if (recipientRole !== "ALL") {
-      query += ` WHERE role = $1 OR role = 'ALL'`
       params.push(recipientRole)
+      query += ` AND (role = $${params.length} OR role = 'ALL')`
     }
 
     const { rows: subscriptions } = await queryPg<{

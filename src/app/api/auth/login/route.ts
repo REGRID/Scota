@@ -26,10 +26,13 @@ export async function POST(req: NextRequest) {
     const userRole = account.role || "ADMIN"
     const finalStaffName = cleanStaffName || ""
 
+    const userTenantId = account.tenantId || "00000000-0000-0000-0000-000000000001"
+
     // Create cryptographically signed JWT session token (without password)
     const sessionToken = await createSessionToken({
       username: authenticatedUser,
       role: userRole,
+      tenantId: userTenantId,
       staffName: finalStaffName || undefined,
     })
 
@@ -39,6 +42,7 @@ export async function POST(req: NextRequest) {
       user: {
         username: authenticatedUser,
         role: userRole,
+        tenantId: userTenantId,
         staffName: finalStaffName,
       },
     })

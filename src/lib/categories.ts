@@ -1,4 +1,5 @@
 import { queryPg, isDatabaseConfigured } from "@/lib/pgDb"
+import { DEFAULT_TENANT_ID } from "@/lib/session"
 
 export interface CategoryHierarchyItem {
   id: string
@@ -56,19 +57,25 @@ export const DEFAULT_SEED_CATEGORIES = [
   },
 ]
 
-let cachedCategories: CategoryHierarchyItem[] | null = null
-let cacheTimestamp = 0
+// Per-tenant category cache
+const cacheMap = new Map<string, { data: CategoryHierarchyItem[]; timestamp: number }>()
 const CACHE_TTL_MS = 60 * 1000 // 60 seconds cache
 
-export function invalidateCategoriesCache() {
-  cachedCategories = null
-  cacheTimestamp = 0
+export function invalidateCategoriesCache(tenantId?: string) {
+  if (tenantId) {
+    cacheMap.delete(tenantId)
+  } else {
+    cacheMap.clear()
+  }
 }
 
-export async function getOrSeedCategories(): Promise<CategoryHierarchyItem[]> {
+export async function getOrSeedCategories(tenantId?: string): Promise<CategoryHierarchyItem[]> {
+  const effectiveTenantId = tenantId || DEFAULT_TENANT_ID
   const now = Date.now()
-  if (cachedCategories && now - cacheTimestamp < CACHE_TTL_MS) {
-    return cachedCategories
+  const cached = cacheMap.get(effectiveTenantId)
+
+  if (cached && now - cached.timestamp < CACHE_TTL_MS) {
+    return cached.data
   }
 
   if (!isDatabaseConfigured) {
@@ -81,24 +88,30 @@ export async function getOrSeedCategories(): Promise<CategoryHierarchyItem[]> {
 
   try {
     let res = await queryPg<{ id: string; name: string; parentId: string | null }>(
-      `SELECT id, name, "parentId" FROM custom_categories ORDER BY "createdAt" ASC`
+      `SELECT id, name, "parentId" FROM custom_categories 
+       WHERE "tenantId" = $1 OR "tenantId" IS NULL 
+       ORDER BY "createdAt" ASC`,
+      [effectiveTenantId]
     )
     let customCats = res.rows || []
 
-    // Auto-seed default categories if empty
+    // Auto-seed default categories for this tenant if empty
     if (customCats.length === 0) {
       for (const catGroup of DEFAULT_SEED_CATEGORIES) {
         const parentRes = await queryPg<{ id: string }>(
-          `INSERT INTO custom_categories (name, "parentId", "createdAt") VALUES ($1, NULL, NOW()) RETURNING id`,
-          [catGroup.name]
+          `INSERT INTO custom_categories ("tenantId", name, "parentId", "createdAt") 
+           VALUES ($1, $2, NULL, NOW()) 
+           RETURNING id`,
+          [effectiveTenantId, catGroup.name]
         )
         const parentId = parentRes.rows?.[0]?.id
 
         if (parentId) {
           for (const subName of catGroup.subs) {
             await queryPg(
-              `INSERT INTO custom_categories (name, "parentId", "createdAt") VALUES ($1, $2, NOW())`,
-              [subName, parentId]
+              `INSERT INTO custom_categories ("tenantId", name, "parentId", "createdAt") 
+               VALUES ($1, $2, $3, NOW())`,
+              [effectiveTenantId, subName, parentId]
             )
           }
         }
@@ -106,7 +119,10 @@ export async function getOrSeedCategories(): Promise<CategoryHierarchyItem[]> {
 
       // Re-fetch after seeding
       const refetched = await queryPg<{ id: string; name: string; parentId: string | null }>(
-        `SELECT id, name, "parentId" FROM custom_categories ORDER BY "createdAt" ASC`
+        `SELECT id, name, "parentId" FROM custom_categories 
+         WHERE "tenantId" = $1 OR "tenantId" IS NULL 
+         ORDER BY "createdAt" ASC`,
+        [effectiveTenantId]
       )
       customCats = refetched.rows || []
     }
@@ -122,8 +138,7 @@ export async function getOrSeedCategories(): Promise<CategoryHierarchyItem[]> {
         .map((sub) => ({ id: sub.id, name: sub.name })),
     }))
 
-    cachedCategories = hierarchy
-    cacheTimestamp = now
+    cacheMap.set(effectiveTenantId, { data: hierarchy, timestamp: now })
     return hierarchy
   } catch (error) {
     console.error("Error in getOrSeedCategories:", error)

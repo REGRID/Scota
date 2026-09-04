@@ -5,9 +5,12 @@ function getSessionSecret(): Uint8Array {
   return new TextEncoder().encode(secret)
 }
 
+export const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001"
+
 export interface SessionPayload {
   username: string
   role: "ADMIN" | "KARYAWAN" | "SUPERADMIN" | "MANAGER" | "OWNER" | string
+  tenantId?: string
   staffName?: string
   name?: string
   fullName?: string

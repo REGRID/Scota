@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { queryPg, isDatabaseConfigured } from "@/lib/pgDb"
 import { VAPID_PUBLIC_KEY } from "@/lib/serverPush"
+import { getSession } from "@/lib/authHelper"
+import { DEFAULT_TENANT_ID } from "@/lib/session"
 
 // GET: Returns VAPID Public Key for client-side subscription
 export async function GET() {
@@ -12,8 +14,10 @@ export async function GET() {
 // POST: Register or update push subscription
 export async function POST(req: NextRequest) {
   try {
+    const session = await getSession(req)
     const body = await req.json()
     const { subscription, username = "all", role = "ALL" } = body
+    const tenantId = session?.tenantId || body.tenantId || DEFAULT_TENANT_ID
 
     if (!subscription || !subscription.endpoint || !subscription.keys) {
       return NextResponse.json(
@@ -34,11 +38,11 @@ export async function POST(req: NextRequest) {
 
     if (isDatabaseConfigured) {
       await queryPg(
-        `INSERT INTO push_subscriptions (endpoint, p256dh, auth, username, role, "createdAt", "updatedAt")
-         VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+        `INSERT INTO push_subscriptions ("tenantId", endpoint, p256dh, auth, username, role, "createdAt", "updatedAt")
+         VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
          ON CONFLICT (endpoint)
-         DO UPDATE SET p256dh = EXCLUDED.p256dh, auth = EXCLUDED.auth, username = EXCLUDED.username, role = EXCLUDED.role, "updatedAt" = NOW()`,
-        [endpoint, p256dh, auth, (username || "all").toLowerCase(), (role || "ALL").toUpperCase()]
+         DO UPDATE SET "tenantId" = EXCLUDED."tenantId", p256dh = EXCLUDED.p256dh, auth = EXCLUDED.auth, username = EXCLUDED.username, role = EXCLUDED.role, "updatedAt" = NOW()`,
+        [tenantId, endpoint, p256dh, auth, (session?.username || username || "all").toLowerCase(), (session?.role || role || "ALL").toUpperCase()]
       )
     }
 

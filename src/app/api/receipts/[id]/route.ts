@@ -8,6 +8,7 @@ import { compressBase64Image } from "@/lib/imageCompressor"
 import { queryPg, isDatabaseConfigured } from "@/lib/pgDb"
 import { getSubscriptionInfo } from "@/lib/subscriptionServer"
 import { DEFAULT_APPROVAL_WORKFLOW } from "@/lib/subscription"
+import { DEFAULT_TENANT_ID } from "@/lib/session"
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> | { id: string } }) {
   try {
@@ -18,13 +19,19 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: "ID nota tidak valid" }, { status: 400 })
     }
 
+    const session = await getSession(req)
+    const userRole = session?.role || "ADMIN"
+    const userTenantId = session?.tenantId || DEFAULT_TENANT_ID
+    const isSuperadmin = userRole === "SUPERADMIN"
+
     let receipt: any = null
 
     if (isDatabaseConfigured) {
       try {
-        const pgRes = await queryPg(
-          `SELECT 
+        const query = `
+          SELECT 
             r.id, 
+            r."tenantId",
             r."merchantName", 
             r.date, 
             r."imageUrl", 
@@ -53,11 +60,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
             ) as items
           FROM receipts r
           LEFT JOIN receipt_items i ON i."receiptId" = r.id
-          WHERE r.id = $1
+          WHERE r.id = $1 ${isSuperadmin ? "" : `AND (r."tenantId" = $2 OR r."tenantId" IS NULL)`}
           GROUP BY r.id
-          LIMIT 1`,
-          [id]
-        )
+          LIMIT 1
+        `
+        const queryParams = isSuperadmin ? [id] : [id, userTenantId]
+        const pgRes = await queryPg(query, queryParams)
         if (pgRes.rows && pgRes.rows.length > 0) {
           receipt = pgRes.rows[0]
         }
@@ -88,6 +96,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     const adminUser = session.username
+    const userTenantId = session.tenantId || DEFAULT_TENANT_ID
+    const isSuperadmin = session.role === "SUPERADMIN"
     const body = await req.json()
     const { date, items, merchantName, subtotal, discountAmount, taxAmount, totalAmount, paymentMethod, paymentStatus, note, imageUrl } = body
 
@@ -103,7 +113,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     invalidateApprovalsCache()
     invalidateNotificationsCache()
 
-    const subInfo = await getSubscriptionInfo().catch(() => null)
+    const subInfo = await getSubscriptionInfo(userTenantId).catch(() => null)
     const workflow = subInfo?.approvalWorkflow || DEFAULT_APPROVAL_WORKFLOW
 
     // Direct Edit if Approval Workflow is Disabled or Excluded for Edit
@@ -113,44 +123,28 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       if (isDatabaseConfigured) {
         await queryPg(`DELETE FROM receipt_items WHERE "receiptId" = $1`, [id])
 
-        if (compressedImageUrl) {
-          await queryPg(
-            `UPDATE receipts 
-             SET "merchantName" = $1, date = $2, subtotal = $3, "discountAmount" = $4, "taxAmount" = $5, "totalAmount" = $6, "paymentMethod" = $7, "paymentStatus" = $8, note = $9, "imageUrl" = $10, "updatedAt" = NOW()
-             WHERE id = $11`,
-            [
-              merchantName || "Nota / Toko",
-              date,
-              Number(subtotal) || 0,
-              Number(discountAmount) || 0,
-              Number(taxAmount) || 0,
-              Number(totalAmount) || 0,
-              paymentMethod || "Cash",
-              paymentStatus || "Lunas",
-              note || null,
-              compressedImageUrl,
-              id,
-            ]
-          )
-        } else {
-          await queryPg(
-            `UPDATE receipts 
-             SET "merchantName" = $1, date = $2, subtotal = $3, "discountAmount" = $4, "taxAmount" = $5, "totalAmount" = $6, "paymentMethod" = $7, "paymentStatus" = $8, note = $9, "updatedAt" = NOW()
-             WHERE id = $10`,
-            [
-              merchantName || "Nota / Toko",
-              date,
-              Number(subtotal) || 0,
-              Number(discountAmount) || 0,
-              Number(taxAmount) || 0,
-              Number(totalAmount) || 0,
-              paymentMethod || "Cash",
-              paymentStatus || "Lunas",
-              note || null,
-              id,
-            ]
-          )
-        }
+        const tenantClause = isSuperadmin ? "" : `AND ("tenantId" = $12 OR "tenantId" IS NULL)`
+        const updateParams = [
+          merchantName || "Nota / Toko",
+          date,
+          Number(subtotal) || 0,
+          Number(discountAmount) || 0,
+          Number(taxAmount) || 0,
+          Number(totalAmount) || 0,
+          paymentMethod || "Cash",
+          paymentStatus || "Lunas",
+          note || null,
+          compressedImageUrl,
+          id,
+        ]
+        if (!isSuperadmin) updateParams.push(userTenantId)
+
+        await queryPg(
+          `UPDATE receipts 
+           SET "merchantName" = $1, date = $2, subtotal = $3, "discountAmount" = $4, "taxAmount" = $5, "totalAmount" = $6, "paymentMethod" = $7, "paymentStatus" = $8, note = $9, "imageUrl" = $10, "updatedAt" = NOW()
+           WHERE id = $11 ${tenantClause}`,
+          updateParams
+        )
 
         for (const it of items) {
           await queryPg(
@@ -186,10 +180,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     if (isDatabaseConfigured) {
       const apprRes = await queryPg<{ id: string; receiptId: string; actionType: string; requestedBy: string; status: string; createdAt: string }>(
-        `INSERT INTO pending_approvals ("receiptId", "actionType", "requestedBy", status, payload, "createdAt", "updatedAt")
-         VALUES ($1, 'EDIT', $2, 'PENDING', $3, NOW(), NOW())
+        `INSERT INTO pending_approvals ("tenantId", "receiptId", "actionType", "requestedBy", status, payload, "createdAt", "updatedAt")
+         VALUES ($1, $2, 'EDIT', $3, 'PENDING', $4, NOW(), NOW())
          RETURNING id, "receiptId", "actionType", "requestedBy", status, "createdAt"`,
-        [id, adminUser, JSON.stringify(body)]
+        [userTenantId, id, adminUser, JSON.stringify(body)]
       )
       if (apprRes.rows?.[0]) {
         approval = apprRes.rows[0]
@@ -203,9 +197,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
       if (isDatabaseConfigured && approval.id) {
         await queryPg(
-          `INSERT INTO notifications (recipient, sender, type, title, message, "approvalId", "isRead", "createdAt")
-           VALUES ('all', $1, 'REQUEST', $2, $3, $4::uuid, false, NOW())`,
-          [adminUser, notifTitle, notifMsg, approval.id.startsWith("appr-") ? null : approval.id]
+          `INSERT INTO notifications ("tenantId", recipient, sender, type, title, message, "approvalId", "isRead", "createdAt")
+           VALUES ($1, 'all', $2, 'REQUEST', $3, $4, $5::uuid, false, NOW())`,
+          [userTenantId, adminUser, notifTitle, notifMsg, approval.id.startsWith("appr-") ? null : approval.id]
         ).catch(() => {})
       }
 
@@ -241,18 +235,24 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     }
 
     const adminUser = session.username
+    const userTenantId = session.tenantId || DEFAULT_TENANT_ID
+    const isSuperadmin = session.role === "SUPERADMIN"
 
     invalidateReceiptsListCache()
     invalidateApprovalsCache()
     invalidateNotificationsCache()
 
-    const subInfo = await getSubscriptionInfo().catch(() => null)
+    const subInfo = await getSubscriptionInfo(userTenantId).catch(() => null)
     const workflow = subInfo?.approvalWorkflow || DEFAULT_APPROVAL_WORKFLOW
 
     // Direct Delete if Approval Workflow is Disabled or Excluded for Delete
     if (!workflow.enableApproval || !workflow.requireForDelete) {
       if (isDatabaseConfigured) {
-        await queryPg(`DELETE FROM receipts WHERE id = $1`, [id])
+        const query = isSuperadmin
+          ? `DELETE FROM receipts WHERE id = $1`
+          : `DELETE FROM receipts WHERE id = $1 AND ("tenantId" = $2 OR "tenantId" IS NULL)`
+        const params = isSuperadmin ? [id] : [id, userTenantId]
+        await queryPg(query, params)
       }
       return NextResponse.json({
         directPublished: true,
@@ -271,10 +271,10 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
     if (isDatabaseConfigured) {
       const apprRes = await queryPg<{ id: string; receiptId: string; actionType: string; requestedBy: string; status: string; createdAt: string }>(
-        `INSERT INTO pending_approvals ("receiptId", "actionType", "requestedBy", status, payload, "createdAt", "updatedAt")
-         VALUES ($1, 'DELETE', $2, 'PENDING', $3, NOW(), NOW())
+        `INSERT INTO pending_approvals ("tenantId", "receiptId", "actionType", "requestedBy", status, payload, "createdAt", "updatedAt")
+         VALUES ($1, $2, 'DELETE', $3, 'PENDING', $4, NOW(), NOW())
          RETURNING id, "receiptId", "actionType", "requestedBy", status, "createdAt"`,
-        [id, adminUser, JSON.stringify({ id })]
+        [userTenantId, id, adminUser, JSON.stringify({ id })]
       )
       if (apprRes.rows?.[0]) {
         approval = apprRes.rows[0]
@@ -288,9 +288,9 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
       if (isDatabaseConfigured && approval.id) {
         await queryPg(
-          `INSERT INTO notifications (recipient, sender, type, title, message, "approvalId", "isRead", "createdAt")
-           VALUES ('all', $1, 'REQUEST', $2, $3, $4::uuid, false, NOW())`,
-          [adminUser, notifTitle, notifMsg, approval.id.startsWith("appr-") ? null : approval.id]
+          `INSERT INTO notifications ("tenantId", recipient, sender, type, title, message, "approvalId", "isRead", "createdAt")
+           VALUES ($1, 'all', $2, 'REQUEST', $3, $4, $5::uuid, false, NOW())`,
+          [userTenantId, adminUser, notifTitle, notifMsg, approval.id.startsWith("appr-") ? null : approval.id]
         ).catch(() => {})
       }
 
@@ -321,6 +321,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   try {
     const resolvedParams = params instanceof Promise ? await params : params
     const id = resolvedParams?.id
+    const session = await getSession(req)
+    const userTenantId = session?.tenantId || DEFAULT_TENANT_ID
+    const isSuperadmin = session?.role === "SUPERADMIN"
+
     const body = await req.json()
     const { imageUrl } = body
 
@@ -332,13 +336,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     let updatedReceipt = null
     if (isDatabaseConfigured) {
-      const updateRes = await queryPg(
-        `UPDATE receipts 
-         SET "imageUrl" = $1, "updatedAt" = now() 
-         WHERE id = $2 
-         RETURNING id, "merchantName", date, "imageUrl", subtotal, "discountAmount", "taxAmount", "totalAmount", "paymentMethod", "paymentStatus", note, "staffName", "createdAt", "updatedAt"`,
-        [compressedImageUrl, id]
-      )
+      const query = isSuperadmin
+        ? `UPDATE receipts 
+           SET "imageUrl" = $1, "updatedAt" = now() 
+           WHERE id = $2 
+           RETURNING id, "merchantName", date, "imageUrl", subtotal, "discountAmount", "taxAmount", "totalAmount", "paymentMethod", "paymentStatus", note, "staffName", "createdAt", "updatedAt"`
+        : `UPDATE receipts 
+           SET "imageUrl" = $1, "updatedAt" = now() 
+           WHERE id = $2 AND ("tenantId" = $3 OR "tenantId" IS NULL)
+           RETURNING id, "merchantName", date, "imageUrl", subtotal, "discountAmount", "taxAmount", "totalAmount", "paymentMethod", "paymentStatus", note, "staffName", "createdAt", "updatedAt"`
+      const queryParams = isSuperadmin ? [compressedImageUrl, id] : [compressedImageUrl, id, userTenantId]
+      const updateRes = await queryPg(query, queryParams)
       updatedReceipt = updateRes.rows?.[0] || null
     }
 

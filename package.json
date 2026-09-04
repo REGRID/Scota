@@ -8,6 +8,7 @@
     "start": "next start",
     "db:setup": "node scripts/setup-postgres.js",
     "db:migrate-passwords": "node scripts/migrate-hash-passwords.js",
+    "db:migrate-tenants": "node scripts/migrate-tenants.js",
     "auth:reset-password": "node scripts/reset-password.js",
     "lint": "eslint"
   },

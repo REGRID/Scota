@@ -3,6 +3,7 @@ import { queryPg, isDatabaseConfigured } from "@/lib/pgDb"
 import { getSession } from "@/lib/authHelper"
 import { sendWebPushNotification } from "@/lib/serverPush"
 import { invalidateNotificationsCache } from "@/app/api/notifications/route"
+import { DEFAULT_TENANT_ID } from "@/lib/session"
 
 // In-Memory Backend Cache
 let approvalsCache: { key: string; data: any; timestamp: number } | null = null
@@ -19,10 +20,13 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Sesi tidak valid. Silakan login." }, { status: 401 })
     }
 
+    const userTenantId = session.tenantId || DEFAULT_TENANT_ID
+    const isSuperadmin = session.role === "SUPERADMIN"
+
     const { searchParams } = new URL(req.url)
     const status = searchParams.get("status") || "PENDING"
     const receiptId = searchParams.get("receiptId") || ""
-    const cacheKey = `${status}_${receiptId}`
+    const cacheKey = `${userTenantId}_${status}_${receiptId}`
     const now = Date.now()
 
     if (approvalsCache && approvalsCache.key === cacheKey && now - approvalsCache.timestamp < CACHE_TTL_MS) {
@@ -38,6 +42,7 @@ export async function GET(req: NextRequest) {
     let query = `
       SELECT 
         a.id, 
+        a."tenantId",
         a."receiptId", 
         a."actionType", 
         a."requestedBy", 
@@ -77,10 +82,20 @@ export async function GET(req: NextRequest) {
       LEFT JOIN receipts r ON r.id = a."receiptId"
     `
     const params: any[] = []
+    const conditions: string[] = []
+
+    if (!isSuperadmin) {
+      params.push(userTenantId)
+      conditions.push(`(a."tenantId" = $${params.length} OR a."tenantId" IS NULL)`)
+    }
 
     if (status !== "ALL") {
-      query += ` WHERE a.status = $1`
       params.push(status)
+      conditions.push(`a.status = $${params.length}`)
+    }
+
+    if (conditions.length > 0) {
+      query += ` WHERE ` + conditions.join(" AND ")
     }
 
     query += ` ORDER BY a."createdAt" DESC LIMIT 50`
@@ -121,6 +136,7 @@ export async function POST(req: NextRequest) {
     }
 
     const adminUser = session.username
+    const userTenantId = session.tenantId || DEFAULT_TENANT_ID
     const body = await req.json()
     const { receiptId, actionType, payload } = body
 
@@ -133,6 +149,7 @@ export async function POST(req: NextRequest) {
 
     let newApproval: any = {
       id: `appr-${Date.now()}`,
+      tenantId: userTenantId,
       receiptId: receiptId || null,
       actionType,
       requestedBy: adminUser,
@@ -142,10 +159,10 @@ export async function POST(req: NextRequest) {
 
     if (isDatabaseConfigured) {
       const res = await queryPg<{ id: string; receiptId: string; actionType: string; requestedBy: string; status: string; createdAt: string }>(
-        `INSERT INTO pending_approvals ("receiptId", "actionType", "requestedBy", status, payload, "createdAt", "updatedAt")
-         VALUES ($1, $2, $3, 'PENDING', $4, NOW(), NOW())
+        `INSERT INTO pending_approvals ("tenantId", "receiptId", "actionType", "requestedBy", status, payload, "createdAt", "updatedAt")
+         VALUES ($1, $2, $3, $4, 'PENDING', $5, NOW(), NOW())
          RETURNING id, "receiptId", "actionType", "requestedBy", status, "createdAt"`,
-        [receiptId || null, actionType, adminUser, typeof payload === "string" ? payload : JSON.stringify(payload)]
+        [userTenantId, receiptId || null, actionType, adminUser, typeof payload === "string" ? payload : JSON.stringify(payload)]
       )
       if (res.rows?.[0]) {
         newApproval = res.rows[0]
@@ -159,9 +176,9 @@ export async function POST(req: NextRequest) {
 
       if (isDatabaseConfigured && newApproval.id) {
         await queryPg(
-          `INSERT INTO notifications (recipient, sender, type, title, message, "approvalId", "isRead", "createdAt")
-           VALUES ('all', $1, 'REQUEST', $2, $3, $4::uuid, false, NOW())`,
-          [adminUser, notifTitle, notifMsg, newApproval.id.startsWith("appr-") ? null : newApproval.id]
+          `INSERT INTO notifications ("tenantId", recipient, sender, type, title, message, "approvalId", "isRead", "createdAt")
+           VALUES ($1, 'all', $2, 'REQUEST', $3, $4, $5::uuid, false, NOW())`,
+          [userTenantId, adminUser, notifTitle, notifMsg, newApproval.id.startsWith("appr-") ? null : newApproval.id]
         ).catch(() => {})
       }
 

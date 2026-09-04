@@ -1,6 +1,8 @@
 import { queryPg, isDatabaseConfigured } from "@/lib/pgDb"
 import { TIER_CONFIG, SubscriptionTier, ApprovalWorkflowConfig, DEFAULT_APPROVAL_WORKFLOW } from "@/lib/subscription"
 import { getUserAccountDetails, updateAdminPassword } from "@/lib/adminAccounts"
+import { hashPassword } from "@/lib/password"
+import { DEFAULT_TENANT_ID } from "@/lib/session"
 import fs from "fs"
 import path from "path"
 
@@ -32,6 +34,7 @@ export async function isSuperadminUser(username: string): Promise<boolean> {
 }
 
 export interface TenantSummary {
+  tenantId?: string
   username: string
   fullName?: string
   businessName?: string
@@ -99,18 +102,38 @@ export async function getAllTenants(): Promise<TenantSummary[]> {
 
   if (isDatabaseConfigured) {
     try {
-      const res = await queryPg<any>(
-        `SELECT * FROM admin_accounts ORDER BY "createdAt" DESC`
-      )
-      const dbAccounts = res.rows
+      let dbAccounts: any[] = []
+      try {
+        const res = await queryPg<any>(
+          `SELECT a.*, 
+                  t.id as "resolvedTenantId", 
+                  COALESCE(t."businessName", a."businessName") as "tenantBusinessName",
+                  COALESCE(t.phone, a.phone) as "tenantPhone",
+                  s.tier as "subTier",
+                  s."validUntil" as "subValidUntil",
+                  s."monthlyScanLimit" as "subScanLimit",
+                  s."usedScansThisMonth" as "subUsedScans"
+           FROM admin_accounts a
+           LEFT JOIN tenants t ON a."tenantId" = t.id
+           LEFT JOIN subscriptions s ON a."tenantId" = s."tenantId"
+           ORDER BY a."createdAt" DESC`
+        )
+        dbAccounts = res.rows || []
+      } catch (joinErr) {
+        const fallbackRes = await queryPg<any>(
+          `SELECT * FROM admin_accounts ORDER BY "createdAt" DESC`
+        )
+        dbAccounts = fallbackRes.rows || []
+      }
 
       if (dbAccounts) {
         for (const acc of dbAccounts) {
           const cleanUser = (acc.username || "").trim().toLowerCase()
           if (!cleanUser) continue
-          const tier = (acc.tier || "starter") as SubscriptionTier
+          const tenantId = acc.resolvedTenantId || acc.tenantId || DEFAULT_TENANT_ID
+          const tier = (acc.subTier || acc.tier || "starter") as SubscriptionTier
           const tierCfg = TIER_CONFIG[tier] || TIER_CONFIG.starter
-          const validDate = new Date(acc.validUntil || Date.now() + 30 * 24 * 60 * 60 * 1000)
+          const validDate = new Date(acc.subValidUntil || acc.validUntil || Date.now() + 30 * 24 * 60 * 60 * 1000)
           const isExpired = validDate < new Date()
 
           let workflow: ApprovalWorkflowConfig = { ...DEFAULT_APPROVAL_WORKFLOW }
@@ -122,15 +145,16 @@ export async function getAllTenants(): Promise<TenantSummary[]> {
           }
 
           tenantsMap.set(cleanUser, {
+            tenantId,
             username: cleanUser,
             fullName: acc.fullName || cleanUser,
-            businessName: acc.businessName || acc.fullName || "Scota Business",
-            phone: acc.phone || "",
+            businessName: acc.tenantBusinessName || acc.businessName || acc.fullName || "Scota Business",
+            phone: acc.tenantPhone || acc.phone || "",
             role: acc.role || "ADMIN",
             tier,
             validUntil: validDate.toISOString(),
-            monthlyScanLimit: acc.monthlyScanLimit || tierCfg.monthlyScanLimit,
-            usedScansThisMonth: acc.usedScansThisMonth || 0,
+            monthlyScanLimit: acc.subScanLimit || acc.monthlyScanLimit || tierCfg.monthlyScanLimit,
+            usedScansThisMonth: acc.subUsedScans || acc.usedScansThisMonth || 0,
             createdAt: acc.createdAt || new Date().toISOString(),
             status: acc.status === "suspended" ? "suspended" : (isExpired ? "expired" : (tier === "trial" ? "trial" : "active")),
             approvalWorkflow: workflow,
@@ -148,6 +172,7 @@ export async function getAllTenants(): Promise<TenantSummary[]> {
     for (const u of defaultUsers) {
       if (!tenantsMap.has(u)) {
         tenantsMap.set(u, {
+          tenantId: DEFAULT_TENANT_ID,
           username: u,
           fullName: u === "superadmin" ? "Developer / Superadmin" : (u === "admin" ? "Administrator" : "Staff Kasir"),
           businessName: "Scota Business",
@@ -279,6 +304,17 @@ export async function updateTenantSubscription(
            WHERE LOWER(username) = LOWER($4)`,
           [params.tier, validUntilIso, monthlyScanLimit, cleanUser]
         )
+
+        // Sync to subscriptions table
+        const userAcc = await getUserAccountDetails(cleanUser)
+        if (userAcc?.tenantId) {
+          await queryPg(
+            `UPDATE subscriptions
+             SET tier = $1, "validUntil" = $2, "monthlyScanLimit" = $3, "updatedAt" = NOW()
+             WHERE "tenantId" = $4`,
+            [params.tier, validUntilIso, monthlyScanLimit, userAcc.tenantId]
+          )
+        }
       } catch (err) {
         console.warn("updateTenantSubscription PostgreSQL notice:", err)
       }
@@ -410,17 +446,50 @@ export async function createTenantManual(
     const durationDays = payload.durationDays || 30
     const validUntil = new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000).toISOString()
     const role = payload.role || "ADMIN"
+    const businessName = payload.businessName || payload.fullName || cleanUser
 
-    // 1. Save password
-    await updateAdminPassword(cleanUser, payload.password)
+    // 1. Hash password with bcrypt
+    const hashedPass = await hashPassword(payload.password)
+
+    let createdTenantId = `tenant-${Date.now()}`
 
     // 2. Insert into database
     if (isDatabaseConfigured) {
       try {
+        // Create Tenant in tenants table
+        const tenantRes = await queryPg<{ id: string }>(
+          `INSERT INTO tenants ("businessName", phone, status, "createdAt", "updatedAt")
+           VALUES ($1, $2, 'active', NOW(), NOW())
+           RETURNING id`,
+          [businessName, payload.phone || ""]
+        )
+        if (tenantRes.rows?.[0]?.id) {
+          createdTenantId = tenantRes.rows[0].id
+        }
+
+        // Create subscription in subscriptions table
         await queryPg(
-          `INSERT INTO admin_accounts (username, password, role, "fullName", "businessName", phone, tier, "validUntil", "monthlyScanLimit", "usedScansThisMonth", status, "createdAt", "updatedAt")
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 0, 'active', NOW(), NOW())
+          `INSERT INTO subscriptions ("tenantId", tier, "validUntil", "monthlyScanLimit", "usedScansThisMonth", "studioName", phone, "createdAt", "updatedAt")
+           VALUES ($1, $2, $3, $4, 0, $5, $6, NOW(), NOW())
+           ON CONFLICT ("tenantId") DO UPDATE 
+           SET tier = EXCLUDED.tier, "validUntil" = EXCLUDED."validUntil", "monthlyScanLimit" = EXCLUDED."monthlyScanLimit"`,
+          [
+            createdTenantId,
+            tier,
+            validUntil,
+            tierCfg.monthlyScanLimit,
+            businessName,
+            payload.phone || "",
+          ]
+        )
+
+        // Insert into admin_accounts
+        await queryPg(
+          `INSERT INTO admin_accounts (username, password, role, "tenantId", "fullName", "businessName", phone, tier, "validUntil", "monthlyScanLimit", "usedScansThisMonth", status, "createdAt", "updatedAt")
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 0, 'active', NOW(), NOW())
            ON CONFLICT (username) DO UPDATE SET 
+             password = EXCLUDED.password,
+             "tenantId" = EXCLUDED."tenantId",
              "fullName" = EXCLUDED."fullName",
              "businessName" = EXCLUDED."businessName",
              role = EXCLUDED.role,
@@ -431,10 +500,11 @@ export async function createTenantManual(
              "updatedAt" = NOW()`,
           [
             cleanUser,
-            payload.password,
+            hashedPass,
             role,
+            createdTenantId,
             payload.fullName || cleanUser,
-            payload.businessName || payload.fullName || cleanUser,
+            businessName,
             payload.phone || "",
             tier,
             validUntil,
@@ -476,13 +546,27 @@ export async function getTenantDetail(username: string) {
 
   if (isDatabaseConfigured) {
     try {
+      const tenantId = tenant.tenantId || DEFAULT_TENANT_ID
       const res = await queryPg<any>(
-        `SELECT id, "merchantName", date, "totalAmount", "createdAt" FROM receipts ORDER BY "createdAt" DESC LIMIT 10`
+        `SELECT id, "merchantName", date, "totalAmount", "createdAt" 
+         FROM receipts 
+         WHERE "tenantId" = $1 OR "tenantId" IS NULL
+         ORDER BY "createdAt" DESC LIMIT 10`,
+        [tenantId]
       )
       if (res.rows) {
-        receiptsCount = res.rows.length
         recentReceipts = res.rows
-        totalOmset = res.rows.reduce((sum, r) => sum + (Number(r.totalAmount) || 0), 0)
+      }
+
+      const countRes = await queryPg<any>(
+        `SELECT count(*) as count, COALESCE(sum("totalAmount"), 0) as total 
+         FROM receipts 
+         WHERE "tenantId" = $1 OR "tenantId" IS NULL`,
+        [tenantId]
+      )
+      if (countRes.rows && countRes.rows[0]) {
+        receiptsCount = parseInt(countRes.rows[0].count || "0", 10)
+        totalOmset = Number(countRes.rows[0].total || 0)
       }
     } catch (err) {}
   }

@@ -6,6 +6,7 @@ import { invalidateApprovalsCache } from "@/app/api/approvals/route"
 import { invalidateNotificationsCache } from "@/app/api/notifications/route"
 import { getSubscriptionInfo } from "@/lib/subscriptionServer"
 import { DEFAULT_APPROVAL_WORKFLOW } from "@/lib/subscription"
+import { DEFAULT_TENANT_ID } from "@/lib/session"
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -23,6 +24,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     const rejectingAdmin = session.username
     const userRole = session.role
+    const sessionTenantId = session.tenantId || DEFAULT_TENANT_ID
 
     if (userRole === "KARYAWAN") {
       return NextResponse.json({
@@ -35,7 +37,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
 
     // Check approval workflow config
-    const subInfo = await getSubscriptionInfo().catch(() => null)
+    const subInfo = await getSubscriptionInfo(sessionTenantId).catch(() => null)
     const workflow = subInfo?.approvalWorkflow || DEFAULT_APPROVAL_WORKFLOW
     const target = workflow.approverTarget || workflow.approvalTargetRole || "ANY_ADMIN"
 
@@ -68,6 +70,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: "Permintaan verifikasi tidak ditemukan" }, { status: 404 })
     }
 
+    // Tenant Isolation Guard: Ensure non-superadmin only rejects approvals within their tenant
+    if (userRole !== "SUPERADMIN" && pendingApproval.tenantId && pendingApproval.tenantId !== sessionTenantId) {
+      return NextResponse.json({ error: "Akses Ditolak: Permintaan bukan milik organisasi/toko Anda" }, { status: 403 })
+    }
+
+    const targetTenantId = pendingApproval.tenantId || sessionTenantId
     const cleanRejectingAdmin = rejectingAdmin.trim().toLowerCase()
 
     // Dual-Control Enforcement: Prevent Self-Rejection only for destructive items (unless Superadmin)
@@ -104,12 +112,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         : `Admin ${rejectingAdmin} menolak permintaan ${pendingApproval.actionType} Anda. Alasan: ${reason || "Tidak disetujui"}.`
 
       await queryPg(
-        `INSERT INTO notifications (recipient, sender, type, title, message, "approvalId", "isRead", "createdAt")
-         VALUES ('all', $1, 'REJECT', $2, $3, $4::uuid, false, NOW())`,
-        [rejectingAdmin, notifTitle, notifMsg, cleanId]
+        `INSERT INTO notifications ("tenantId", recipient, sender, type, title, message, "approvalId", "isRead", "createdAt")
+         VALUES ($1, 'all', $2, 'REJECT', $3, $4, $5::uuid, false, NOW())`,
+        [targetTenantId, rejectingAdmin, notifTitle, notifMsg, cleanId]
       ).catch(() => {})
 
       sendWebPushNotification({
+        tenantId: targetTenantId,
         title: notifTitle,
         message: notifMsg,
         url: "/",

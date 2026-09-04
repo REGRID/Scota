@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { queryPg, isDatabaseConfigured } from "@/lib/pgDb"
 import { getSession } from "@/lib/authHelper"
+import { DEFAULT_TENANT_ID } from "@/lib/session"
 
-// In-memory cache per user/role
+// In-memory cache per user/role/tenant
 let notifCache: Map<string, { data: any; timestamp: number }> = new Map()
 const CACHE_TTL_MS = 8000 // 8 seconds cache
 
@@ -15,8 +16,9 @@ export async function GET(req: NextRequest) {
     const session = await getSession(req)
     const adminUser = session?.username || ""
     const userRole = session?.role || "STAFF"
+    const tenantId = session?.tenantId || DEFAULT_TENANT_ID
     const cleanUser = (adminUser || "all").trim().toLowerCase() || "all"
-    const cacheKey = `${userRole}_${cleanUser}`
+    const cacheKey = `${userRole}_${cleanUser}_${tenantId}`
     const now = Date.now()
 
     const cached = notifCache.get(cacheKey)
@@ -35,7 +37,7 @@ export async function GET(req: NextRequest) {
 
     try {
       let query = `
-        SELECT id, recipient, sender, type, title, message, "approvalId", "isRead", "createdAt"
+        SELECT id, "tenantId", recipient, sender, type, title, message, "approvalId", "isRead", "createdAt"
         FROM notifications
       `
       const params: any[] = []
@@ -46,6 +48,12 @@ export async function GET(req: NextRequest) {
       } else {
         query += ` WHERE recipient = ANY($1::text[])`
         params.push(["karyawan", "all", cleanUser, "*"])
+      }
+
+      // Tenant isolation guard: Non-superadmin users only see their tenant notifications
+      if (userRole !== "SUPERADMIN") {
+        params.push(tenantId)
+        query += ` AND ("tenantId" = $${params.length} OR "tenantId" IS NULL)`
       }
 
       query += ` ORDER BY "createdAt" DESC LIMIT 30`
@@ -97,6 +105,7 @@ export async function PATCH(req: NextRequest) {
     const session = await getSession(req)
     const adminUser = session?.username || ""
     const userRole = session?.role || "STAFF"
+    const tenantId = session?.tenantId || DEFAULT_TENANT_ID
     const cleanUser = (adminUser || "all").trim().toLowerCase() || "all"
     const { id, markAllRead } = await req.json()
 
@@ -110,20 +119,38 @@ export async function PATCH(req: NextRequest) {
       if (markAllRead) {
         if (userRole === "KARYAWAN") {
           await queryPg(
-            `UPDATE notifications SET "isRead" = true WHERE recipient = ANY($1::text[])`,
-            [["karyawan", "all", cleanUser, "*"]]
+            `UPDATE notifications 
+             SET "isRead" = true 
+             WHERE recipient = ANY($1::text[]) 
+             AND ("tenantId" = $2 OR "tenantId" IS NULL)`,
+            [["karyawan", "all", cleanUser, "*"], tenantId]
           )
-        } else {
+        } else if (userRole === "SUPERADMIN") {
           await queryPg(
             `UPDATE notifications SET "isRead" = true WHERE recipient = ANY($1::text[])`,
             [[cleanUser, "admin", "superadmin", "manager", "owner", "all", "*"]]
           )
+        } else {
+          await queryPg(
+            `UPDATE notifications 
+             SET "isRead" = true 
+             WHERE recipient = ANY($1::text[]) 
+             AND ("tenantId" = $2 OR "tenantId" IS NULL)`,
+            [[cleanUser, "admin", "superadmin", "manager", "owner", "all", "*"], tenantId]
+          )
         }
       } else if (id) {
-        await queryPg(
-          `UPDATE notifications SET "isRead" = true WHERE id = $1`,
-          [id]
-        )
+        if (userRole === "SUPERADMIN") {
+          await queryPg(
+            `UPDATE notifications SET "isRead" = true WHERE id = $1`,
+            [id]
+          )
+        } else {
+          await queryPg(
+            `UPDATE notifications SET "isRead" = true WHERE id = $1 AND ("tenantId" = $2 OR "tenantId" IS NULL)`,
+            [id, tenantId]
+          )
+        }
       }
     } catch (err) {
       console.warn("PATCH Notification DB update notice:", err)

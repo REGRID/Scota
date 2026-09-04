@@ -1,5 +1,7 @@
 import { queryPg, isDatabaseConfigured } from "@/lib/pgDb"
 import { hashPassword, verifyPassword, isBcryptHash } from "@/lib/password"
+import { DEFAULT_TENANT_ID } from "@/lib/session"
+import { TIER_CONFIG, SubscriptionTier } from "@/lib/subscription"
 
 export function normalizeAdminUsername(input: string): string {
   return (input || "").trim().toLowerCase()
@@ -7,13 +9,24 @@ export function normalizeAdminUsername(input: string): string {
 
 // Fallback hashes untuk akun default jika database PostgreSQL belum terhubung/offline
 // superadmin: "superadmin2026!", admin: "adminnota123", karyawan: "StudioPhoto2026"
-const FALLBACK_ADMIN_HASHES: Record<string, { role: string; hash: string; fullName: string; businessName: string; phone: string }> = {
+const FALLBACK_ADMIN_HASHES: Record<
+  string,
+  {
+    role: string
+    hash: string
+    fullName: string
+    businessName: string
+    phone: string
+    tenantId: string
+  }
+> = {
   superadmin: {
     role: "SUPERADMIN",
     hash: "$2b$12$4ZzB5qjdn1Qp520cFqV3i.n5DwdT6WpORIkzT4iarhRKRLjkl.GTe",
     fullName: "Developer / Superadmin",
     businessName: "Scota Central Management",
     phone: "6285215973776",
+    tenantId: DEFAULT_TENANT_ID,
   },
   admin: {
     role: "ADMIN",
@@ -21,6 +34,7 @@ const FALLBACK_ADMIN_HASHES: Record<string, { role: string; hash: string; fullNa
     fullName: "Administrator",
     businessName: "Scota Business",
     phone: "6285215973776",
+    tenantId: DEFAULT_TENANT_ID,
   },
   karyawan: {
     role: "KARYAWAN",
@@ -28,6 +42,7 @@ const FALLBACK_ADMIN_HASHES: Record<string, { role: string; hash: string; fullNa
     fullName: "Staff Kasir",
     businessName: "Scota Business",
     phone: "6285215973776",
+    tenantId: DEFAULT_TENANT_ID,
   },
 }
 
@@ -88,7 +103,7 @@ export async function validateAdminCredentials(username: string, inputPass: stri
 }
 
 /**
- * Mengambil detail akun lengkap termasuk peran dan nomor telepon WhatsApp.
+ * Mengambil detail akun lengkap termasuk peran, nomor telepon WhatsApp, dan tenantId terisolasi.
  */
 export async function getUserAccountDetails(username: string): Promise<{
   username: string
@@ -97,6 +112,7 @@ export async function getUserAccountDetails(username: string): Promise<{
   fullName?: string
   businessName?: string
   phone?: string
+  tenantId?: string
 } | null> {
   try {
     const cleanUser = normalizeAdminUsername(username)
@@ -111,8 +127,12 @@ export async function getUserAccountDetails(username: string): Promise<{
           fullName?: string
           businessName?: string
           phone?: string
+          tenantId?: string
         }>(
-          `SELECT username, password, role, "fullName", "businessName", phone FROM admin_accounts WHERE LOWER(username) = LOWER($1) LIMIT 1`,
+          `SELECT username, password, role, "fullName", "businessName", phone, "tenantId" 
+           FROM admin_accounts 
+           WHERE LOWER(username) = LOWER($1) 
+           LIMIT 1`,
           [cleanUser]
         )
         if (res.rows && res.rows[0]) {
@@ -124,6 +144,7 @@ export async function getUserAccountDetails(username: string): Promise<{
             fullName: row.fullName || undefined,
             businessName: row.businessName || undefined,
             phone: row.phone || undefined,
+            tenantId: row.tenantId || DEFAULT_TENANT_ID,
           }
         }
       } catch (e) {
@@ -141,6 +162,7 @@ export async function getUserAccountDetails(username: string): Promise<{
         fullName: fallback.fullName,
         businessName: fallback.businessName,
         phone: fallback.phone,
+        tenantId: fallback.tenantId || DEFAULT_TENANT_ID,
       }
     }
 
@@ -154,7 +176,6 @@ export async function getUserAccountDetails(username: string): Promise<{
 /**
  * Mengupdate password untuk username yang diberikan.
  * Password mentah SELALU di-hash dengan bcrypt sebelum disimpan ke database.
- * Tidak ada file lokal atau environment yang ditulis ulang.
  */
 export async function updateAdminPassword(username: string, newPass: string): Promise<boolean> {
   try {
@@ -169,8 +190,8 @@ export async function updateAdminPassword(username: string, newPass: string): Pr
     if (isDatabaseConfigured) {
       try {
         await queryPg(
-          `INSERT INTO admin_accounts (username, password, role, "updatedAt")
-           VALUES ($1, $2, 'ADMIN', NOW())
+          `INSERT INTO admin_accounts (username, password, role, "tenantId", "updatedAt")
+           VALUES ($1, $2, 'ADMIN', '${DEFAULT_TENANT_ID}', NOW())
            ON CONFLICT (username) 
            DO UPDATE SET password = EXCLUDED.password, "updatedAt" = NOW()`,
           [cleanUser, hashed]
@@ -194,8 +215,8 @@ export async function updateAdminPassword(username: string, newPass: string): Pr
 }
 
 /**
- * Mendaftarkan akun Admin / Staff baru secara dinamis.
- * Password SELALU di-hash dengan bcrypt sebelum disimpan ke database.
+ * Mendaftarkan akun Admin / Bisnis baru.
+ * Otomatis membuat entitas Tenant baru, Subscription terpisah, dan mengikat akun ke tenantId tersebut.
  */
 export async function registerAdminAccount(params: {
   username: string
@@ -205,52 +226,96 @@ export async function registerAdminAccount(params: {
   businessName?: string
   phone?: string
   tier?: string
-}): Promise<{ success: boolean; username: string; role: string; error?: string }> {
+}): Promise<{ success: boolean; username: string; role: string; tenantId: string; error?: string }> {
   try {
     const cleanUser = normalizeAdminUsername(params.username)
     const cleanPass = params.password.trim()
     const role = (params.role || "ADMIN").toUpperCase()
+    const rawTier = (params.tier || "trial").toLowerCase() as SubscriptionTier
+    const businessName = params.businessName?.trim() || params.fullName?.trim() || "Scota Business"
 
     if (!cleanUser || !cleanPass) {
-      return { success: false, username: cleanUser, role, error: "ID Pengguna dan Password wajib diisi" }
+      return { success: false, username: cleanUser, role, tenantId: "", error: "ID Pengguna dan Password wajib diisi" }
     }
 
     if (cleanPass.length < 8) {
-      return { success: false, username: cleanUser, role, error: "Password minimal 8 karakter demi keamanan" }
+      return { success: false, username: cleanUser, role, tenantId: "", error: "Password minimal 8 karakter demi keamanan" }
     }
 
     const existing = await getUserAccountDetails(cleanUser)
     if (existing) {
-      return { success: false, username: cleanUser, role, error: "ID Pengguna sudah terdaftar. Silakan gunakan ID lain." }
+      return { success: false, username: cleanUser, role, tenantId: "", error: "ID Pengguna sudah terdaftar. Silakan gunakan ID lain." }
     }
 
     // Hash password dengan bcrypt
     const hashed = await hashPassword(cleanPass)
 
+    let createdTenantId = `tenant-${Date.now()}`
+
     if (isDatabaseConfigured) {
       try {
+        // 1. Buat Tenant Baru di tabel tenants
+        const tenantRes = await queryPg<{ id: string }>(
+          `INSERT INTO tenants ("businessName", phone, status, "createdAt", "updatedAt")
+           VALUES ($1, $2, 'active', NOW(), NOW())
+           RETURNING id`,
+          [businessName, params.phone || ""]
+        )
+        if (tenantRes.rows?.[0]?.id) {
+          createdTenantId = tenantRes.rows[0].id
+        }
+
+        // 2. Buat Subscription Khusus untuk Tenant Baru
+        const tierConfig = TIER_CONFIG[rawTier] || TIER_CONFIG.trial
+        const validityDays = rawTier === "trial" ? 14 : 30
+        const validUntilDate = new Date()
+        validUntilDate.setDate(validUntilDate.getDate() + validityDays)
+
         await queryPg(
-          `INSERT INTO admin_accounts (username, password, role, "fullName", "businessName", phone, tier, "createdAt", "updatedAt")
-           VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+          `INSERT INTO subscriptions ("tenantId", tier, "validUntil", "monthlyScanLimit", "usedScansThisMonth", "studioName", phone, "createdAt", "updatedAt")
+           VALUES ($1, $2, $3, $4, 0, $5, $6, NOW(), NOW())
+           ON CONFLICT ("tenantId") DO UPDATE 
+           SET tier = EXCLUDED.tier, "validUntil" = EXCLUDED."validUntil"`,
+          [
+            createdTenantId,
+            rawTier,
+            validUntilDate.toISOString(),
+            tierConfig.monthlyScanLimit,
+            businessName,
+            params.phone || "",
+          ]
+        )
+
+        // 3. Masukkan Akun Admin baru terikat ke createdTenantId
+        await queryPg(
+          `INSERT INTO admin_accounts (username, password, role, "fullName", "businessName", phone, tier, "tenantId", "createdAt", "updatedAt")
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
            ON CONFLICT (username) DO NOTHING`,
           [
             cleanUser,
             hashed,
             role,
             params.fullName || "",
-            params.businessName || "",
+            businessName,
             params.phone || "",
-            params.tier || "starter",
+            rawTier,
+            createdTenantId,
           ]
         )
       } catch (dbErr) {
-        console.warn("PostgreSQL insert admin_accounts notice:", dbErr)
+        console.warn("PostgreSQL insert tenant & admin notice:", dbErr)
       }
     }
 
-    return { success: true, username: cleanUser, role }
+    return { success: true, username: cleanUser, role, tenantId: createdTenantId }
   } catch (error: any) {
     console.error("registerAdminAccount error:", error)
-    return { success: false, username: params.username, role: params.role || "ADMIN", error: error.message || "Gagal membuat akun" }
+    return {
+      success: false,
+      username: params.username,
+      role: params.role || "ADMIN",
+      tenantId: "",
+      error: error.message || "Gagal membuat akun bisnis",
+    }
   }
 }

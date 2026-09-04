@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getUserAccountDetails } from "@/lib/adminAccounts"
+import { verifyPassword } from "@/lib/password"
 import { createSessionToken } from "@/lib/session"
 
 export async function POST(req: NextRequest) {
@@ -15,8 +16,9 @@ export async function POST(req: NextRequest) {
     }
 
     const account = await getUserAccountDetails(cleanUsername)
+    const isMatch = account?.password ? await verifyPassword(cleanPassword, account.password) : false
 
-    if (!account || account.password !== cleanPassword) {
+    if (!account || !isMatch) {
       return NextResponse.json({ error: "ID Pengguna atau Password salah. Akses ditolak." }, { status: 401 })
     }
 

@@ -19,8 +19,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "ID Pengguna / Email dan Password harus diisi" }, { status: 400 })
     }
 
-    if (cleanPassword.length < 4) {
-      return NextResponse.json({ error: "Password minimal 4 karakter" }, { status: 400 })
+    if (cleanPassword.length < 8) {
+      return NextResponse.json({ error: "Password minimal 8 karakter" }, { status: 400 })
     }
 
     // Register as ADMIN role

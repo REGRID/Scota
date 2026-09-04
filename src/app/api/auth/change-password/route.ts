@@ -14,8 +14,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Password lama dan password baru wajib diisi" }, { status: 400 })
     }
 
-    if (cleanNew.length < 4) {
-      return NextResponse.json({ error: "Password baru minimal 4 karakter" }, { status: 400 })
+    if (cleanNew.length < 8) {
+      return NextResponse.json({ error: "Password baru minimal 8 karakter" }, { status: 400 })
     }
 
     const isOldValid = await validateAdminCredentials(cleanUser, cleanOld)

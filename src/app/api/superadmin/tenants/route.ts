@@ -76,8 +76,8 @@ export async function PUT(req: NextRequest) {
     }
 
     if (action === "reset_password") {
-      if (!newPassword || newPassword.length < 4) {
-        return NextResponse.json({ error: "Password baru minimal 4 karakter" }, { status: 400 })
+      if (!newPassword || newPassword.length < 8) {
+        return NextResponse.json({ error: "Password baru minimal 8 karakter" }, { status: 400 })
       }
       const updated = await updateAdminPassword(username, newPassword)
       if (!updated) {

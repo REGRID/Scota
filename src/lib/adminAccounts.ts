@@ -1,51 +1,39 @@
 import { queryPg, isDatabaseConfigured } from "@/lib/pgDb"
-import fs from "fs"
-import path from "path"
+import { hashPassword, verifyPassword, isBcryptHash } from "@/lib/password"
 
 export function normalizeAdminUsername(input: string): string {
   return (input || "").trim().toLowerCase()
 }
 
-const LOCAL_PASSWORDS_FILE = path.join(process.cwd(), "admin_passwords.json")
-const IN_MEMORY_PASSWORDS = new Map<string, string>()
-
-function getLocalPasswords(): Record<string, string> {
-  const result: Record<string, string> = {}
-
-  try {
-    if (fs.existsSync(LOCAL_PASSWORDS_FILE)) {
-      const data = fs.readFileSync(LOCAL_PASSWORDS_FILE, "utf-8")
-      const parsed = JSON.parse(data) || {}
-      Object.assign(result, parsed)
-    }
-  } catch (e) {
-    console.warn("Could not read local admin_passwords.json:", e)
-  }
-
-  IN_MEMORY_PASSWORDS.forEach((val, key) => {
-    result[key] = val
-  })
-
-  return result
-}
-
-function setLocalPassword(username: string, pass: string): boolean {
-  const cleanKey = normalizeAdminUsername(username)
-  IN_MEMORY_PASSWORDS.set(cleanKey, pass)
-
-  try {
-    const current = getLocalPasswords()
-    current[cleanKey] = pass
-    fs.writeFileSync(LOCAL_PASSWORDS_FILE, JSON.stringify(current, null, 2), "utf-8")
-  } catch (e) {
-    console.warn("Could not write to admin_passwords.json, saved in memory:", e)
-  }
-  return true
+// Fallback hashes untuk akun default jika database PostgreSQL belum terhubung/offline
+// superadmin: "superadmin2026!", admin: "adminnota123", karyawan: "StudioPhoto2026"
+const FALLBACK_ADMIN_HASHES: Record<string, { role: string; hash: string; fullName: string; businessName: string; phone: string }> = {
+  superadmin: {
+    role: "SUPERADMIN",
+    hash: "$2b$12$4ZzB5qjdn1Qp520cFqV3i.n5DwdT6WpORIkzT4iarhRKRLjkl.GTe",
+    fullName: "Developer / Superadmin",
+    businessName: "Scota Central Management",
+    phone: "6285215973776",
+  },
+  admin: {
+    role: "ADMIN",
+    hash: "$2b$12$6ox9jnEHW.KPZwkeOPj2f.ze8K3prlzSYC3stGdL1uKzLbpuOdOgO",
+    fullName: "Administrator",
+    businessName: "Scota Business",
+    phone: "6285215973776",
+  },
+  karyawan: {
+    role: "KARYAWAN",
+    hash: "$2b$12$9D45oONPISU9wTC9xXNSZe0xsakBFUAatLasEQL.3fpYQWE6TP.J6",
+    fullName: "Staff Kasir",
+    businessName: "Scota Business",
+    phone: "6285215973776",
+  },
 }
 
 /**
- * Fetch active password for a given username.
- * PostgreSQL `admin_accounts` table is the PRIMARY source of truth.
+ * Mengambil hash password tersimpan untuk username yang diberikan.
+ * PostgreSQL `admin_accounts` table adalah PRIMARY SOURCE OF TRUTH.
  */
 export async function getAdminPassword(username: string): Promise<string | null> {
   try {
@@ -67,25 +55,9 @@ export async function getAdminPassword(username: string): Promise<string | null>
       }
     }
 
-    // 2. Secondary: Check Local Memory / Persistent JSON file
-    const localPasses = getLocalPasswords()
-    if (localPasses[cleanUser]) {
-      return localPasses[cleanUser].trim()
-    }
-
-    // 3. Fallback: Environment Variables (e.g. SUPERADMIN_PASSWORD, ADMIN_PASSWORD)
-    const envSuperUser = (process.env.SUPERADMIN_USERNAME || "superadmin").toLowerCase()
-    if (cleanUser === envSuperUser) {
-      return (process.env.SUPERADMIN_PASSWORD || "superadmin123").trim()
-    }
-
-    const envAdminUser = (process.env.ADMIN_USERNAME || "admin").toLowerCase()
-    if (cleanUser === envAdminUser) {
-      return (process.env.ADMIN_PASSWORD || "admin123").trim()
-    }
-
-    if (cleanUser === (process.env.KARYAWAN_USERNAME || "karyawan").toLowerCase()) {
-      return (process.env.KARYAWAN_PASSWORD || "karyawan123").trim()
+    // 2. Fallback: Standar akun bawaan dengan bcrypt hash jika DB offline
+    if (FALLBACK_ADMIN_HASHES[cleanUser]) {
+      return FALLBACK_ADMIN_HASHES[cleanUser].hash
     }
 
     return null
@@ -96,7 +68,7 @@ export async function getAdminPassword(username: string): Promise<string | null>
 }
 
 /**
- * Validate admin credentials for a given username and password.
+ * Validasi kredensial login menggunakan verifikasi satu arah bcrypt.
  */
 export async function validateAdminCredentials(username: string, inputPass: string): Promise<boolean> {
   try {
@@ -105,10 +77,10 @@ export async function validateAdminCredentials(username: string, inputPass: stri
 
     if (!cleanUser || !cleanPass) return false
 
-    const activePassword = await getAdminPassword(cleanUser)
-    if (!activePassword) return false
+    const storedHash = await getAdminPassword(cleanUser)
+    if (!storedHash) return false
 
-    return cleanPass === activePassword
+    return verifyPassword(cleanPass, storedHash)
   } catch (error) {
     console.error("validateAdminCredentials error:", error)
     return false
@@ -116,17 +88,31 @@ export async function validateAdminCredentials(username: string, inputPass: stri
 }
 
 /**
- * Fetch full account details including role and password
+ * Mengambil detail akun lengkap termasuk peran dan nomor telepon WhatsApp.
  */
-export async function getUserAccountDetails(username: string): Promise<{ username: string; role: string; password?: string; fullName?: string; businessName?: string } | null> {
+export async function getUserAccountDetails(username: string): Promise<{
+  username: string
+  role: string
+  password?: string
+  fullName?: string
+  businessName?: string
+  phone?: string
+} | null> {
   try {
     const cleanUser = normalizeAdminUsername(username)
     if (!cleanUser) return null
 
     if (isDatabaseConfigured) {
       try {
-        const res = await queryPg<{ username: string; password?: string; role: string; fullName?: string; businessName?: string }>(
-          `SELECT username, password, role, "fullName", "businessName" FROM admin_accounts WHERE LOWER(username) = LOWER($1) LIMIT 1`,
+        const res = await queryPg<{
+          username: string
+          password?: string
+          role: string
+          fullName?: string
+          businessName?: string
+          phone?: string
+        }>(
+          `SELECT username, password, role, "fullName", "businessName", phone FROM admin_accounts WHERE LOWER(username) = LOWER($1) LIMIT 1`,
           [cleanUser]
         )
         if (res.rows && res.rows[0]) {
@@ -137,24 +123,25 @@ export async function getUserAccountDetails(username: string): Promise<{ usernam
             role: row.role || "ADMIN",
             fullName: row.fullName || undefined,
             businessName: row.businessName || undefined,
+            phone: row.phone || undefined,
           }
         }
-      } catch (e) {}
+      } catch (e) {
+        console.warn("PostgreSQL getUserAccountDetails notice:", e)
+      }
     }
 
-    const envSuperUser = (process.env.SUPERADMIN_USERNAME || "superadmin").toLowerCase()
-    if (cleanUser === envSuperUser) {
-      return { username: cleanUser, password: process.env.SUPERADMIN_PASSWORD || "superadmin123", role: "SUPERADMIN" }
-    }
-
-    if (cleanUser === "karyawan") {
-      const pass = process.env.KARYAWAN_PASSWORD || (await getAdminPassword("karyawan")) || "karyawan123"
-      return { username: "karyawan", password: pass, role: "KARYAWAN" }
-    }
-
-    const pass = await getAdminPassword(cleanUser)
-    if (pass) {
-      return { username: cleanUser, password: pass, role: "ADMIN" }
+    // Fallback jika database belum aktif
+    if (FALLBACK_ADMIN_HASHES[cleanUser]) {
+      const fallback = FALLBACK_ADMIN_HASHES[cleanUser]
+      return {
+        username: cleanUser,
+        password: fallback.hash,
+        role: fallback.role,
+        fullName: fallback.fullName,
+        businessName: fallback.businessName,
+        phone: fallback.phone,
+      }
     }
 
     return null
@@ -165,7 +152,9 @@ export async function getUserAccountDetails(username: string): Promise<{ usernam
 }
 
 /**
- * Update password for a given username.
+ * Mengupdate password untuk username yang diberikan.
+ * Password mentah SELALU di-hash dengan bcrypt sebelum disimpan ke database.
+ * Tidak ada file lokal atau environment yang ditulis ulang.
  */
 export async function updateAdminPassword(username: string, newPass: string): Promise<boolean> {
   try {
@@ -174,6 +163,9 @@ export async function updateAdminPassword(username: string, newPass: string): Pr
 
     if (!cleanUser || !cleanPass) return false
 
+    // Hash dengan bcrypt (salt 12)
+    const hashed = await hashPassword(cleanPass)
+
     if (isDatabaseConfigured) {
       try {
         await queryPg(
@@ -181,23 +173,29 @@ export async function updateAdminPassword(username: string, newPass: string): Pr
            VALUES ($1, $2, 'ADMIN', NOW())
            ON CONFLICT (username) 
            DO UPDATE SET password = EXCLUDED.password, "updatedAt" = NOW()`,
-          [cleanUser, cleanPass]
+          [cleanUser, hashed]
         )
+        return true
       } catch (dbErr) {
         console.warn("PostgreSQL admin_accounts update warning:", dbErr)
       }
     }
 
-    setLocalPassword(cleanUser, cleanPass)
+    // Update in-memory fallback jika DB sedang offline
+    if (FALLBACK_ADMIN_HASHES[cleanUser]) {
+      FALLBACK_ADMIN_HASHES[cleanUser].hash = hashed
+    }
+
     return true
   } catch (error) {
     console.error("updateAdminPassword error:", error)
-    return true
+    return false
   }
 }
 
 /**
- * Register a new Admin / Staff account dynamically.
+ * Mendaftarkan akun Admin / Staff baru secara dinamis.
+ * Password SELALU di-hash dengan bcrypt sebelum disimpan ke database.
  */
 export async function registerAdminAccount(params: {
   username: string
@@ -217,10 +215,17 @@ export async function registerAdminAccount(params: {
       return { success: false, username: cleanUser, role, error: "ID Pengguna dan Password wajib diisi" }
     }
 
+    if (cleanPass.length < 8) {
+      return { success: false, username: cleanUser, role, error: "Password minimal 8 karakter demi keamanan" }
+    }
+
     const existing = await getUserAccountDetails(cleanUser)
     if (existing) {
       return { success: false, username: cleanUser, role, error: "ID Pengguna sudah terdaftar. Silakan gunakan ID lain." }
     }
+
+    // Hash password dengan bcrypt
+    const hashed = await hashPassword(cleanPass)
 
     if (isDatabaseConfigured) {
       try {
@@ -230,7 +235,7 @@ export async function registerAdminAccount(params: {
            ON CONFLICT (username) DO NOTHING`,
           [
             cleanUser,
-            cleanPass,
+            hashed,
             role,
             params.fullName || "",
             params.businessName || "",
@@ -243,7 +248,6 @@ export async function registerAdminAccount(params: {
       }
     }
 
-    setLocalPassword(cleanUser, cleanPass)
     return { success: true, username: cleanUser, role }
   } catch (error: any) {
     console.error("registerAdminAccount error:", error)

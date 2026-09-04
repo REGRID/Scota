@@ -142,33 +142,27 @@ export async function getAllTenants(): Promise<TenantSummary[]> {
     }
   }
 
-  // Fallback from local passwords store if empty
-  try {
-    const localPassFile = path.join(process.cwd(), "admin_passwords.json")
-    if (fs.existsSync(localPassFile)) {
-      const data = JSON.parse(fs.readFileSync(localPassFile, "utf-8"))
-      for (const userKey of Object.keys(data)) {
-        const cleanUser = userKey.trim().toLowerCase()
-        if (!tenantsMap.has(cleanUser)) {
-          tenantsMap.set(cleanUser, {
-            username: cleanUser,
-            fullName: cleanUser,
-            businessName: `${cleanUser.toUpperCase()} Business`,
-            phone: "",
-            role: "ADMIN",
-            tier: "starter",
-            validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-            monthlyScanLimit: 150,
-            usedScansThisMonth: 0,
-            createdAt: new Date().toISOString(),
-            status: "active",
-            approvalWorkflow: { ...DEFAULT_APPROVAL_WORKFLOW },
-          })
-        }
+  // Fallback default admin jika tenantsMap kosong
+  if (tenantsMap.size === 0) {
+    const defaultUsers = ["admin", "superadmin", "karyawan"]
+    for (const u of defaultUsers) {
+      if (!tenantsMap.has(u)) {
+        tenantsMap.set(u, {
+          username: u,
+          fullName: u === "superadmin" ? "Developer / Superadmin" : (u === "admin" ? "Administrator" : "Staff Kasir"),
+          businessName: "Scota Business",
+          phone: "6285215973776",
+          role: u === "superadmin" ? "SUPERADMIN" : (u === "admin" ? "ADMIN" : "KARYAWAN"),
+          tier: "starter",
+          validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+          monthlyScanLimit: 150,
+          usedScansThisMonth: 0,
+          createdAt: new Date().toISOString(),
+          status: "active",
+          approvalWorkflow: { ...DEFAULT_APPROVAL_WORKFLOW },
+        })
       }
     }
-  } catch (err) {
-    console.warn("getAllTenants local store notice:", err)
   }
 
   return Array.from(tenantsMap.values())

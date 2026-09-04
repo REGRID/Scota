@@ -109,11 +109,11 @@ CREATE TABLE IF NOT EXISTS admin_accounts (
 );
 
 -- Default Seed Accounts (1 Default Developer/Superadmin + 1 Default Admin + 1 Staff)
-INSERT INTO admin_accounts (username, password, role, "fullName", "businessName")
+INSERT INTO admin_accounts (username, password, role, "fullName", "businessName", phone)
 VALUES 
-    ('superadmin', 'superadmin2026!', 'SUPERADMIN', 'Developer / Superadmin', 'Scota Central Management'),
-    ('admin', 'adminnota123', 'ADMIN', 'Administrator', 'Scota Business'),
-    ('karyawan', 'StudioPhoto2026', 'KARYAWAN', 'Staff Kasir', 'Scota Business')
+    ('superadmin', '$2b$12$4ZzB5qjdn1Qp520cFqV3i.n5DwdT6WpORIkzT4iarhRKRLjkl.GTe', 'SUPERADMIN', 'Developer / Superadmin', 'Scota Central Management', '6285215973776'),
+    ('admin', '$2b$12$6ox9jnEHW.KPZwkeOPj2f.ze8K3prlzSYC3stGdL1uKzLbpuOdOgO', 'ADMIN', 'Administrator', 'Scota Business', '6285215973776'),
+    ('karyawan', '$2b$12$9D45oONPISU9wTC9xXNSZe0xsakBFUAatLasEQL.3fpYQWE6TP.J6', 'KARYAWAN', 'Staff Kasir', 'Scota Business', '6285215973776')
 ON CONFLICT (username) DO NOTHING;
 
 -- 9. Table: subscriptions
@@ -166,6 +166,17 @@ CREATE TABLE IF NOT EXISTS notifications (
     "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- 12. Table: password_resets (Untuk OTP Verifikasi WhatsApp & Reset Password)
+CREATE TABLE IF NOT EXISTS password_resets (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    username TEXT NOT NULL,
+    phone TEXT,
+    "otpCode" TEXT NOT NULL,
+    "expiresAt" TIMESTAMPTZ NOT NULL,
+    "isUsed" BOOLEAN NOT NULL DEFAULT false,
+    "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- Create Indexes for High Performance Queries
 CREATE INDEX IF NOT EXISTS idx_receipts_created_at ON receipts("createdAt" DESC);
 CREATE INDEX IF NOT EXISTS idx_receipt_items_receipt_id ON receipt_items("receiptId");
@@ -175,3 +186,5 @@ CREATE INDEX IF NOT EXISTS idx_merchant_dict_pattern ON merchant_dictionaries("r
 CREATE INDEX IF NOT EXISTS idx_product_dict_raw ON product_dictionaries("rawName");
 CREATE INDEX IF NOT EXISTS idx_pending_approvals_status ON pending_approvals(status);
 CREATE INDEX IF NOT EXISTS idx_notifications_recipient ON notifications(recipient);
+CREATE INDEX IF NOT EXISTS idx_password_resets_user ON password_resets(username);
+CREATE INDEX IF NOT EXISTS idx_password_resets_otp ON password_resets("otpCode");

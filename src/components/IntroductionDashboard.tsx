@@ -334,11 +334,10 @@ export function IntroductionDashboard({
                   key={item.id}
                   href={`#${item.id}`}
                   onClick={(e) => scrollToSection(e, item.id)}
-                  className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer ${
-                    isActive
+                  className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer ${isActive
                       ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-black shadow-sm"
                       : "text-slate-400 hover:text-slate-100 hover:bg-slate-900/60 font-semibold border border-transparent"
-                  }`}
+                    }`}
                 >
                   {item.label}
                 </a>
@@ -379,7 +378,7 @@ export function IntroductionDashboard({
 
             {/* Subtext */}
             <p className="text-sm sm:text-base md:text-lg text-slate-300 font-normal leading-relaxed max-w-2xl mx-auto text-balance">
-              Tinggalkan input manual. Cukup foto nota, Scota otomatis merekap pembukuan bisnis Anda.
+              Tinggalkan input manual di spreadsheet yang membuang waktu. Cukup foto nota fisik, Scota otomatis mengekstrak rincian item, nominal, dan merekapitulasi pembukuan bisnis Anda.
             </p>
 
             {/* CTAs */}
@@ -486,45 +485,18 @@ export function IntroductionDashboard({
                       </p>
                     </div>
 
-                    {/* 3 Quick Action Source Cards */}
-                    <div
-                      onClick={(e) => e.stopPropagation()}
-                      className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-2xl mx-auto pt-2"
-                    >
+                    {/* 1 Single Clean Action Button */}
+                    <div className="pt-1.5 flex justify-center">
                       <button
                         type="button"
-                        onClick={() => cameraInputRef.current?.click()}
-                        className="p-4 sm:p-5 rounded-2xl bg-slate-900/90 hover:bg-emerald-950/50 border border-slate-800 hover:border-emerald-500/50 flex flex-col items-center justify-center text-center space-y-2 transition-all cursor-pointer group/btn active:scale-95 shadow-md"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setShowSourceModal(true)
+                        }}
+                        className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-slate-950 font-black text-xs sm:text-sm transition-all shadow-md shadow-emerald-500/25 hover:-translate-y-0.5 active:scale-95 cursor-pointer"
                       >
-                        <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center group-hover/btn:bg-emerald-500 group-hover/btn:text-slate-950 transition-colors">
-                          <Camera className="w-5 h-5" />
-                        </div>
-                        <span className="text-xs sm:text-sm font-black text-white">Kamera</span>
-                        <span className="text-[10.5px] text-slate-400">Foto nota langsung</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => galleryInputRef.current?.click()}
-                        className="p-4 sm:p-5 rounded-2xl bg-slate-900/90 hover:bg-teal-950/50 border border-slate-800 hover:border-teal-500/50 flex flex-col items-center justify-center text-center space-y-2 transition-all cursor-pointer group/btn active:scale-95 shadow-md"
-                      >
-                        <div className="w-10 h-10 rounded-xl bg-teal-500/20 text-teal-400 flex items-center justify-center group-hover/btn:bg-teal-500 group-hover/btn:text-slate-950 transition-colors">
-                          <ImageIcon className="w-5 h-5" />
-                        </div>
-                        <span className="text-xs sm:text-sm font-black text-white">Galeri</span>
-                        <span className="text-[10.5px] text-slate-400">Pilih dari galeri</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => docInputRef.current?.click()}
-                        className="p-4 sm:p-5 rounded-2xl bg-slate-900/90 hover:bg-purple-950/50 border border-slate-800 hover:border-purple-500/50 flex flex-col items-center justify-center text-center space-y-2 transition-all cursor-pointer group/btn active:scale-95 shadow-md"
-                      >
-                        <div className="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center group-hover/btn:bg-purple-500 group-hover/btn:text-slate-950 transition-colors">
-                          <FileText className="w-5 h-5" />
-                        </div>
-                        <span className="text-xs sm:text-sm font-black text-white">Dokumen PDF</span>
-                        <span className="text-[10.5px] text-slate-400">Unggah berkas invoice</span>
+                        <Camera className="w-4 h-4" />
+                        <span>Pilih atau Foto Nota</span>
                       </button>
                     </div>
 
@@ -587,35 +559,22 @@ export function IntroductionDashboard({
                       </button>
                     </div>
 
-                    <div className="w-full pt-1 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400">
+                    <div className="w-full pt-1 flex items-center justify-between gap-2 text-xs text-slate-400">
                       <button
                         onClick={handleOpenLightbox}
-                        className="text-emerald-400 hover:text-emerald-300 font-bold flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 transition-all cursor-pointer"
+                        className="text-emerald-400 hover:text-emerald-300 font-bold flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 transition-all cursor-pointer text-xs"
                       >
                         <Eye className="w-3.5 h-3.5" />
                         <span>Lihat Detail</span>
                       </button>
 
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          onClick={() => cameraInputRef.current?.click()}
-                          className="px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 font-medium flex items-center gap-1 cursor-pointer transition-all"
-                        >
-                          <Camera className="w-3 h-3 text-emerald-400" /> Kamera
-                        </button>
-                        <button
-                          onClick={() => galleryInputRef.current?.click()}
-                          className="px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 font-medium flex items-center gap-1 cursor-pointer transition-all"
-                        >
-                          <ImageIcon className="w-3 h-3 text-teal-400" /> Galeri
-                        </button>
-                        <button
-                          onClick={() => docInputRef.current?.click()}
-                          className="px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 font-medium flex items-center gap-1 cursor-pointer transition-all"
-                        >
-                          <FileText className="w-3 h-3 text-purple-400" /> PDF
-                        </button>
-                      </div>
+                      <button
+                        onClick={() => setShowSourceModal(true)}
+                        className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700/80 font-bold flex items-center gap-1.5 cursor-pointer transition-all text-xs"
+                      >
+                        <RefreshCw className="w-3 h-3 text-emerald-400" />
+                        <span>Ganti Nota</span>
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -1037,17 +996,15 @@ export function IntroductionDashboard({
               <div className="inline-flex items-center p-1 rounded-2xl bg-slate-900 border border-slate-800">
                 <button
                   onClick={() => setBillingCycle("monthly")}
-                  className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    billingCycle === "monthly" ? "bg-emerald-600 text-white shadow" : "text-slate-400 hover:text-slate-200"
-                  }`}
+                  className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${billingCycle === "monthly" ? "bg-emerald-600 text-white shadow" : "text-slate-400 hover:text-slate-200"
+                    }`}
                 >
                   Bulanan
                 </button>
                 <button
                   onClick={() => setBillingCycle("yearly")}
-                  className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                    billingCycle === "yearly" ? "bg-emerald-600 text-white shadow" : "text-slate-400 hover:text-slate-200"
-                  }`}
+                  className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${billingCycle === "yearly" ? "bg-emerald-600 text-white shadow" : "text-slate-400 hover:text-slate-200"
+                    }`}
                 >
                   Tahunan
                   <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-amber-400/20 text-amber-300 font-extrabold">
@@ -1068,11 +1025,10 @@ export function IntroductionDashboard({
               return (
                 <div
                   key={tierKey}
-                  className={`relative rounded-3xl p-6 sm:p-8 border flex flex-col justify-between transition-all ${
-                    isPro
+                  className={`relative rounded-3xl p-6 sm:p-8 border flex flex-col justify-between transition-all ${isPro
                       ? "bg-slate-900 border-emerald-500 shadow-2xl shadow-emerald-950/60 ring-2 ring-emerald-500/40"
                       : "bg-slate-950/80 border-slate-800 hover:border-slate-700"
-                  }`}
+                    }`}
                 >
                   {isPro && (
                     <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-gradient-to-r from-emerald-400 to-teal-400 text-slate-950 text-[10px] font-black uppercase px-4 py-0.5 rounded-full shadow-lg tracking-wider">
@@ -1106,11 +1062,10 @@ export function IntroductionDashboard({
                   <div className="pt-8 space-y-2">
                     <Link
                       href="/register"
-                      className={`w-full py-3 px-4 rounded-xl text-xs sm:text-sm font-extrabold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg ${
-                        isPro
+                      className={`w-full py-3 px-4 rounded-xl text-xs sm:text-sm font-extrabold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg ${isPro
                           ? "bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-emerald-500/25 active:scale-98"
                           : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/30 active:scale-98"
-                      }`}
+                        }`}
                     >
                       <Zap className="w-4 h-4" />
                       <span>Coba Gratis 14 Hari</span>
@@ -1217,52 +1172,49 @@ export function IntroductionDashboard({
 
       {/* Action Sheet Modal */}
       {showSourceModal && (
-        <div 
+        <div
           onClick={() => setShowSourceModal(false)}
           className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-t-[28px] sm:rounded-3xl p-5 shadow-2xl space-y-4 animate-in slide-in-from-bottom duration-200"
+            className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-t-2xl sm:rounded-2xl p-4 sm:p-4.5 shadow-2xl space-y-3 animate-in slide-in-from-bottom duration-200"
           >
-            <div className="w-12 h-1.5 bg-slate-700 rounded-full mx-auto sm:hidden" />
+            <div className="w-10 h-1 bg-slate-700 rounded-full mx-auto sm:hidden" />
 
-            <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-              <div>
-                <h4 className="text-sm font-black text-white flex items-center gap-2">
-                  <Scan className="w-4 h-4 text-emerald-400" />
-                  Pilih Sumber Foto Nota
-                </h4>
-                <p className="text-[11px] text-slate-400">Pilih metode pengambilan nota</p>
-              </div>
+            <div className="flex items-center justify-between pb-1.5 border-b border-slate-800">
+              <h4 className="text-xs sm:text-sm font-black text-white flex items-center gap-1.5">
+                <Scan className="w-3.5 h-3.5 text-emerald-400" />
+                Pilih Sumber Nota
+              </h4>
               <button
                 onClick={() => setShowSourceModal(false)}
-                className="p-1.5 rounded-full hover:bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer"
               >
-                <X className="w-4 h-4" />
+                <X className="w-3.5 h-3.5" />
               </button>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <button
                 onClick={() => {
                   setShowSourceModal(false)
                   cameraInputRef.current?.click()
                 }}
-                className="w-full p-3.5 rounded-2xl bg-slate-950/70 hover:bg-emerald-950/40 border border-slate-800 hover:border-emerald-500/50 flex items-center justify-between transition-all group cursor-pointer active:scale-[0.98]"
+                className="w-full p-2.5 rounded-xl bg-slate-950/70 hover:bg-emerald-950/40 border border-slate-800 hover:border-emerald-500/50 flex items-center justify-between transition-all group cursor-pointer active:scale-[0.98]"
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center group-hover:bg-emerald-500 group-hover:text-slate-950 transition-colors">
-                    <Camera className="w-5 h-5" />
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center group-hover:bg-emerald-500 group-hover:text-slate-950 transition-colors shrink-0">
+                    <Camera className="w-4 h-4" />
                   </div>
                   <div className="text-left">
-                    <strong className="block text-xs font-black text-white group-hover:text-emerald-300 transition-colors">
+                    <strong className="block text-xs font-bold text-white group-hover:text-emerald-300 transition-colors">
                       Kamera
                     </strong>
-                    <span className="text-[11px] text-slate-400">Potret langsung nota fisik</span>
+                    <span className="text-[10px] text-slate-400">Foto nota langsung</span>
                   </div>
                 </div>
-                <ArrowRight className="w-4 h-4 text-slate-600 group-hover:text-emerald-400 transition-colors" />
+                <ArrowRight className="w-3.5 h-3.5 text-slate-600 group-hover:text-emerald-400 transition-colors" />
               </button>
 
               <button
@@ -1270,20 +1222,20 @@ export function IntroductionDashboard({
                   setShowSourceModal(false)
                   galleryInputRef.current?.click()
                 }}
-                className="w-full p-3.5 rounded-2xl bg-slate-950/70 hover:bg-emerald-950/40 border border-slate-800 hover:border-emerald-500/50 flex items-center justify-between transition-all group cursor-pointer active:scale-[0.98]"
+                className="w-full p-2.5 rounded-xl bg-slate-950/70 hover:bg-teal-950/40 border border-slate-800 hover:border-teal-500/50 flex items-center justify-between transition-all group cursor-pointer active:scale-[0.98]"
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center group-hover:bg-emerald-500 group-hover:text-slate-950 transition-colors">
-                    <ImageIcon className="w-5 h-5" />
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-teal-500/10 border border-teal-500/20 text-teal-400 flex items-center justify-center group-hover:bg-teal-500 group-hover:text-slate-950 transition-colors shrink-0">
+                    <ImageIcon className="w-4 h-4" />
                   </div>
                   <div className="text-left">
-                    <strong className="block text-xs font-black text-white group-hover:text-emerald-300 transition-colors">
+                    <strong className="block text-xs font-bold text-white group-hover:text-teal-300 transition-colors">
                       Galeri
                     </strong>
-                    <span className="text-[11px] text-slate-400">Pilih foto dari galeri</span>
+                    <span className="text-[10px] text-slate-400">Pilih dari galeri foto</span>
                   </div>
                 </div>
-                <ArrowRight className="w-4 h-4 text-slate-600 group-hover:text-emerald-400 transition-colors" />
+                <ArrowRight className="w-3.5 h-3.5 text-slate-600 group-hover:text-teal-400 transition-colors" />
               </button>
 
               <button
@@ -1291,26 +1243,26 @@ export function IntroductionDashboard({
                   setShowSourceModal(false)
                   docInputRef.current?.click()
                 }}
-                className="w-full p-3.5 rounded-2xl bg-slate-950/70 hover:bg-emerald-950/40 border border-slate-800 hover:border-emerald-500/50 flex items-center justify-between transition-all group cursor-pointer active:scale-[0.98]"
+                className="w-full p-2.5 rounded-xl bg-slate-950/70 hover:bg-purple-950/40 border border-slate-800 hover:border-purple-500/50 flex items-center justify-between transition-all group cursor-pointer active:scale-[0.98]"
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center group-hover:bg-emerald-500 group-hover:text-slate-950 transition-colors">
-                    <FileText className="w-5 h-5" />
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center group-hover:bg-purple-500 group-hover:text-slate-950 transition-colors shrink-0">
+                    <FileText className="w-4 h-4" />
                   </div>
                   <div className="text-left">
-                    <strong className="block text-xs font-black text-white group-hover:text-emerald-300 transition-colors">
+                    <strong className="block text-xs font-bold text-white group-hover:text-purple-300 transition-colors">
                       Dokumen PDF
                     </strong>
-                    <span className="text-[11px] text-slate-400">Unggah berkas invoice format PDF</span>
+                    <span className="text-[10px] text-slate-400">Unggah berkas invoice PDF</span>
                   </div>
                 </div>
-                <ArrowRight className="w-4 h-4 text-slate-600 group-hover:text-emerald-400 transition-colors" />
+                <ArrowRight className="w-3.5 h-3.5 text-slate-600 group-hover:text-purple-400 transition-colors" />
               </button>
             </div>
 
             <button
               onClick={() => setShowSourceModal(false)}
-              className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition-all cursor-pointer"
+              className="w-full py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition-all cursor-pointer"
             >
               Batal
             </button>

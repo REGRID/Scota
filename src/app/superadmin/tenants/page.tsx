@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, Suspense } from "react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 import {
@@ -30,7 +30,7 @@ import { ConfirmDialog } from "@/components/superadmin/ConfirmDialog"
 import { EmptyState } from "@/components/superadmin/EmptyState"
 import { TenantSummary } from "@/lib/superadmin"
 
-export default function SuperadminTenantsPage() {
+function SuperadminTenantsContent() {
   const searchParams = useSearchParams()
   const initialSearch = searchParams.get("search") || ""
 
@@ -824,3 +824,18 @@ export default function SuperadminTenantsPage() {
     </div>
   )
 }
+
+export default function SuperadminTenantsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center min-h-[300px]">
+          <RefreshCw className="w-6 h-6 animate-spin text-emerald-500" />
+        </div>
+      }
+    >
+      <SuperadminTenantsContent />
+    </Suspense>
+  )
+}
+

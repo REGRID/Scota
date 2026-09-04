@@ -156,23 +156,6 @@ export async function getAllTenants(): Promise<TenantSummary[]> {
     console.warn("getAllTenants local store notice:", err)
   }
 
-  // Ensure default superadmin account is present if list is empty
-  if (!tenantsMap.has("rama")) {
-    tenantsMap.set("rama", {
-      username: "rama",
-      fullName: "Superadmin Rama",
-      businessName: "Scota Platform",
-      phone: "",
-      role: "SUPERADMIN",
-      tier: "enterprise",
-      validUntil: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
-      monthlyScanLimit: 99999,
-      usedScansThisMonth: 0,
-      createdAt: new Date().toISOString(),
-      status: "active",
-    })
-  }
-
   return Array.from(tenantsMap.values())
 }
 
@@ -417,18 +400,9 @@ export async function createTenantManual(payload: {
 export async function getTenantDetail(username: string) {
   const cleanUser = username.trim().toLowerCase()
   const tenants = await getAllTenants()
-  const tenant = tenants.find((t) => t.username === cleanUser) || {
-    username: cleanUser,
-    fullName: cleanUser,
-    businessName: `${cleanUser.toUpperCase()} Business`,
-    phone: "",
-    role: "ADMIN",
-    tier: "trial" as SubscriptionTier,
-    validUntil: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
-    monthlyScanLimit: 30,
-    usedScansThisMonth: 0,
-    createdAt: new Date().toISOString(),
-    status: "trial" as const,
+  const tenant = tenants.find((t) => t.username === cleanUser)
+  if (!tenant) {
+    return null
   }
 
   // Get tenant receipts

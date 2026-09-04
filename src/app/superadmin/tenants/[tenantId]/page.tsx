@@ -260,6 +260,22 @@ export default function TenantDetailPage({ params }: TenantDetailPageProps) {
     )
   }
 
+  if (!data?.tenant) {
+    return (
+      <div className="py-16 text-center space-y-4">
+        <h2 className="text-lg font-bold text-white">Tenant Tidak Ditemukan</h2>
+        <p className="text-xs text-slate-400">Tenant dengan ID &quot;{tenantId}&quot; belum terdaftar atau telah dihapus.</p>
+        <Link
+          href="/superadmin/tenants"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 text-slate-950 text-xs font-black"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>Kembali ke Daftar Tenant</span>
+        </Link>
+      </div>
+    )
+  }
+
   const tenant = data?.tenant
   const stats = data?.stats
   const tierCfg = TIER_CONFIG[tenant?.tier as SubscriptionTier] || TIER_CONFIG.trial

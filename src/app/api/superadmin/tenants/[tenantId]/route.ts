@@ -12,6 +12,9 @@ export async function GET(
     }
 
     const detail = await getTenantDetail(tenantId)
+    if (!detail) {
+      return NextResponse.json({ error: "Tenant tidak ditemukan" }, { status: 404 })
+    }
     return NextResponse.json({ success: true, data: detail })
   } catch (error: any) {
     return NextResponse.json(

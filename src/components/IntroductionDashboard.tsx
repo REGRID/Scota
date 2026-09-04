@@ -1153,15 +1153,18 @@ export function IntroductionDashboard({
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-4 text-xs">
+          <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs">
             <Link href="/pricing" className="text-slate-400 hover:text-white transition-colors">
               Paket Harga
             </Link>
+            <Link href="/privacy" className="text-slate-400 hover:text-white transition-colors">
+              Privasi
+            </Link>
+            <Link href="/terms" className="text-slate-400 hover:text-white transition-colors">
+              Ketentuan
+            </Link>
             <Link href="/login" className="text-slate-400 hover:text-white transition-colors">
               Masuk
-            </Link>
-            <Link href="/register" className="text-slate-400 hover:text-white transition-colors">
-              Daftar Gratis
             </Link>
             <Link href="/dashboard" className="text-emerald-400 hover:text-emerald-300 font-bold transition-colors">
               Buka Dashboard →

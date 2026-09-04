@@ -370,6 +370,39 @@ export default function PricingPage() {
           </div>
         </div>
       </main>
+
+      {/* Footer */}
+      <footer className="py-8 bg-slate-950 text-slate-400 text-xs border-t border-slate-900 mt-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <img src="/scota-icon.png" alt="Scota" className="w-7 h-7 object-contain" />
+            <div>
+              <span className="font-bold text-white text-xs">Scota Platform</span>
+              <p className="text-[10.5px] text-slate-500">
+                © {new Date().getFullYear()} Scota Platform. Solusi otomatisasi pembukuan bisnis.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3.5 text-xs">
+            <Link href="/" className="text-slate-400 hover:text-white transition-colors">
+              Beranda
+            </Link>
+            <Link href="/privacy" className="text-slate-400 hover:text-white transition-colors">
+              Privasi
+            </Link>
+            <Link href="/terms" className="text-slate-400 hover:text-white transition-colors">
+              Ketentuan
+            </Link>
+            <Link href="/login" className="text-slate-400 hover:text-white transition-colors">
+              Masuk
+            </Link>
+            <Link href="/dashboard" className="text-emerald-400 hover:text-emerald-300 font-bold transition-colors">
+              Buka Dashboard →
+            </Link>
+          </div>
+        </div>
+      </footer>
     </div>
   )
 }

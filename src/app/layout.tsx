@@ -18,8 +18,24 @@ export const viewport: Viewport = {
 }
 
 export const metadata: Metadata = {
-  title: "Scota — Digitalisasi Struk & Pembukuan Semua Jenis Usaha",
-  description: "Platform Scota - Digitalisasi Struk, Faktur, & Pembukuan Pengeluaran Otomatis untuk Semua Jenis Bisnis, Toko, Kantor & UMKM",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://scota.id"),
+  title: {
+    default: "Scota — Otomatisasi Scan Nota & Pembukuan Bisnis",
+    template: "%s | Scota",
+  },
+  description: "Platform digitalisasi struk belanja, bon faktur, dan pembukuan pengeluaran otomatis berbasis AI untuk semua jenis bisnis, toko, dan UMKM.",
+  keywords: [
+    "scan nota",
+    "pembukuan otomatis",
+    "aplikasi scan struk",
+    "ocr nota kasir",
+    "rekap pengeluaran bisnis",
+    "digitalisasi bon toko",
+    "pembukuan umkm",
+    "scota",
+  ],
+  authors: [{ name: "Scota Platform" }],
+  creator: "Scota Platform",
   manifest: "/manifest.json",
   icons: {
     icon: [
@@ -29,6 +45,28 @@ export const metadata: Metadata = {
     apple: [
       { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
     ],
+  },
+  openGraph: {
+    type: "website",
+    locale: "id_ID",
+    url: "https://scota.id",
+    title: "Scota — Otomatisasi Scan Nota & Pembukuan Bisnis",
+    description: "Cukup foto nota fisik, Scota otomatis mengekstrak rincian item, nominal, dan merekap pembukuan bisnis Anda.",
+    siteName: "Scota",
+    images: [
+      {
+        url: "/scota-logo-detailed-dark.png",
+        width: 1200,
+        height: 630,
+        alt: "Scota Platform Pembukuan Otomatis",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Scota — Otomatisasi Scan Nota & Pembukuan Bisnis",
+    description: "Cukup foto nota fisik, Scota otomatis merekap pembukuan bisnis Anda.",
+    images: ["/scota-logo-detailed-dark.png"],
   },
   appleWebApp: {
     capable: true,

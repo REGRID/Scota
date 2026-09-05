@@ -224,6 +224,31 @@ CREATE TABLE IF NOT EXISTS public.auth_rate_limits (
     UNIQUE (identifier, "actionType")
 );
 
+-- 14. Table: audit_logs (Log Aktivitas Superadmin di Database)
+CREATE TABLE IF NOT EXISTS public.audit_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    superadmin TEXT NOT NULL,
+    action TEXT NOT NULL,
+    "targetTenantId" UUID REFERENCES public.tenants(id) ON DELETE SET NULL,
+    "targetTenantLabel" TEXT,          -- fallback tampilan nama tenant
+    detail TEXT,
+    "ipAddress" TEXT,
+    "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- 15. Table: billing_transactions (Riwayat Transaksi Langganan Superadmin)
+CREATE TABLE IF NOT EXISTS public.billing_transactions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    "invoiceNumber" TEXT NOT NULL UNIQUE,
+    "tenantId" UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
+    tier TEXT NOT NULL DEFAULT 'pro',
+    amount NUMERIC(14,2) NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'lunas',      -- 'lunas' | 'pending' | 'gagal'
+    "paymentMethod" TEXT DEFAULT 'Transfer Manual',
+    "recordedBySuperadmin" TEXT NOT NULL,       -- username superadmin yang mencatat
+    "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- Create Indexes for High Performance Queries & Tenant Scoping
 CREATE INDEX IF NOT EXISTS idx_receipts_tenant ON receipts("tenantId");
 CREATE INDEX IF NOT EXISTS idx_receipts_created_at ON receipts("createdAt" DESC);
@@ -242,3 +267,7 @@ CREATE INDEX IF NOT EXISTS idx_notifications_recipient ON notifications(recipien
 CREATE INDEX IF NOT EXISTS idx_password_resets_user ON password_resets(username);
 CREATE INDEX IF NOT EXISTS idx_password_resets_otp ON password_resets("otpCode");
 CREATE INDEX IF NOT EXISTS auth_rate_limits_identifier_idx ON public.auth_rate_limits (identifier, "actionType");
+CREATE INDEX IF NOT EXISTS audit_logs_tenant_idx ON public.audit_logs ("targetTenantId");
+CREATE INDEX IF NOT EXISTS audit_logs_created_at_idx ON public.audit_logs ("createdAt" DESC);
+CREATE INDEX IF NOT EXISTS billing_transactions_tenant_idx ON public.billing_transactions ("tenantId");
+CREATE INDEX IF NOT EXISTS billing_transactions_invoice_idx ON public.billing_transactions ("invoiceNumber");

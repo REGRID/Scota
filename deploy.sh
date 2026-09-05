@@ -28,6 +28,10 @@ git reset --hard origin/main
 echo "📦 [2/5] Ensuring dependencies are installed..."
 npm install --legacy-peer-deps
 
+echo "🗄️ [2.5/5] Syncing database schema & running migrations..."
+node scripts/setup-postgres.js
+node scripts/migrate-json-logs-to-db.js
+
 echo "🔨 [3/5] Building Next.js production bundle..."
 npm run build
 

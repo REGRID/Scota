@@ -3,8 +3,6 @@ import { TIER_CONFIG, SubscriptionTier, ApprovalWorkflowConfig, DEFAULT_APPROVAL
 import { getUserAccountDetails, updateAdminPassword } from "@/lib/adminAccounts"
 import { hashPassword } from "@/lib/password"
 import { DEFAULT_TENANT_ID } from "@/lib/session"
-import fs from "fs"
-import path from "path"
 
 /**
  * Check whether a given username has Superadmin / Platform Owner / Developer privileges.
@@ -90,9 +88,6 @@ export interface BillingTransaction {
   date: string
   invoiceNumber: string
 }
-
-const AUDIT_LOG_FILE = path.join(process.cwd(), "superadmin_audit_logs.json")
-const BILLING_FILE = path.join(process.cwd(), "superadmin_billing.json")
 
 /**
  * Fetch list of all registered business tenants
@@ -596,76 +591,138 @@ export async function getTenantDetail(username: string) {
 }
 
 /**
- * Record an audit log entry
+ * Record an audit log entry to PostgreSQL database
  */
 export async function recordAuditLog(payload: {
   superadmin: string
   action: string
-  targetTenant: string
+  targetTenantId?: string
+  targetTenant?: string
+  targetTenantLabel?: string
   detail: string
   ipAddress?: string
 }): Promise<void> {
   try {
-    const entry: AuditLogEntry = {
-      id: `LOG-${Date.now().toString(36).toUpperCase()}`,
-      timestamp: new Date().toLocaleString("id-ID", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-      }),
-      superadmin: payload.superadmin || "Superadmin",
-      action: payload.action,
-      targetTenant: payload.targetTenant,
-      detail: payload.detail,
-      ipAddress: payload.ipAddress || "127.0.0.1",
+    const label = payload.targetTenantLabel || payload.targetTenant || "General"
+    if (isDatabaseConfigured) {
+      await queryPg(
+        `INSERT INTO audit_logs (superadmin, action, "targetTenantId", "targetTenantLabel", detail, "ipAddress", "createdAt")
+         VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+        [
+          payload.superadmin || "Superadmin",
+          payload.action,
+          payload.targetTenantId || null,
+          label,
+          payload.detail || "",
+          payload.ipAddress || "127.0.0.1",
+        ]
+      )
     }
-
-    let logs: AuditLogEntry[] = []
-    if (fs.existsSync(AUDIT_LOG_FILE)) {
-      try {
-        logs = JSON.parse(fs.readFileSync(AUDIT_LOG_FILE, "utf-8"))
-      } catch (e) {}
-    }
-
-    logs.unshift(entry)
-    if (logs.length > 500) logs = logs.slice(0, 500)
-    fs.writeFileSync(AUDIT_LOG_FILE, JSON.stringify(logs, null, 2))
   } catch (err) {
-    console.warn("recordAuditLog notice:", err)
+    console.error("recordAuditLog PostgreSQL notice:", err)
   }
 }
 
 /**
- * Get all audit log entries
+ * Get all audit log entries from PostgreSQL database
  */
-export async function getAuditLogs(): Promise<AuditLogEntry[]> {
-  try {
-    if (fs.existsSync(AUDIT_LOG_FILE)) {
-      const fileLogs = JSON.parse(fs.readFileSync(AUDIT_LOG_FILE, "utf-8"))
-      if (Array.isArray(fileLogs) && fileLogs.length > 0) {
-        return fileLogs
+export async function getAuditLogs(limit = 500): Promise<AuditLogEntry[]> {
+  if (isDatabaseConfigured) {
+    try {
+      const res = await queryPg<{
+        id: string
+        superadmin: string
+        action: string
+        targetTenantId: string | null
+        targetTenantLabel: string | null
+        detail: string | null
+        ipAddress: string | null
+        createdAt: string
+      }>(
+        `SELECT id, superadmin, action, "targetTenantId", "targetTenantLabel", detail, "ipAddress", "createdAt"
+         FROM audit_logs
+         ORDER BY "createdAt" DESC
+         LIMIT $1`,
+        [limit]
+      )
+
+      if (res.rows && res.rows.length > 0) {
+        return res.rows.map((row) => ({
+          id: row.id,
+          timestamp: new Date(row.createdAt).toLocaleString("id-ID", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+          }),
+          superadmin: row.superadmin,
+          action: row.action,
+          targetTenant: row.targetTenantLabel || row.targetTenantId || "General",
+          detail: row.detail || "",
+          ipAddress: row.ipAddress || "127.0.0.1",
+        }))
       }
+    } catch (err) {
+      console.warn("getAuditLogs PostgreSQL query notice:", err)
     }
-  } catch (e) {}
+  }
 
   return []
 }
 
 /**
- * Get all billing transactions
+ * Get all billing transactions from PostgreSQL database
  */
 export async function getAllBillingTransactions(): Promise<BillingTransaction[]> {
-  try {
-    if (fs.existsSync(BILLING_FILE)) {
-      const fileData = JSON.parse(fs.readFileSync(BILLING_FILE, "utf-8"))
-      if (Array.isArray(fileData) && fileData.length > 0) {
-        return fileData
+  if (isDatabaseConfigured) {
+    try {
+      const res = await queryPg<{
+        id: string
+        invoiceNumber: string
+        tenantId: string
+        businessName: string | null
+        username: string | null
+        tier: string
+        amount: string | number
+        status: "lunas" | "pending" | "gagal"
+        paymentMethod: string | null
+        createdAt: string
+      }>(
+        `SELECT bt.id,
+                bt."invoiceNumber",
+                bt."tenantId",
+                COALESCE(t."businessName", 'Bisnis') as "businessName",
+                COALESCE(a.username, 'admin') as username,
+                bt.tier,
+                bt.amount,
+                bt.status,
+                bt."paymentMethod",
+                bt."createdAt"
+         FROM billing_transactions bt
+         LEFT JOIN tenants t ON bt."tenantId" = t.id
+         LEFT JOIN admin_accounts a ON a."tenantId" = t.id
+         ORDER BY bt."createdAt" DESC`
+      )
+
+      if (res.rows) {
+        return res.rows.map((row) => ({
+          id: row.id,
+          tenantUsername: row.username || "admin",
+          businessName: row.businessName || "Bisnis",
+          tier: (row.tier || "pro") as SubscriptionTier,
+          amount: Number(row.amount) || 0,
+          status: row.status || "lunas",
+          paymentMethod: row.paymentMethod || "Transfer Manual",
+          date: row.createdAt,
+          invoiceNumber: row.invoiceNumber,
+        }))
       }
+    } catch (err) {
+      console.warn("getAllBillingTransactions PostgreSQL query notice:", err)
     }
-  } catch (e) {}
+  }
 
   return []
 }

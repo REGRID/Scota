@@ -212,6 +212,18 @@ CREATE TABLE IF NOT EXISTS password_resets (
     "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- 13. Table: auth_rate_limits (Rate Limiting & Brute-force Lockout untuk Login, Register & OTP)
+CREATE TABLE IF NOT EXISTS public.auth_rate_limits (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    identifier TEXT NOT NULL,       -- mis. "127.0.0.1:admin" atau "otp_verify:admin"
+    "actionType" TEXT NOT NULL,     -- 'login' | 'register' | 'otp_request' | 'otp_verify'
+    "attemptCount" INTEGER NOT NULL DEFAULT 1,
+    "windowStartAt" TIMESTAMPTZ NOT NULL DEFAULT now(),
+    "lockedUntil" TIMESTAMPTZ,
+    "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (identifier, "actionType")
+);
+
 -- Create Indexes for High Performance Queries & Tenant Scoping
 CREATE INDEX IF NOT EXISTS idx_receipts_tenant ON receipts("tenantId");
 CREATE INDEX IF NOT EXISTS idx_receipts_created_at ON receipts("createdAt" DESC);
@@ -229,3 +241,4 @@ CREATE INDEX IF NOT EXISTS idx_notifications_tenant ON notifications("tenantId")
 CREATE INDEX IF NOT EXISTS idx_notifications_recipient ON notifications(recipient);
 CREATE INDEX IF NOT EXISTS idx_password_resets_user ON password_resets(username);
 CREATE INDEX IF NOT EXISTS idx_password_resets_otp ON password_resets("otpCode");
+CREATE INDEX IF NOT EXISTS auth_rate_limits_identifier_idx ON public.auth_rate_limits (identifier, "actionType");

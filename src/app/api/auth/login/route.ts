@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getUserAccountDetails } from "@/lib/adminAccounts"
 import { verifyPassword } from "@/lib/password"
 import { createSessionToken } from "@/lib/session"
+import { checkAuthRateLimit, recordAuthAttempt, formatLockoutMessage } from "@/lib/authRateLimiter"
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,8 +16,25 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "ID Pengguna dan Password harus diisi" }, { status: 400 })
     }
 
+    // Rate Limiting Protection (Brute-force lockout: max 5 attempts per 15 minutes)
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || 
+               req.headers.get("x-real-ip")?.trim() || 
+               "127.0.0.1"
+    const identifier = `${ip}:${cleanUsername}`
+
+    const rateCheck = await checkAuthRateLimit(identifier, "login")
+    if (!rateCheck.allowed && rateCheck.lockedUntil) {
+      return NextResponse.json(
+        { error: formatLockoutMessage(rateCheck.lockedUntil) },
+        { status: 429 }
+      )
+    }
+
     const account = await getUserAccountDetails(cleanUsername)
     const isMatch = account?.password ? await verifyPassword(cleanPassword, account.password) : false
+
+    // Record attempt result: resets counter on success, increments/locks on failure
+    await recordAuthAttempt(identifier, "login", isMatch)
 
     if (!account || !isMatch) {
       return NextResponse.json({ error: "ID Pengguna atau Password salah. Akses ditolak." }, { status: 401 })

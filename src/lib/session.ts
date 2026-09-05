@@ -1,6 +1,4 @@
 import { SignJWT, jwtVerify } from "jose"
-import fs from "fs"
-import path from "path"
 
 let cachedSecret: Uint8Array | null = null
 
@@ -14,9 +12,11 @@ function getSessionSecret(): Uint8Array {
 
   let secret = process.env.SESSION_SECRET
 
-  // Jika runtime belum menginjeksi process.env, coba baca langsung dari .env.local
-  if (!secret) {
+  // Jika runtime belum menginjeksi process.env, coba baca langsung dari .env.local (hanya di Node.js server)
+  if (!secret && typeof window === "undefined") {
     try {
+      const fs = require("fs")
+      const path = require("path")
       const envPath = path.resolve(process.cwd(), ".env.local")
       if (fs.existsSync(envPath)) {
         const lines = fs.readFileSync(envPath, "utf-8").split("\n")

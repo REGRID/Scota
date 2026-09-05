@@ -1,6 +1,3 @@
-import fs from "fs"
-import path from "path"
-
 /**
  * Next.js Instrumentation Hook
  * Dijalankan saat server Next.js boot up.
@@ -10,6 +7,8 @@ export async function register() {
     // Pastikan SESSION_SECRET terbaca dari .env.local jika belum diinjeksikan
     if (!process.env.SESSION_SECRET) {
       try {
+        const fs = await import("fs")
+        const path = await import("path")
         const envPath = path.resolve(process.cwd(), ".env.local")
         if (fs.existsSync(envPath)) {
           const lines = fs.readFileSync(envPath, "utf-8").split("\n")

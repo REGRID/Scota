@@ -3,9 +3,23 @@ import { registerAdminAccount } from "@/lib/adminAccounts"
 import { TIER_CONFIG, SubscriptionTier } from "@/lib/subscription"
 import { saveSubscriptionInfo, getSubscriptionInfo } from "@/lib/subscriptionServer"
 import { createSessionToken } from "@/lib/session"
+import { checkAuthRateLimit, recordAuthAttempt, formatLockoutMessage } from "@/lib/authRateLimiter"
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || 
+               req.headers.get("x-real-ip")?.trim() || 
+               "127.0.0.1"
+
+    // Rate Limiting Protection (Anti-Spam Tenant/Account: max 3 attempts per 60 minutes)
+    const rateCheck = await checkAuthRateLimit(ip, "register")
+    if (!rateCheck.allowed && rateCheck.lockedUntil) {
+      return NextResponse.json(
+        { error: formatLockoutMessage(rateCheck.lockedUntil) },
+        { status: 429 }
+      )
+    }
+
     const { username, password, fullName, businessName, phone, selectedTier, interestedTier } = await req.json()
 
     const cleanUsername = (username || "").trim().toLowerCase()
@@ -37,6 +51,9 @@ export async function POST(req: NextRequest) {
       phone: cleanPhone,
       tier: activeTier,
     })
+
+    // Record registration attempt for this IP (success resets counter, failure increments)
+    await recordAuthAttempt(ip, "register", regResult.success)
 
     if (!regResult.success) {
       return NextResponse.json({ error: regResult.error || "Gagal membuat akun Admin" }, { status: 400 })

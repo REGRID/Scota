@@ -8,6 +8,7 @@ import {
   maskPhoneNumber,
 } from "@/lib/whatsappOtp"
 import { DEFAULT_SUPPORT_WHATSAPP } from "@/lib/contactConfig"
+import { checkAuthRateLimit, recordAuthAttempt, formatLockoutMessage } from "@/lib/authRateLimiter"
 
 export async function POST(req: NextRequest) {
   try {
@@ -29,6 +30,16 @@ export async function POST(req: NextRequest) {
 
     // 1. ACTION: REQUEST OTP VIA WHATSAPP
     if (action === "request_otp") {
+      // Rate limit check: Max 3 OTP requests per 60 minutes per username
+      const reqIdentifier = `otp_request:${username}`
+      const rateCheck = await checkAuthRateLimit(reqIdentifier, "otp_request")
+      if (!rateCheck.allowed && rateCheck.lockedUntil) {
+        return NextResponse.json(
+          { error: formatLockoutMessage(rateCheck.lockedUntil) },
+          { status: 429 }
+        )
+      }
+
       // Tentukan nomor WhatsApp tujuan
       let targetPhone = account.phone || ""
       const isSuperadmin = account.role === "SUPERADMIN" || username === "superadmin"
@@ -52,6 +63,9 @@ export async function POST(req: NextRequest) {
       // Kirim pesan WhatsApp
       const sendResult = await sendWhatsAppOtpMessage(targetPhone, username, otpCode)
 
+      // Catat percobaan request OTP (setiap request terhitung)
+      await recordAuthAttempt(reqIdentifier, "otp_request", false)
+
       return NextResponse.json({
         success: true,
         action: "otp_sent",
@@ -69,6 +83,16 @@ export async function POST(req: NextRequest) {
 
     // 2. ACTION: VERIFY OTP AND RESET PASSWORD
     if (action === "verify_and_reset") {
+      // Rate limit check: Max 5 attempts per 10 minutes per username before 30-minute lockout
+      const verifyIdentifier = `otp_verify:${username}`
+      const rateCheck = await checkAuthRateLimit(verifyIdentifier, "otp_verify")
+      if (!rateCheck.allowed && rateCheck.lockedUntil) {
+        return NextResponse.json(
+          { error: formatLockoutMessage(rateCheck.lockedUntil) },
+          { status: 429 }
+        )
+      }
+
       const { otp, newPassword } = body
       const cleanOtp = (otp || "").trim()
       const cleanPass = (newPassword || "").trim()
@@ -83,6 +107,10 @@ export async function POST(req: NextRequest) {
 
       // Validasi OTP
       const verifyResult = await verifyPasswordResetOtp(username, cleanOtp)
+
+      // Catat percobaan verifikasi: jika valid reset counter, jika salah catat kegagalan
+      await recordAuthAttempt(verifyIdentifier, "otp_verify", verifyResult.valid)
+
       if (!verifyResult.valid) {
         return NextResponse.json({ error: verifyResult.error || "Kode OTP tidak valid" }, { status: 400 })
       }

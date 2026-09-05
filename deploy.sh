@@ -8,6 +8,19 @@ echo "=========================================="
 
 cd "$APP_DIR" || { echo "❌ Directory $APP_DIR not found!"; exit 1; }
 
+# Validasi Pre-flight: Pastikan .env.local ada dan memiliki SESSION_SECRET yang aman
+if [ -f .env.local ]; then
+    if ! grep -q "SESSION_SECRET=" .env.local; then
+        echo "⚠️ SESSION_SECRET belum ada di .env.local! Menghasilkan kunci kriptografis aman..."
+        SEC=$(node -e "console.log(require('crypto').randomBytes(48).toString('base64'))")
+        echo -e "\nSESSION_SECRET=\"$SEC\"" >> .env.local
+        echo "✅ SESSION_SECRET baru berhasil disuntikkan ke .env.local"
+    fi
+else
+    echo "❌ Error: File .env.local tidak ditemukan di $APP_DIR!"
+    exit 1
+fi
+
 echo "📥 [1/5] Fetching latest changes from GitHub..."
 git fetch origin main
 git reset --hard origin/main

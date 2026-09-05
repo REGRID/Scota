@@ -75,8 +75,13 @@ async function runSetup() {
       CREATE UNIQUE INDEX IF NOT EXISTS tenants_demo_google_idx ON tenants ("demoGoogleId") WHERE "isDemo" = true;
       CREATE INDEX IF NOT EXISTS tenants_demo_expiry_idx ON tenants ("expiresAt") WHERE "isDemo" = true;
       ALTER TABLE admin_accounts ADD COLUMN IF NOT EXISTS email TEXT;
+      CREATE TABLE IF NOT EXISTS system_settings (
+        key VARCHAR(100) PRIMARY KEY,
+        value TEXT NOT NULL,
+        "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
     `);
-    console.log('✓ All 11 PostgreSQL Tables, Demo Columns & Indexes created/verified successfully!');
+    console.log('✓ All 11 PostgreSQL Tables, Demo Columns, System Settings & Indexes created/verified successfully!');
 
     // Verify tables
     const tableRes = await client.query(`

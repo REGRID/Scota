@@ -8,6 +8,8 @@ import { queryPg } from "@/lib/pgDb"
 import { DEMO_SCAN_LIMIT, DEMO_RECEIPT_LIMIT } from "@/lib/demoTenant"
 import { invalidateReceiptsListCache } from "@/app/api/receipts/route"
 
+import { getActiveGeminiApiKey, getActiveGeminiModel } from "@/lib/aiConfig"
+
 export interface ParsedItem {
   name: string
   category: string
@@ -70,19 +72,24 @@ async function callGeminiRestApi(apiKey: string, modelName: string, contentsPart
     if (!response.ok) {
       const errText = await response.text()
       if (errText.includes("API_KEY_INVALID") || errText.includes("API key not valid") || errText.includes("INVALID_ARGUMENT")) {
-        const invalidErr = new Error("GOOGLE_API_KEY_INVALID: API Key tidak valid. Silakan buat API Key gratis di https://aistudio.google.com/app/apikey")
+        const invalidErr = new Error("GOOGLE_API_KEY_INVALID")
         ;(invalidErr as any).status = 400
+        ;(invalidErr as any).userMessage = "Layanan pemindaian sedang tidak tersedia. Silakan hubungi admin atau coba lagi nanti."
         throw invalidErr
       }
       if (response.status === 429 || errText.includes("RESOURCE_EXHAUSTED") || errText.includes("Quota exceeded")) {
         const quotaErr = new Error("GOOGLE_CLOUD_QUOTA_EXCEEDED")
         ;(quotaErr as any).status = 429
+        ;(quotaErr as any).userMessage = "Layanan sedang sibuk. Silakan coba beberapa detik lagi."
         throw quotaErr
       }
       if (response.status === 404) {
-        throw new Error(`MODEL_NOT_FOUND: Model ${modelName} tidak ditemukan`)
+        const notFoundErr = new Error("MODEL_NOT_FOUND")
+        ;(notFoundErr as any).status = 502
+        ;(notFoundErr as any).userMessage = "Layanan pemindaian sedang diperbarui. Silakan coba lagi."
+        throw notFoundErr
       }
-      throw new Error(`Gemini API Error (${response.status}): ${errText}`)
+      throw new Error(`Gemini API Error (${response.status})`)
     }
 
     const data = await response.json()
@@ -163,14 +170,12 @@ export async function POST(req: NextRequest) {
     // 2. Parse & Sanitize Input (Supports both JSON and Multipart/FormData)
     let rawText = ""
     let imageBase64: string | undefined = undefined
-    let clientApiKey = ""
 
     const contentType = req.headers.get("content-type") || ""
     if (contentType.includes("multipart/form-data")) {
       try {
         const formData = await req.formData()
         rawText = sanitizeRawText((formData.get("rawText") as string) || "")
-        clientApiKey = (formData.get("apiKey") as string) || ""
         const file = (formData.get("image") || formData.get("file")) as File | null
         if (file) {
           const bytes = await file.arrayBuffer()
@@ -185,7 +190,6 @@ export async function POST(req: NextRequest) {
         const body = await req.json()
         rawText = sanitizeRawText(body.rawText || "")
         imageBase64 = body.imageBase64
-        clientApiKey = (body && typeof body === "object" ? body.apiKey : "") || ""
       } catch (err: any) {
         console.error("Error parsing JSON in parse-receipt:", err)
       }
@@ -195,22 +199,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Data gambar atau teks nota diperlukan" }, { status: 400 })
     }
 
-    const apiKey =
-      req.headers.get("x-gemini-api-key") ||
-      clientApiKey ||
-      process.env.GEMINI_API_KEY
+    // 3. Centralized API Key & Model Resolution (Superadmin DB Master -> Fallback process.env)
+    // NOTE: BYOK User telah ditiadakan. Kunci client dari browser dilarang demi keamanan.
+    const apiKey = await getActiveGeminiApiKey()
+    const configuredModel = await getActiveGeminiModel()
 
     if (!apiKey || apiKey.length < 10) {
+      console.error("[parse-receipt] Gemini API Key belum disetel di system_settings atau environment server.")
       return NextResponse.json(
         {
-          error: "INVALID_API_KEY",
-          message: "Kunci GEMINI_API_KEY belum dikonfigurasi di lingkungan server (.env.local) atau Vercel. Silakan buat API Key gratis di https://aistudio.google.com/app/apikey",
+          error: "SERVICE_UNAVAILABLE",
+          message: "Layanan pemindaian sedang tidak tersedia. Silakan hubungi admin atau coba lagi nanti.",
         },
-        { status: 400 }
+        { status: 503 }
       )
     }
 
-    // 3. Fetch Official Parent & Sub Categories strictly from Database (auto-seeded if empty)
+    // 4. Fetch Official Parent & Sub Categories strictly from Database (auto-seeded if empty)
     const categoryHierarchy = await getOrSeedCategories()
 
     // Build DB Hierarchy Map & Compact String Representation (saves ~350 tokens per request)
@@ -223,10 +228,10 @@ export async function POST(req: NextRequest) {
       .map((h: any) => `"${h.parentName}": ${JSON.stringify(h.subNames)}`)
       .join(", ")
 
-    // 4. Retrieve Self-Learned Knowledge Base from Past Verified Receipts
+    // 5. Retrieve Self-Learned Knowledge Base from Past Verified Receipts
     const learnedKnowledgeContext = await getLearnedKnowledgeContext()
 
-    // 5. Construct Compact High-Speed Multimodal Prompt
+    // 6. Construct Compact High-Speed Multimodal Prompt
     const promptText = `Ekstrak visual foto nota/struk/kuitansi/faktur ini menjadi format JSON valid.
 Kategori Resmi: { ${categoriesCompactMap} }
 ${learnedKnowledgeContext ? `Memori: ${learnedKnowledgeContext}\n` : ""}
@@ -274,13 +279,15 @@ Keluarkan HANYA JSON:
 
     contentsParts.push({ text: promptText })
 
-    const candidateModels = [
-      "gemini-3.7-flash",
-      "gemini-3.5-flash-lite",
-      "gemini-3.1-flash-lite",
-      "gemini-3.5-flash",
-      "gemini-3.6-flash",
-    ]
+    const candidateModels = Array.from(
+      new Set([
+        configuredModel,
+        "gemini-2.5-flash",
+        "gemini-3.7-flash",
+        "gemini-3.5-flash-lite",
+        "gemini-3.1-flash-lite",
+      ])
+    )
     let textOutput = ""
     let lastError: any = null
     let usedModel = candidateModels[0]
@@ -297,7 +304,14 @@ Keluarkan HANYA JSON:
       } catch (err: any) {
         lastError = err
         if (err.message?.includes("GOOGLE_API_KEY_INVALID")) {
-          return NextResponse.json({ error: "INVALID_API_KEY", message: err.message }, { status: 400 })
+          console.error("[parse-receipt] Gemini API Key tidak valid pada server.")
+          return NextResponse.json(
+            {
+              error: "SERVICE_UNAVAILABLE",
+              message: err.userMessage || "Layanan pemindaian sedang tidak tersedia. Silakan hubungi admin atau coba lagi nanti.",
+            },
+            { status: 503 }
+          )
         }
         console.warn(`[Gemini OCR API] Model ${model} failed or rate limited (${err.message}). Auto-switching to next candidate...`)
       }
@@ -308,7 +322,7 @@ Keluarkan HANYA JSON:
         return NextResponse.json(
           {
             error: "QUOTA_EXCEEDED",
-            message: "Batas frekuensi Google Gemini API (Rate limit 429) tercapai. Silakan coba beberapa detik lagi.",
+            message: "Layanan sedang sibuk karena batas kapasitas. Silakan coba beberapa detik lagi.",
           },
           { status: 429 }
         )
@@ -318,7 +332,7 @@ Keluarkan HANYA JSON:
       return NextResponse.json(
         {
           error: "API_PARSE_FAILED",
-          message: `Gagal memproses nota dari server AI: ${lastError?.message || "Kesalahan API"}`,
+          message: "Gagal memproses nota. Silakan pastikan foto nota jelas dan coba lagi.",
         },
         { status: 502 }
       )
@@ -473,6 +487,6 @@ Keluarkan HANYA JSON:
     return response
   } catch (error: any) {
     console.error("Parse Receipt Server Error:", error)
-    return NextResponse.json({ error: "SERVER_ERROR", message: error.message || "Gagal memproses nota" }, { status: 500 })
+    return NextResponse.json({ error: "SERVER_ERROR", message: "Terjadi kesalahan pada server saat memproses nota." }, { status: 500 })
   }
 }

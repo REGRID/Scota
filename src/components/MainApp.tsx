@@ -34,7 +34,6 @@ import {
 
 import { useAppDialog } from "@/components/ui/app-dialog"
 import { ThemeToggle } from "@/lib/theme"
-import { ApiKeyModal } from "@/components/ApiKeyModal"
 
 export interface MainAppProps {
   initialView?: "landing" | "app" | "login" | "register"
@@ -232,7 +231,6 @@ export function MainApp({
   const [parsedResult, setParsedResult] = useState<ParsedReceiptResult | null>(null)
   const [parsingMode, setParsingMode] = useState<string>("gemini_multimodal_vision")
   const [quotaError, setQuotaError] = useState<string | null>(null)
-  const [showApiKeyModal, setShowApiKeyModal] = useState<boolean>(false)
 
   // Saved Receipt Editing State
   const [editingReceiptId, setEditingReceiptId] = useState<string | null>(null)
@@ -501,19 +499,15 @@ export function MainApp({
     setOcrStatus(`Memproses Nota #${index + 1} dari ${queue.length}...`)
     setOcrPercent(0.3)
 
-    const userApiKey = typeof window !== "undefined" ? localStorage.getItem("gemini_api_key") || "" : ""
-
     const parsePromise = fetchWithRetry("/api/parse-receipt", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...(userApiKey ? { "x-gemini-api-key": userApiKey } : {}),
       },
       signal: controller.signal,
       body: JSON.stringify({
         rawText: "",
         imageBase64: item.base64,
-        apiKey: userApiKey,
       }),
     })
 
@@ -539,10 +533,6 @@ export function MainApp({
       }
 
       if (!response.ok) {
-        if (data.error === "INVALID_API_KEY") {
-          setShowApiKeyModal(true)
-          throw new Error("KUNCI_API_DIPERLUKAN")
-        }
         if (response.status === 429 || data.error === "QUOTA_EXCEEDED") {
           const limitMsg =
             data.message ||
@@ -570,9 +560,7 @@ export function MainApp({
       setBatchQueue([])
       setBatchIndex(0)
       setImagePreviewUrl(null)
-      if (err.message === "KUNCI_API_DIPERLUKAN") {
-        // Handled by modal
-      } else if (!quotaError) {
+      if (!quotaError) {
         showAlert({
           title: "Gagal Memproses Nota",
           description: `Gagal memproses nota #${index + 1}: ${err.message || "Kesalahan server"}`,
@@ -1047,13 +1035,6 @@ export function MainApp({
       </div>
 
       {/* Modals */}
-      {showApiKeyModal && (
-        <ApiKeyModal
-          isOpen={showApiKeyModal}
-          onClose={() => setShowApiKeyModal(false)}
-        />
-      )}
-
       {showSubscriptionModal && (
         <SubscriptionModal
           isOpen={showSubscriptionModal}

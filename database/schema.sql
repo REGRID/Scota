@@ -267,6 +267,13 @@ CREATE TABLE IF NOT EXISTS public.billing_transactions (
     "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- 16. Table: system_settings (Pengaturan Master Platform oleh Superadmin)
+CREATE TABLE IF NOT EXISTS public.system_settings (
+    key VARCHAR(100) PRIMARY KEY,
+    value TEXT NOT NULL,
+    "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- Create Indexes for High Performance Queries & Tenant Scoping
 CREATE INDEX IF NOT EXISTS idx_receipts_tenant ON receipts("tenantId");
 CREATE INDEX IF NOT EXISTS idx_receipts_created_at ON receipts("createdAt" DESC);

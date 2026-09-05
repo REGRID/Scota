@@ -27,30 +27,39 @@ import { getSupportWhatsAppNumber, setSupportWhatsAppNumber } from "@/lib/contac
 
 export default function SuperadminAiSettingsPage() {
   const [apiKey, setApiKey] = useState("")
+  const [maskedKeyPlaceholder, setMaskedKeyPlaceholder] = useState("")
   const [showApiKey, setShowApiKey] = useState(false)
   const [aiModel, setAiModel] = useState("gemini-2.5-flash")
   const [temperature, setTemperature] = useState("0.1")
   const [autoLearnEnabled, setAutoLearnEnabled] = useState(true)
-  const [tenantCustomKeyAllowed, setTenantCustomKeyAllowed] = useState(false)
   const [supportWhatsApp, setSupportWhatsApp] = useState("6285215973776")
   const [isTesting, setIsTesting] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
   const [testResult, setTestResult] = useState<{ success?: boolean; message?: string; latencyMs?: number } | null>(null)
 
-  // Load configuration on mount
+  // Load configuration from server on mount
   useEffect(() => {
+    async function loadServerAiSettings() {
+      try {
+        const res = await fetch("/api/superadmin/ai-settings")
+        if (res.ok) {
+          const data = await res.json()
+          if (data.settings) {
+            if (data.settings.apiKeyMasked) {
+              setMaskedKeyPlaceholder(data.settings.apiKeyMasked)
+            }
+            if (data.settings.model) {
+              setAiModel(data.settings.model)
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("Gagal memuat pengaturan AI server:", err)
+      }
+    }
+    loadServerAiSettings()
+
     if (typeof window !== "undefined") {
-      const savedKey = localStorage.getItem("gemini_api_key") || ""
-      setApiKey(savedKey)
-
-      const savedModel = localStorage.getItem("scota_ai_model")
-      if (savedModel) setAiModel(savedModel)
-
-      const savedAutoLearn = localStorage.getItem("scota_ai_autolearn")
-      if (savedAutoLearn !== null) setAutoLearnEnabled(savedAutoLearn === "true")
-
-      const savedCustomKeyAllowed = localStorage.getItem("scota_ai_tenant_custom_allowed")
-      if (savedCustomKeyAllowed !== null) setTenantCustomKeyAllowed(savedCustomKeyAllowed === "true")
-
       setSupportWhatsApp(getSupportWhatsAppNumber())
     }
   }, [])
@@ -59,7 +68,7 @@ export default function SuperadminAiSettingsPage() {
   const handleTestConnection = async () => {
     const cleanKey = apiKey.trim().replace(/^["']|["']$/g, "")
     if (!cleanKey) {
-      toast.error("Masukkan Google Gemini API Key terlebih dahulu sebelum menguji koneksi.")
+      toast.error("Masukkan Google Gemini API Key pada kolom input untuk menguji koneksi.")
       return
     }
 
@@ -110,16 +119,41 @@ export default function SuperadminAiSettingsPage() {
     }
   }
 
-  // Save Settings
-  const handleSaveSettings = () => {
-    const cleanKey = apiKey.trim().replace(/^["']|["']$/g, "")
-    localStorage.setItem("gemini_api_key", cleanKey)
-    localStorage.setItem("scota_ai_model", aiModel)
-    localStorage.setItem("scota_ai_autolearn", String(autoLearnEnabled))
-    localStorage.setItem("scota_ai_tenant_custom_allowed", String(tenantCustomKeyAllowed))
-    setSupportWhatsAppNumber(supportWhatsApp)
+  // Save Settings to Database
+  const handleSaveSettings = async () => {
+    setIsSaving(true)
+    try {
+      const payload: { apiKey?: string; model?: string } = {
+        model: aiModel,
+      }
+      if (apiKey.trim()) {
+        payload.apiKey = apiKey.trim()
+      }
 
-    toast.success("Seluruh Konfigurasi Sistem, AI, & Kontak WhatsApp berhasil disimpan!")
+      const res = await fetch("/api/superadmin/ai-settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+
+      if (!res.ok) {
+        const errData = await res.json()
+        throw new Error(errData.error || "Gagal menyimpan konfigurasi ke server.")
+      }
+
+      const data = await res.json()
+      if (data.settings?.apiKeyMasked) {
+        setMaskedKeyPlaceholder(data.settings.apiKeyMasked)
+        setApiKey("") // Kosongkan input setelah tersimpan demi keamanan
+      }
+
+      setSupportWhatsAppNumber(supportWhatsApp)
+      toast.success("Konfigurasi Master AI & WhatsApp berhasil disimpan ke database server!")
+    } catch (err: any) {
+      toast.error(err.message || "Gagal menyimpan konfigurasi.")
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   return (
@@ -172,23 +206,30 @@ export default function SuperadminAiSettingsPage() {
 
               <span
                 className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase border ${
-                  apiKey.length >= 15
+                  apiKey.length >= 15 || maskedKeyPlaceholder
                     ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
                     : "bg-rose-500/20 text-rose-400 border-rose-500/30"
                 }`}
               >
-                {apiKey.length >= 15 ? "Kunci Terkonfigurasi" : "Belum Diisi"}
+                {apiKey.length >= 15 || maskedKeyPlaceholder ? "Kunci Aktif di Database" : "Belum Diisi"}
               </span>
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-300">API Key</label>
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-slate-300">API Key</label>
+                {maskedKeyPlaceholder && !apiKey && (
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    Tersimpan: {maskedKeyPlaceholder}
+                  </span>
+                )}
+              </div>
               <div className="relative">
                 <input
                   type={showApiKey ? "text" : "password"}
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
-                  placeholder="AIzaSy..."
+                  placeholder={maskedKeyPlaceholder ? `Tersimpan: ${maskedKeyPlaceholder} (ketik baru untuk mengganti)` : "AIzaSy..."}
                   className="w-full px-3.5 py-2.5 pr-10 text-xs rounded-xl border border-slate-700 bg-slate-950 text-white font-mono focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
                 />
                 <button
@@ -336,26 +377,26 @@ export default function SuperadminAiSettingsPage() {
             </div>
           </div>
 
-          {/* Card 4: Tenant Isolation Policy */}
+          {/* Card 4: Centralized Architecture Policy */}
           <div className="p-5 sm:p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center justify-center">
                 <ShieldCheck className="w-4 h-4" />
               </div>
               <div>
-                <h3 className="text-xs font-black text-white">Kebijakan Kunci API Tenant</h3>
-                <p className="text-[10px] text-slate-400">Sentralisasi vs BYOK</p>
+                <h3 className="text-xs font-black text-white">Kebijakan Kunci API Platform</h3>
+                <p className="text-[10px] text-slate-400">Master Sentral Terisolasi (Anti-BYOK)</p>
               </div>
             </div>
 
             <div className="space-y-3 text-[11px]">
               <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-slate-200">Mode Sentral (Rekomendasi SaaS)</span>
+                  <span className="font-bold text-slate-200">Mode Sentral Eksklusif Superadmin</span>
                   <span className="text-[10px] font-black text-emerald-400">AKTIF</span>
                 </div>
-                <p className="text-slate-400">
-                  Seluruh tenant menggunakan Master API Key Superadmin. Tenant tidak dibebani teknis API dan admin platform dapat mengontrol kuota langganan secara terpusat.
+                <p className="text-slate-400 leading-relaxed">
+                  Fitur bawa API key sendiri (BYOK) bagi pengguna biasa telah dinonaktifkan demi keamanan. Seluruh tenant, kasir, dan demo Google otomatis menggunakan Master API Key ini yang dikontrol penuh oleh Superadmin di database.
                 </p>
               </div>
             </div>

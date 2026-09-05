@@ -19,7 +19,29 @@ const PUBLIC_API_ROUTES = [
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
 
-  // Hanya filter rute yang diawali dengan /api/
+  // --- Bagian 1: Proteksi Halaman /superadmin/** ---
+  if (pathname.startsWith("/superadmin")) {
+    const sessionCookie = req.cookies.get("nota_admin_session")?.value
+    const authHeader = req.headers.get("authorization")?.replace("Bearer ", "").trim()
+    const token = sessionCookie || authHeader
+
+    if (!token) {
+      // Belum login sama sekali -> arahkan ke halaman login
+      return NextResponse.redirect(new URL("/login", req.url))
+    }
+
+    const session = await verifySessionToken(token)
+
+    if (!session || session.role !== "SUPERADMIN") {
+      // Sudah login TAPI bukan superadmin -> arahkan senyap ke halaman utama,
+      // BUKAN ke halaman 403 Forbidden agar tidak mengonfirmasi keberadaan panel superadmin
+      return NextResponse.redirect(new URL("/", req.url))
+    }
+
+    return NextResponse.next()
+  }
+
+  // --- Bagian 2: Proteksi API /api/** ---
   if (!pathname.startsWith("/api/")) {
     return NextResponse.next()
   }
@@ -51,5 +73,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: "/api/:path*",
+  matcher: ["/api/:path*", "/superadmin/:path*"],
 }

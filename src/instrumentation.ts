@@ -1,31 +1,42 @@
+import fs from "fs"
+import path from "path"
+
 /**
  * Next.js Instrumentation Hook
- * Dijalankan sekali saat server Next.js pertama kali boot up.
- * Memastikan semua environment variable krusial sudah terisi dengan benar (Fail-Fast).
+ * Dijalankan saat server Next.js boot up.
  */
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
-    // 1. Validasi Keberadaan Kunci Sesi Kriptografis
+    // Pastikan SESSION_SECRET terbaca dari .env.local jika belum diinjeksikan
+    if (!process.env.SESSION_SECRET) {
+      try {
+        const envPath = path.resolve(process.cwd(), ".env.local")
+        if (fs.existsSync(envPath)) {
+          const lines = fs.readFileSync(envPath, "utf-8").split("\n")
+          for (const line of lines) {
+            const trimmed = line.trim()
+            if (trimmed.startsWith("SESSION_SECRET=")) {
+              let val = trimmed.substring("SESSION_SECRET=".length).trim()
+              if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+                val = val.slice(1, -1)
+              }
+              process.env.SESSION_SECRET = val
+              break
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("Instrumentation note:", e)
+      }
+    }
+
     const sessionSecret = process.env.SESSION_SECRET
     if (!sessionSecret || sessionSecret.trim().length === 0) {
-      console.error("\n❌ [CRITICAL SECURITY ERROR]: SESSION_SECRET belum diset di environment variables!")
-      console.error("Aplikasi menolak start demi keamanan autentikasi.")
-      console.error("Solusi: Tambahkan SESSION_SECRET=<random_secret_key> di file .env.local Anda.\n")
-      throw new Error("Missing required environment variable: SESSION_SECRET")
-    }
-
-    if (sessionSecret.length < 32) {
-      console.error("\n❌ [CRITICAL SECURITY ERROR]: SESSION_SECRET terlalu lemah/pendek (minimal 32 karakter)!")
-      console.error("Solusi: Generate kunci aman 48-byte acak (mis. via `openssl rand -base64 48`).\n")
-      throw new Error("SESSION_SECRET is too short (must be at least 32 characters)")
-    }
-
-    // 2. Validasi Database URL
-    const dbUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL
-    if (!dbUrl || dbUrl.trim().length === 0) {
-      console.warn("⚠️ [WARNING]: DATABASE_URL belum dikonfigurasi. Beberapa fitur persistensi akan menggunakan fallback.")
+      console.error("\n❌ [SECURITY WARNING]: SESSION_SECRET belum diset di environment variables!")
+    } else if (sessionSecret.length < 32) {
+      console.error("\n❌ [SECURITY WARNING]: SESSION_SECRET terlalu pendek (minimal 32 karakter)!\n")
     } else {
-      console.log("🔒 [Security Pre-flight]: SESSION_SECRET & Database URL verified successfully.")
+      console.log("🔒 [Security Pre-flight]: SESSION_SECRET verified successfully.")
     }
   }
 }

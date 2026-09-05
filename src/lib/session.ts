@@ -1,4 +1,6 @@
 import { SignJWT, jwtVerify } from "jose"
+import fs from "fs"
+import path from "path"
 
 let cachedSecret: Uint8Array | null = null
 
@@ -10,7 +12,29 @@ let cachedSecret: Uint8Array | null = null
 function getSessionSecret(): Uint8Array {
   if (cachedSecret) return cachedSecret
 
-  const secret = process.env.SESSION_SECRET
+  let secret = process.env.SESSION_SECRET
+
+  // Jika runtime belum menginjeksi process.env, coba baca langsung dari .env.local
+  if (!secret) {
+    try {
+      const envPath = path.resolve(process.cwd(), ".env.local")
+      if (fs.existsSync(envPath)) {
+        const lines = fs.readFileSync(envPath, "utf-8").split("\n")
+        for (const line of lines) {
+          const trimmed = line.trim()
+          if (trimmed.startsWith("SESSION_SECRET=")) {
+            let val = trimmed.substring("SESSION_SECRET=".length).trim()
+            if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+              val = val.slice(1, -1)
+            }
+            secret = val
+            process.env.SESSION_SECRET = val
+            break
+          }
+        }
+      }
+    } catch {}
+  }
 
   if (!secret || secret.trim().length === 0) {
     throw new Error(

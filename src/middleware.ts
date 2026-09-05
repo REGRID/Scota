@@ -12,6 +12,10 @@ const PUBLIC_API_ROUTES = [
   "/api/auth/logout",
   "/api/auth/demo-login", // endpoint bridge sesi Scota untuk demo Google
   "/api/auth/callback", // endpoint callback Auth.js (mis. /api/auth/callback/google)
+  "/api/auth/signin", // memulai redirect ke Google OAuth (Auth.js)
+  "/api/auth/error", // menampilkan detail error OAuth resmi Auth.js
+  "/api/auth/csrf", // token CSRF internal Auth.js sebelum signin
+  "/api/auth/providers", // daftar provider OAuth aktif Auth.js
   "/api/parse-receipt", // publik by design untuk scan sebelum login
   "/api/quota", // satu paket dengan parse-receipt -- menampilkan sisa kuota IP, bukan data tenant
 ]

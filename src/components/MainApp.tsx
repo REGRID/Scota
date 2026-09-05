@@ -52,6 +52,7 @@ export function MainApp({
   // Admin Auth Gate State
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
   const [adminUser, setAdminUser] = useState<string>("admin")
+  const [userRole, setUserRole] = useState<string>("ADMIN")
   const [staffName, setStaffName] = useState<string>("Staf")
   const [authInitialMode, setAuthInitialMode] = useState<"login" | "register">(
     initialView === "register" ? "register" : "login"
@@ -297,6 +298,7 @@ export function MainApp({
           if (data.authenticated) {
             setIsAuthenticated(true)
             if (data.user?.username) setAdminUser(data.user.username)
+            if (data.user?.role) setUserRole(data.user.role)
             if (initialView !== "landing") setShowLanding(false)
             return
           }
@@ -956,6 +958,7 @@ export function MainApp({
       <SubscriptionBanner
         subscription={subscription}
         onOpenSubscriptionModal={() => router.push("/pricing")}
+        userRole={userRole}
       />
 
       {/* Main Container Body */}

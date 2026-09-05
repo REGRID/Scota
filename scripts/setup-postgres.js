@@ -63,7 +63,20 @@ async function runSetup() {
     console.log('[PostgreSQL Setup] Executing DDL Schema script from database/schema.sql...');
     
     await client.query(ddlScript);
-    console.log('✓ All 11 PostgreSQL Tables & Indexes created/verified successfully!');
+    
+    // Idempotent column migrations for existing PostgreSQL databases
+    console.log('[PostgreSQL Setup] Applying column migrations for Demo Google OAuth & Accounts...');
+    await client.query(`
+      ALTER TABLE tenants ADD COLUMN IF NOT EXISTS "isDemo" BOOLEAN NOT NULL DEFAULT false;
+      ALTER TABLE tenants ADD COLUMN IF NOT EXISTS "demoGoogleId" TEXT;
+      ALTER TABLE tenants ADD COLUMN IF NOT EXISTS "demoEmail" TEXT;
+      ALTER TABLE tenants ADD COLUMN IF NOT EXISTS "demoScanCount" INTEGER NOT NULL DEFAULT 0;
+      ALTER TABLE tenants ADD COLUMN IF NOT EXISTS "expiresAt" TIMESTAMPTZ;
+      CREATE UNIQUE INDEX IF NOT EXISTS tenants_demo_google_idx ON tenants ("demoGoogleId") WHERE "isDemo" = true;
+      CREATE INDEX IF NOT EXISTS tenants_demo_expiry_idx ON tenants ("expiresAt") WHERE "isDemo" = true;
+      ALTER TABLE admin_accounts ADD COLUMN IF NOT EXISTS email TEXT;
+    `);
+    console.log('✓ All 11 PostgreSQL Tables, Demo Columns & Indexes created/verified successfully!');
 
     // Verify tables
     const tableRes = await client.query(`

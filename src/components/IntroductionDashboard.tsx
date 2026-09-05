@@ -407,17 +407,25 @@ export function IntroductionDashboard({
             <div className="pt-2 sm:pt-3 flex flex-col sm:flex-row items-center justify-center gap-3.5">
               <Link
                 href="/register"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-7 py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-slate-950 font-black text-sm transition-all shadow-xl shadow-emerald-500/25 hover:shadow-emerald-500/35 hover:-translate-y-0.5 active:scale-98 cursor-pointer"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-slate-950 font-black text-sm transition-all shadow-xl shadow-emerald-500/25 hover:shadow-emerald-500/35 hover:-translate-y-0.5 active:scale-98 cursor-pointer"
               >
                 <Zap className="w-4 h-4 text-slate-950 fill-slate-950" />
                 <span>Coba Gratis 14 Hari</span>
               </Link>
 
               <Link
-                href="/pricing"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-7 py-3.5 rounded-2xl bg-slate-900/90 hover:bg-slate-800 text-slate-200 border border-slate-700/80 hover:border-slate-600 font-bold text-sm transition-all hover:-translate-y-0.5 cursor-pointer shadow-md"
+                href="/demo/masuk"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-2xl bg-slate-900/90 hover:bg-slate-800 text-emerald-400 border border-emerald-500/30 hover:border-emerald-500/60 font-bold text-sm transition-all hover:-translate-y-0.5 cursor-pointer shadow-md shadow-emerald-500/5"
               >
-                <Receipt className="w-4 h-4 text-emerald-400" />
+                <Sparkles className="w-4 h-4 text-emerald-400" />
+                <span>Coba Demo (Akun Google)</span>
+              </Link>
+
+              <Link
+                href="/pricing"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-2xl bg-slate-900/90 hover:bg-slate-800 text-slate-200 border border-slate-700/80 hover:border-slate-600 font-bold text-sm transition-all hover:-translate-y-0.5 cursor-pointer shadow-md"
+              >
+                <Receipt className="w-4 h-4 text-slate-400" />
                 <span>Lihat Paket Harga</span>
               </Link>
             </div>
@@ -523,10 +531,17 @@ export function IntroductionDashboard({
                     </div>
 
                     <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+                      <Link
+                        href="/demo/masuk"
+                        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-950 font-black text-xs sm:text-sm transition-all shadow-md shadow-teal-500/20 hover:-translate-y-0.5 cursor-pointer"
+                      >
+                        <Sparkles className="w-4 h-4" />
+                        <span>Coba Demo Akun Google</span>
+                      </Link>
                       <button
                         type="button"
                         onClick={() => onEnterApp({ mode: "register" })}
-                        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-slate-950 font-black text-xs sm:text-sm transition-all shadow-md shadow-emerald-500/25 hover:-translate-y-0.5 cursor-pointer"
+                        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 font-bold text-xs sm:text-sm transition-all border border-emerald-500/30 cursor-pointer"
                       >
                         <span>Daftar Akun Gratis</span>
                         <ArrowRight className="w-4 h-4" />
@@ -534,9 +549,9 @@ export function IntroductionDashboard({
                       <button
                         type="button"
                         onClick={() => onEnterApp({ mode: "login" })}
-                        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs sm:text-sm transition-all border border-slate-700 cursor-pointer"
+                        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs sm:text-sm transition-all border border-slate-700 cursor-pointer"
                       >
-                        Masuk ke Akun
+                        Masuk
                       </button>
                     </div>
                   </div>

@@ -10,6 +10,8 @@ const PUBLIC_API_ROUTES = [
   "/api/auth/forgot-password",
   "/api/auth/session",
   "/api/auth/logout",
+  "/api/auth/demo-login", // endpoint bridge sesi Scota untuk demo Google
+  "/api/auth/callback", // endpoint callback Auth.js (mis. /api/auth/callback/google)
   "/api/parse-receipt", // publik by design untuk scan sebelum login
   "/api/quota", // satu paket dengan parse-receipt -- menampilkan sisa kuota IP, bukan data tenant
 ]

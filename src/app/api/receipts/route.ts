@@ -10,6 +10,7 @@ import { queryPg, isDatabaseConfigured } from "@/lib/pgDb"
 import { getSubscriptionInfo } from "@/lib/subscriptionServer"
 import { DEFAULT_APPROVAL_WORKFLOW } from "@/lib/subscription"
 import { DEFAULT_TENANT_ID } from "@/lib/session"
+import { DEMO_RECEIPT_LIMIT } from "@/lib/demoTenant"
 
 let listCache: { key: string; data: any; timestamp: number } | null = null
 const LIST_CACHE_TTL = 5000 // 5 seconds cache
@@ -216,6 +217,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Nota harus memiliki minimal 1 item produk" }, { status: 400 })
     }
 
+    if (session.role === "DEMO" && session.tenantId) {
+      const receiptCountRes = await queryPg<{ count: string }>(
+        `SELECT COUNT(*) as count FROM receipts WHERE "tenantId" = $1`,
+        [session.tenantId]
+      )
+      if (Number(receiptCountRes.rows?.[0]?.count || 0) >= DEMO_RECEIPT_LIMIT) {
+        return NextResponse.json(
+          {
+            error: "Batas maksimal 3 nota untuk akun demo tercapai. Lanjut Trial 14 hari untuk nota tanpa batas.",
+            upsell: true,
+          },
+          { status: 429 }
+        )
+      }
+    }
+
     invalidateReceiptsListCache()
     invalidateApprovalsCache()
     invalidateNotificationsCache()
@@ -273,12 +290,14 @@ export async function POST(req: NextRequest) {
       })),
     }
 
-    // Check Tenant Approval Workflow Configuration
+    // Check Tenant Approval Workflow Configuration (Akun DEMO selalu direct publish tanpa approval)
+    const isDemoUser = session.role === "DEMO"
     const userTenantId = session.tenantId || DEFAULT_TENANT_ID
     const subInfo = await getSubscriptionInfo(userTenantId).catch(() => null)
     const workflow = subInfo?.approvalWorkflow || DEFAULT_APPROVAL_WORKFLOW
 
     const requiresApproval =
+      !isDemoUser &&
       workflow.enableApproval &&
       workflow.requireForCreate &&
       ((Number(totalAmount) || 0) >= (workflow.minAmountThreshold || 0))

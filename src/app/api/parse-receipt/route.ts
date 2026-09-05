@@ -3,6 +3,10 @@ import { checkRateLimit, incrementRateLimit, normalizeIp } from "@/lib/rateLimit
 import { getLearnedKnowledgeContext, matchItemWithLearnedMemory } from "@/lib/selfLearningEngine"
 import { getOrSeedCategories } from "@/lib/categories"
 import { GoogleGenAI } from "@google/genai"
+import { getSession } from "@/lib/authHelper"
+import { queryPg } from "@/lib/pgDb"
+import { DEMO_SCAN_LIMIT, DEMO_RECEIPT_LIMIT } from "@/lib/demoTenant"
+import { invalidateReceiptsListCache } from "@/app/api/receipts/route"
 
 export interface ParsedItem {
   name: string
@@ -91,25 +95,69 @@ async function callGeminiRestApi(apiKey: string, modelName: string, contentsPart
 
 export async function POST(req: NextRequest) {
   try {
-    // 1. IP Normalization & Realtime Rate Limiting Enforcement
-    const rawIp =
-      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-      req.headers.get("x-real-ip") ||
-      "127.0.0.1"
+    // 1. Session Verification & Rate Limiting Enforcement
+    const session = await getSession(req)
+    const isDemo = session?.role === "DEMO"
+    let currentDemoScans = 0
 
-    const cleanIp = normalizeIp(rawIp)
-    const rateLimit = await checkRateLimit(cleanIp)
-
-    if (!rateLimit.allowed) {
-      return NextResponse.json(
-        {
-          error: "QUOTA_EXCEEDED",
-          message: "Batas harian uji coba scan gratis (2 kali/hari per IP) telah tercapai. Silakan daftar akun atau masuk untuk kuota penuh.",
-          remaining: 0,
-          resetAt: rateLimit.resetAt,
-        },
-        { status: 429 }
+    if (isDemo && session?.tenantId) {
+      // Pengecekan limit scan harian untuk akun demo (maksimal 2x scan per hari)
+      const tenantRes = await queryPg<{ demoScanCount: number }>(
+        `SELECT "demoScanCount" FROM tenants WHERE id = $1`,
+        [session.tenantId]
       )
+      currentDemoScans = tenantRes.rows?.[0]?.demoScanCount || 0
+
+      if (currentDemoScans >= DEMO_SCAN_LIMIT) {
+        return NextResponse.json(
+          {
+            error: "QUOTA_EXCEEDED",
+            message: "Kuota scan demo hari ini sudah habis (maksimal 2x scan per hari). Reset otomatis tengah malam, atau mulai Trial 14 hari sekarang untuk scan tanpa batas.",
+            upsell: true,
+            remaining: 0,
+          },
+          { status: 429 }
+        )
+      }
+
+      // Pengecekan limit total nota tersimpan untuk akun demo (maksimal 3 nota)
+      const receiptCountRes = await queryPg<{ count: string }>(
+        `SELECT COUNT(*) as count FROM receipts WHERE "tenantId" = $1`,
+        [session.tenantId]
+      )
+      if (Number(receiptCountRes.rows?.[0]?.count || 0) >= DEMO_RECEIPT_LIMIT) {
+        return NextResponse.json(
+          {
+            error: "RECEIPT_LIMIT_EXCEEDED",
+            message: "Batas maksimal 3 nota untuk akun demo tercapai. Lanjut Trial 14 hari untuk nota tanpa batas.",
+            upsell: true,
+            remaining: 0,
+          },
+          { status: 429 }
+        )
+      }
+    } else {
+      // Pengguna publik tanpa sesi demo: gunakan pembatasan IP rate limiter
+      const rawIp =
+        req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+        req.headers.get("x-real-ip") ||
+        "127.0.0.1"
+
+      const cleanIp = normalizeIp(rawIp)
+      const rateLimit = await checkRateLimit(cleanIp)
+
+      if (!rateLimit.allowed) {
+        return NextResponse.json(
+          {
+            error: "QUOTA_EXCEEDED",
+            message: "Batas harian uji coba scan gratis (2 kali/hari per IP) telah tercapai. Silakan coba akun demo Google atau masuk untuk kuota penuh.",
+            upsell: true,
+            remaining: 0,
+            resetAt: rateLimit.resetAt,
+          },
+          { status: 429 }
+        )
+      }
     }
 
     // 2. Parse & Sanitize Input (Supports both JSON and Multipart/FormData)
@@ -349,8 +397,67 @@ Keluarkan HANYA JSON:
       parsedJson.totalAmount = Math.max(0, parsedJson.subtotal - parsedJson.discountAmount + parsedJson.taxAmount)
     }
 
-    // Atomically increment quota counter in database & return real-time remaining count
-    const remainingQuota = await incrementRateLimit(cleanIp)
+    let remainingQuota = 0
+    let savedReceiptId: string | undefined = undefined
+
+    if (isDemo && session?.tenantId) {
+      // 1. Simpan nota ke database tenant demo secara otomatis
+      try {
+        const insertReceiptRes = await queryPg<{ id: string }>(
+          `INSERT INTO receipts ("tenantId", "merchantName", date, "imageUrl", subtotal, "discountAmount", "taxAmount", "totalAmount", "paymentMethod", "paymentStatus", "createdAt", "updatedAt")
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'Cash', 'Lunas', NOW(), NOW())
+           RETURNING id`,
+          [
+            session.tenantId,
+            parsedJson.merchantName,
+            parsedJson.date,
+            imageBase64 || null,
+            parsedJson.subtotal,
+            parsedJson.discountAmount,
+            parsedJson.taxAmount,
+            parsedJson.totalAmount,
+          ]
+        )
+        savedReceiptId = insertReceiptRes.rows?.[0]?.id
+
+        if (savedReceiptId && parsedJson.items.length > 0) {
+          for (const item of parsedJson.items) {
+            await queryPg(
+              `INSERT INTO receipt_items ("receiptId", name, category, "subCategory", price, quantity, "createdAt")
+               VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+              [
+                savedReceiptId,
+                item.name,
+                item.category,
+                item.subCategory || "Umum",
+                item.price,
+                item.quantity || 1,
+              ]
+            )
+          }
+        }
+
+        // 2. Tambah hitungan demoScanCount pada tenant demo
+        await queryPg(
+          `UPDATE tenants SET "demoScanCount" = "demoScanCount" + 1, "updatedAt" = NOW() WHERE id = $1`,
+          [session.tenantId]
+        )
+
+        invalidateReceiptsListCache()
+      } catch (dbErr) {
+        console.error("Gagal menyimpan struk ke database tenant demo:", dbErr)
+      }
+
+      remainingQuota = Math.max(0, DEMO_SCAN_LIMIT - (currentDemoScans + 1))
+    } else {
+      // Non-demo publik: increment rate limiter IP
+      const rawIp =
+        req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+        req.headers.get("x-real-ip") ||
+        "127.0.0.1"
+      const cleanIp = normalizeIp(rawIp)
+      remainingQuota = await incrementRateLimit(cleanIp)
+    }
 
     const response = NextResponse.json({
       ...parsedJson,
@@ -358,6 +465,8 @@ Keluarkan HANYA JSON:
       parsed: parsedJson,
       mode: "gemini_multimodal_vision",
       remainingQuota,
+      savedReceiptId,
+      isDemo,
     })
 
     response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate")

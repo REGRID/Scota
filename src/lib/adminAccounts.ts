@@ -225,6 +225,7 @@ export async function registerAdminAccount(params: {
   fullName?: string
   businessName?: string
   phone?: string
+  email?: string
   tier?: string
 }): Promise<{ success: boolean; username: string; role: string; tenantId: string; error?: string }> {
   try {
@@ -236,6 +237,7 @@ export async function registerAdminAccount(params: {
     // Parameter tier dari pemanggil luar tidak boleh diizinkan langsung mengaktifkan tier berbayar.
     const forcedTier: SubscriptionTier = "trial"
     const businessName = params.businessName?.trim() || params.fullName?.trim() || "Scota Business"
+    const cleanEmail = (params.email || "").trim().toLowerCase()
 
     if (!cleanUser || !cleanPass) {
       return { success: false, username: cleanUser, role, tenantId: "", error: "ID Pengguna dan Password wajib diisi" }
@@ -290,8 +292,8 @@ export async function registerAdminAccount(params: {
 
         // 3. Masukkan Akun Admin baru terikat ke createdTenantId dengan tier trial
         await queryPg(
-          `INSERT INTO admin_accounts (username, password, role, "fullName", "businessName", phone, tier, "tenantId", "createdAt", "updatedAt")
-           VALUES ($1, $2, $3, $4, $5, $6, 'trial', $7, NOW(), NOW())
+          `INSERT INTO admin_accounts (username, password, role, "fullName", "businessName", phone, email, tier, "tenantId", "createdAt", "updatedAt")
+           VALUES ($1, $2, $3, $4, $5, $6, $7, 'trial', $8, NOW(), NOW())
            ON CONFLICT (username) DO NOTHING`,
           [
             cleanUser,
@@ -300,6 +302,7 @@ export async function registerAdminAccount(params: {
             params.fullName || "",
             businessName,
             params.phone || "",
+            cleanEmail || null,
             createdTenantId,
           ]
         )

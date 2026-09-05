@@ -10,7 +10,7 @@ import { DEFAULT_TENANT_ID } from "@/lib/session"
  */
 export async function isSuperadminUser(username: string): Promise<boolean> {
   const clean = (username || "").trim().toLowerCase()
-  if (!clean) return false
+  if (!clean || clean.startsWith("demo_")) return false
 
   const envSuperadmins = [
     process.env.SUPERADMIN_USERNAME || "superadmin",

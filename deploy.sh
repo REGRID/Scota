@@ -16,6 +16,12 @@ if [ -f .env.local ]; then
         echo -e "\nSESSION_SECRET=\"$SEC\"" >> .env.local
         echo "✅ SESSION_SECRET baru berhasil disuntikkan ke .env.local"
     fi
+    if ! grep -q "AUTH_SECRET=" .env.local; then
+        echo "⚠️ AUTH_SECRET belum ada di .env.local! Menghasilkan kunci kriptografis aman..."
+        ASEC=$(node -e "console.log(require('crypto').randomBytes(48).toString('base64'))")
+        echo -e "\nAUTH_SECRET=\"$ASEC\"" >> .env.local
+        echo "✅ AUTH_SECRET baru berhasil disuntikkan ke .env.local"
+    fi
 else
     echo "❌ Error: File .env.local tidak ditemukan di $APP_DIR!"
     exit 1

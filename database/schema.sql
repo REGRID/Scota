@@ -18,9 +18,22 @@ CREATE TABLE IF NOT EXISTS tenants (
     "invoiceFooter" TEXT DEFAULT 'Terima kasih atas kerja sama Anda dengan usaha kami.',
     "taxNumber" TEXT,
     status TEXT NOT NULL DEFAULT 'active',
+    "isDemo" BOOLEAN NOT NULL DEFAULT false,
+    "demoGoogleId" TEXT,
+    "demoEmail" TEXT,
+    "demoScanCount" INTEGER NOT NULL DEFAULT 0,
+    "expiresAt" TIMESTAMPTZ,
     "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now(),
     "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Idempotent column migrations for existing tenants table
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS "isDemo" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS "demoGoogleId" TEXT;
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS "demoEmail" TEXT;
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS "demoScanCount" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS "expiresAt" TIMESTAMPTZ;
+
 
 -- Default Tenant Seed
 INSERT INTO tenants (id, "businessName", tagline, address, phone, "invoiceFooter", status)
@@ -131,6 +144,7 @@ CREATE TABLE IF NOT EXISTS admin_accounts (
     "fullName" TEXT,
     "businessName" TEXT,
     phone TEXT,
+    email TEXT,
     tier TEXT DEFAULT 'starter',
     "validUntil" TIMESTAMPTZ DEFAULT (now() + interval '30 days'),
     "monthlyScanLimit" INTEGER DEFAULT 150,
@@ -139,6 +153,10 @@ CREATE TABLE IF NOT EXISTS admin_accounts (
     "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now(),
     "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Idempotent column migration for existing admin_accounts table
+ALTER TABLE admin_accounts ADD COLUMN IF NOT EXISTS email TEXT;
+
 
 -- Default Seed Accounts (Linked to default tenant)
 INSERT INTO admin_accounts (username, password, role, "fullName", "businessName", phone, "tenantId")
@@ -271,3 +289,6 @@ CREATE INDEX IF NOT EXISTS audit_logs_tenant_idx ON public.audit_logs ("targetTe
 CREATE INDEX IF NOT EXISTS audit_logs_created_at_idx ON public.audit_logs ("createdAt" DESC);
 CREATE INDEX IF NOT EXISTS billing_transactions_tenant_idx ON public.billing_transactions ("tenantId");
 CREATE INDEX IF NOT EXISTS billing_transactions_invoice_idx ON public.billing_transactions ("invoiceNumber");
+CREATE UNIQUE INDEX IF NOT EXISTS tenants_demo_google_idx ON tenants ("demoGoogleId") WHERE "isDemo" = true;
+CREATE INDEX IF NOT EXISTS tenants_demo_expiry_idx ON tenants ("expiresAt") WHERE "isDemo" = true;
+

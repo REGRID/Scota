@@ -20,13 +20,14 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const { username, password, fullName, businessName, phone, selectedTier, interestedTier } = await req.json()
+    const { username, password, fullName, businessName, phone, email, selectedTier, interestedTier } = await req.json()
 
     const cleanUsername = (username || "").trim().toLowerCase()
     const cleanPassword = (password || "").trim()
     const cleanFullName = (fullName || "").trim()
     const cleanBusinessName = (businessName || "").trim()
     const cleanPhone = (phone || "").trim()
+    const cleanEmail = (email || (cleanUsername.includes("@") ? cleanUsername : "")).trim().toLowerCase()
 
     // SECURITY ENFORCEMENT:
     // Pendaftaran mandiri (self-service) HANYA dan SELALU mendapatkan paket "trial".
@@ -49,6 +50,7 @@ export async function POST(req: NextRequest) {
       fullName: cleanFullName,
       businessName: cleanBusinessName,
       phone: cleanPhone,
+      email: cleanEmail,
       tier: activeTier,
     })
 

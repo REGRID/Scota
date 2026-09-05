@@ -10,6 +10,13 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Sesi tidak valid. Silakan login." }, { status: 401 })
     }
 
+    if (session.role === "DEMO") {
+      return NextResponse.json(
+        { error: "Fitur download hanya tersedia untuk akun Trial atau Berbayar.", upsell: true },
+        { status: 403 }
+      )
+    }
+
     const { searchParams } = new URL(req.url)
     const search = searchParams.get("search") || ""
     const category = searchParams.get("category") || ""

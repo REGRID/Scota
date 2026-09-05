@@ -62,6 +62,14 @@ async function run() {
     throw new Error("Middleware should allow public route /api/ping")
   }
 
+  // Public route: /api/quota
+  const reqMidQuota = new NextRequest("http://localhost:3000/api/quota")
+  const resMidQuota = await middleware(reqMidQuota)
+  console.log("Middleware on /api/quota status:", resMidQuota.status)
+  if (resMidQuota.status === 401) {
+    throw new Error("Middleware should allow public route /api/quota without auth")
+  }
+
   // Public route: /api/auth/login
   const reqMidLogin = new NextRequest("http://localhost:3000/api/auth/login", { method: "POST" })
   const resMidLogin = await middleware(reqMidLogin)
@@ -108,6 +116,25 @@ async function run() {
   if (resMidCookie.status === 401) {
     throw new Error("Middleware should allow request with valid session cookie")
   }
+
+  // 3. Testing /api/quota Route Handler
+  console.log("\n--- 3. Testing /api/quota Route Handler & Daily Limit ---")
+  const { GET: getQuota } = await import("../src/app/api/quota/route")
+  const reqQuota = new NextRequest("http://localhost:3000/api/quota")
+  const resQuota = await getQuota(reqQuota)
+  console.log("GET /api/quota status:", resQuota.status)
+  if (resQuota.status !== 200) {
+    throw new Error(`GET /api/quota failed with status ${resQuota.status}`)
+  }
+  const quotaJson = await resQuota.json()
+  console.log("GET /api/quota response body:", quotaJson)
+  if (quotaJson.dailyLimit !== 2) {
+    throw new Error(`Expected dailyLimit to be 2, but got ${quotaJson.dailyLimit}`)
+  }
+  if (typeof quotaJson.remaining !== "number" || typeof quotaJson.used !== "number") {
+    throw new Error("Invalid quota response structure")
+  }
+  console.log("-> /api/quota properly returns 200 with dailyLimit = 2")
 
   console.log("\n=== ALL TESTS PASSED SUCCESSFULLY! ===")
 }

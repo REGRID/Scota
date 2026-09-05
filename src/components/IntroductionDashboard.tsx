@@ -99,6 +99,28 @@ export function IntroductionDashboard({
   const galleryInputRef = useRef<HTMLInputElement | null>(null)
   const docInputRef = useRef<HTMLInputElement | null>(null)
 
+  // Demo Quota State
+  const [demoQuota, setDemoQuota] = useState<{
+    dailyLimit: number
+    remaining: number
+    used: number
+    allowed: boolean
+  } | null>(null)
+
+  const fetchDemoQuota = async () => {
+    try {
+      const res = await fetch("/api/quota", { cache: "no-store" })
+      if (res.ok) {
+        const data = await res.json()
+        setDemoQuota(data)
+      }
+    } catch {}
+  }
+
+  useEffect(() => {
+    fetchDemoQuota()
+  }, [])
+
   // Scrollspy to detect active section dynamically on scroll
   useEffect(() => {
     const sectionIds = ["simulasi", "jenis-usaha", "komparasi", "fitur", "harga", "faq"]
@@ -436,6 +458,26 @@ export function IntroductionDashboard({
                   </p>
                 </div>
               </div>
+
+              {/* Quota Badge Indicator */}
+              {demoQuota && (
+                <div className="self-start sm:self-auto">
+                  <div
+                    className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border transition-all ${
+                      demoQuota.remaining > 0
+                        ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                        : "bg-rose-500/10 text-rose-400 border-rose-500/30"
+                    }`}
+                  >
+                    <span className={`w-2 h-2 rounded-full ${demoQuota.remaining > 0 ? "bg-emerald-400 animate-pulse" : "bg-rose-400"}`} />
+                    <span>
+                      {demoQuota.remaining > 0
+                        ? `Sisa Uji Coba: ${demoQuota.remaining}/${demoQuota.dailyLimit || 2} Hari Ini`
+                        : "Batas Uji Coba Habis (0/2)"}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Hidden File Inputs */}
@@ -465,55 +507,90 @@ export function IntroductionDashboard({
             {/* Viewport */}
             {!uploadedImage && !isScanningCustom && !customParsedData && !scanError ? (
               <div className="pt-6">
-                <div
-                  onClick={() => setShowSourceModal(true)}
-                  className="bg-slate-950/80 rounded-3xl p-6 sm:p-12 border-2 border-dashed border-slate-800 hover:border-emerald-500/50 transition-all text-center space-y-6 relative overflow-hidden shadow-2xl group cursor-pointer"
-                >
-                  <div className="absolute inset-0 bg-gradient-to-b from-emerald-500/5 via-transparent to-transparent pointer-events-none" />
-
-                  <div className="space-y-4 relative z-10">
-                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-3xl bg-gradient-to-br from-emerald-500/20 to-teal-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center mx-auto shadow-xl shadow-emerald-500/10 group-hover:scale-110 transition-transform">
-                      <Scan className="w-8 h-8 sm:w-10 sm:h-10 animate-pulse" />
+                {demoQuota && !demoQuota.allowed ? (
+                  <div className="bg-slate-950/90 rounded-3xl p-6 sm:p-10 border border-amber-500/30 text-center space-y-5 relative overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-3xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto shadow-xl">
+                      <Lock className="w-8 h-8 sm:w-10 sm:h-10" />
                     </div>
 
-                    <div className="space-y-1.5 max-w-xl mx-auto">
+                    <div className="space-y-2 max-w-md mx-auto">
                       <h3 className="text-lg sm:text-2xl font-black text-white tracking-tight">
-                        Unggah atau Foto Nota
+                        Kuota Uji Coba Hari Ini Habis
                       </h3>
                       <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
-                        Mendukung struk thermal kasir, bon belanja, dan faktur PDF.
+                        Anda telah menggunakan batas maksimal 2x uji coba scan nota gratis per hari untuk alamat IP ini. Buat akun bisnis Anda sekarang untuk mendapatkan kuota scan penuh tanpa batas.
                       </p>
                     </div>
 
-                    {/* 1 Single Clean Action Button */}
-                    <div className="pt-1.5 flex justify-center">
+                    <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
                       <button
                         type="button"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setShowSourceModal(true)
-                        }}
-                        className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-slate-950 font-black text-xs sm:text-sm transition-all shadow-md shadow-emerald-500/25 hover:-translate-y-0.5 active:scale-95 cursor-pointer"
+                        onClick={() => onEnterApp({ mode: "register" })}
+                        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-slate-950 font-black text-xs sm:text-sm transition-all shadow-md shadow-emerald-500/25 hover:-translate-y-0.5 cursor-pointer"
                       >
-                        <Camera className="w-4 h-4" />
-                        <span>Pilih atau Foto Nota</span>
+                        <span>Daftar Akun Gratis</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onEnterApp({ mode: "login" })}
+                        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs sm:text-sm transition-all border border-slate-700 cursor-pointer"
+                      >
+                        Masuk ke Akun
                       </button>
                     </div>
+                  </div>
+                ) : (
+                  <div
+                    onClick={() => setShowSourceModal(true)}
+                    className="bg-slate-950/80 rounded-3xl p-6 sm:p-12 border-2 border-dashed border-slate-800 hover:border-emerald-500/50 transition-all text-center space-y-6 relative overflow-hidden shadow-2xl group cursor-pointer"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-b from-emerald-500/5 via-transparent to-transparent pointer-events-none" />
 
-                    {/* Feature Trust Pills */}
-                    <div className="pt-4 border-t border-slate-800/80 flex flex-wrap items-center justify-center gap-4 sm:gap-8 text-[11px] text-slate-400">
-                      <span className="flex items-center gap-1.5 font-medium">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Ekstraksi Real-Time Presisi
-                      </span>
-                      <span className="flex items-center gap-1.5 font-medium">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Akurasi 99.8%
-                      </span>
-                      <span className="flex items-center gap-1.5 font-medium">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Rekapitulasi Otomatis
-                      </span>
+                    <div className="space-y-4 relative z-10">
+                      <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-3xl bg-gradient-to-br from-emerald-500/20 to-teal-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center mx-auto shadow-xl shadow-emerald-500/10 group-hover:scale-110 transition-transform">
+                        <Scan className="w-8 h-8 sm:w-10 sm:h-10 animate-pulse" />
+                      </div>
+
+                      <div className="space-y-1.5 max-w-xl mx-auto">
+                        <h3 className="text-lg sm:text-2xl font-black text-white tracking-tight">
+                          Unggah atau Foto Nota
+                        </h3>
+                        <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
+                          Mendukung struk thermal kasir, bon belanja, dan faktur PDF.
+                        </p>
+                      </div>
+
+                      {/* 1 Single Clean Action Button */}
+                      <div className="pt-1.5 flex justify-center">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setShowSourceModal(true)
+                          }}
+                          className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-slate-950 font-black text-xs sm:text-sm transition-all shadow-md shadow-emerald-500/25 hover:-translate-y-0.5 active:scale-95 cursor-pointer"
+                        >
+                          <Camera className="w-4 h-4" />
+                          <span>Pilih atau Foto Nota</span>
+                        </button>
+                      </div>
+
+                      {/* Feature Trust Pills */}
+                      <div className="pt-4 border-t border-slate-800/80 flex flex-wrap items-center justify-center gap-4 sm:gap-8 text-[11px] text-slate-400">
+                        <span className="flex items-center gap-1.5 font-medium">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Ekstraksi Real-Time Presisi
+                        </span>
+                        <span className="flex items-center gap-1.5 font-medium">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Akurasi 99.8%
+                        </span>
+                        <span className="flex items-center gap-1.5 font-medium">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Rekapitulasi Otomatis
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
               </div>
             ) : (
               <div className="pt-6 grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">

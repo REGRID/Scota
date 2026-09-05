@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           error: "QUOTA_EXCEEDED",
-          message: `Batas harian scan nota (${rateLimit.remaining} scan/hari) telah tercapai. Silakan coba lagi besok.`,
+          message: "Batas harian uji coba scan gratis (2 kali/hari per IP) telah tercapai. Silakan daftar akun atau masuk untuk kuota penuh.",
           remaining: 0,
           resetAt: rateLimit.resetAt,
         },

@@ -1,6 +1,6 @@
 import { queryPg, isDatabaseConfigured } from "@/lib/pgDb"
 
-export const DAILY_SCAN_LIMIT = 999999
+export const DAILY_SCAN_LIMIT = 2
 
 export interface RateLimitResult {
   allowed: boolean
@@ -87,7 +87,7 @@ export async function checkRateLimit(ipAddress: string): Promise<RateLimitResult
     const remaining = Math.max(DAILY_SCAN_LIMIT - current, 0)
 
     const result: RateLimitResult = {
-      allowed: true,
+      allowed: remaining > 0,
       remaining,
       current,
       resetAt: new Date(limitRecord.resetAt || tomorrow),

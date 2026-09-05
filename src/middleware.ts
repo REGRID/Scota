@@ -11,6 +11,7 @@ const PUBLIC_API_ROUTES = [
   "/api/auth/session",
   "/api/auth/logout",
   "/api/parse-receipt", // publik by design untuk scan sebelum login
+  "/api/quota", // satu paket dengan parse-receipt -- menampilkan sisa kuota IP, bukan data tenant
 ]
 
 export async function middleware(req: NextRequest) {

@@ -80,7 +80,7 @@ export async function GET(req: NextRequest) {
             ) as items
           FROM receipts r
           LEFT JOIN receipt_items i ON i."receiptId" = r.id
-          WHERE (r."tenantId" = $1 OR r."tenantId" IS NULL)
+          WHERE r."tenantId" = $1
           GROUP BY r.id
           ORDER BY r."createdAt" DESC
           ${limit ? `LIMIT ${limit}` : ""}`,
@@ -461,7 +461,7 @@ export async function DELETE(req: NextRequest) {
     if (!workflow.enableApproval || !workflow.requireForDelete) {
       if (isDatabaseConfigured) {
         await queryPg(
-          `DELETE FROM receipts WHERE id = ANY($1::uuid[]) AND ("tenantId" = $2 OR "tenantId" IS NULL)`,
+          `DELETE FROM receipts WHERE id = ANY($1::uuid[]) AND "tenantId" = $2`,
           [ids, userTenantId]
         )
       }
@@ -556,7 +556,7 @@ export async function PATCH(req: NextRequest) {
         await queryPg(
           `UPDATE receipts 
            SET "paymentStatus" = $1, "updatedAt" = NOW() 
-           WHERE id = ANY($2::uuid[]) AND ("tenantId" = $3 OR "tenantId" IS NULL)`,
+           WHERE id = ANY($2::uuid[]) AND "tenantId" = $3`,
           [statusToSet, ids, userTenantId]
         )
       }

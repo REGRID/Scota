@@ -5,7 +5,6 @@ import {
   storePasswordResetOtp,
   sendWhatsAppOtpMessage,
   verifyPasswordResetOtp,
-  maskPhoneNumber,
 } from "@/lib/whatsappOtp"
 import { DEFAULT_SUPPORT_WHATSAPP } from "@/lib/contactConfig"
 import { checkAuthRateLimit, recordAuthAttempt, formatLockoutMessage } from "@/lib/authRateLimiter"
@@ -20,13 +19,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "ID Pengguna / Username wajib diisi" }, { status: 400 })
     }
 
+    // Ambil detail akun tanpa membocorkan status keberadaan ke response client (anti-enumeration)
     const account = await getUserAccountDetails(username)
-    if (!account) {
-      return NextResponse.json(
-        { error: `Akun dengan ID "${username}" tidak ditemukan dalam sistem.` },
-        { status: 404 }
-      )
-    }
 
     // 1. ACTION: REQUEST OTP VIA WHATSAPP
     if (action === "request_otp") {
@@ -40,44 +34,33 @@ export async function POST(req: NextRequest) {
         )
       }
 
-      // Tentukan nomor WhatsApp tujuan
-      let targetPhone = account.phone || ""
-      const isSuperadmin = account.role === "SUPERADMIN" || username === "superadmin"
+      // Kirim OTP hanya jika akun benar-benar ada di database
+      if (account) {
+        let targetPhone = account.phone || ""
+        const isSuperadmin = account.role === "SUPERADMIN" || username === "superadmin"
 
-      if (isSuperadmin) {
-        targetPhone =
-          process.env.SUPERADMIN_WHATSAPP ||
-          account.phone ||
-          process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP ||
-          DEFAULT_SUPPORT_WHATSAPP
-      } else if (!targetPhone) {
-        targetPhone = process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP || DEFAULT_SUPPORT_WHATSAPP
+        if (isSuperadmin) {
+          targetPhone =
+            process.env.SUPERADMIN_WHATSAPP ||
+            account.phone ||
+            process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP ||
+            DEFAULT_SUPPORT_WHATSAPP
+        } else if (!targetPhone) {
+          targetPhone = process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP || DEFAULT_SUPPORT_WHATSAPP
+        }
+
+        const otpCode = generateOtpCode()
+        await storePasswordResetOtp(username, targetPhone, otpCode)
+        await sendWhatsAppOtpMessage(targetPhone, username, otpCode)
       }
 
-      // Generate kode OTP 6-digit
-      const otpCode = generateOtpCode()
-
-      // Simpan OTP (berlaku 10 menit)
-      await storePasswordResetOtp(username, targetPhone, otpCode)
-
-      // Kirim pesan WhatsApp
-      const sendResult = await sendWhatsAppOtpMessage(targetPhone, username, otpCode)
-
-      // Catat percobaan request OTP (setiap request terhitung)
+      // Catat percobaan request OTP (baik akun ada maupun tidak ada agar limit tetap konsisten)
       await recordAuthAttempt(reqIdentifier, "otp_request", false)
 
+      // Respons SAMA PERSIS baik akun ada maupun tidak ada demi keamanan (anti user-enumeration)
       return NextResponse.json({
         success: true,
-        action: "otp_sent",
-        username,
-        role: account.role,
-        isSuperadmin,
-        maskedPhone: maskPhoneNumber(targetPhone),
-        sentViaGateway: sendResult.sentViaGateway,
-        directWaUrl: sendResult.directWaUrl,
-        message: sendResult.sentViaGateway
-          ? `Kode OTP verifikasi telah dikirim ke nomor WhatsApp ${maskPhoneNumber(targetPhone)}.`
-          : `Kode verifikasi telah dibuat. Anda dapat membuka WhatsApp CS/Superadmin secara langsung.`,
+        message: "Jika akun dengan ID tersebut terdaftar, kode OTP telah dikirim ke nomor WhatsApp terkait.",
       })
     }
 
@@ -105,14 +88,16 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Password baru minimal 8 karakter demi keamanan" }, { status: 400 })
       }
 
-      // Validasi OTP
-      const verifyResult = await verifyPasswordResetOtp(username, cleanOtp)
+      // Jika akun tidak ada, OTP otomatis tidak valid
+      const verifyResult = account
+        ? await verifyPasswordResetOtp(username, cleanOtp)
+        : { valid: false, error: "Kode OTP salah atau kedaluwarsa" }
 
-      // Catat percobaan verifikasi: jika valid reset counter, jika salah catat kegagalan
+      // Catat percobaan verifikasi
       await recordAuthAttempt(verifyIdentifier, "otp_verify", verifyResult.valid)
 
       if (!verifyResult.valid) {
-        return NextResponse.json({ error: verifyResult.error || "Kode OTP tidak valid" }, { status: 400 })
+        return NextResponse.json({ error: "Kode OTP salah atau kedaluwarsa" }, { status: 400 })
       }
 
       // Update password dengan hash bcrypt

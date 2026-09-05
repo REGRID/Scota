@@ -13,23 +13,27 @@ function getSessionSecret(): Uint8Array {
   let secret = process.env.SESSION_SECRET
 
   // Jika runtime belum menginjeksi process.env, coba baca langsung dari .env.local (hanya di Node.js server)
-  if (!secret && typeof window === "undefined") {
+  if (!secret && typeof window === "undefined" && process.env.NEXT_RUNTIME !== "edge") {
     try {
-      const fs = require("fs")
-      const path = require("path")
-      const envPath = path.resolve(process.cwd(), ".env.local")
-      if (fs.existsSync(envPath)) {
-        const lines = fs.readFileSync(envPath, "utf-8").split("\n")
-        for (const line of lines) {
-          const trimmed = line.trim()
-          if (trimmed.startsWith("SESSION_SECRET=")) {
-            let val = trimmed.substring("SESSION_SECRET=".length).trim()
-            if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
-              val = val.slice(1, -1)
+      const nodeRequire = (globalThis as any).require || (typeof require !== "undefined" ? require : null)
+      const proc = (globalThis as any).process
+      if (nodeRequire && proc && typeof proc["cwd"] === "function") {
+        const fs = nodeRequire("fs")
+        const path = nodeRequire("path")
+        const envPath = path.resolve(proc["cwd"](), ".env.local")
+        if (fs.existsSync(envPath)) {
+          const lines = fs.readFileSync(envPath, "utf-8").split("\n")
+          for (const line of lines) {
+            const trimmed = line.trim()
+            if (trimmed.startsWith("SESSION_SECRET=")) {
+              let val = trimmed.substring("SESSION_SECRET=".length).trim()
+              if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+                val = val.slice(1, -1)
+              }
+              secret = val
+              proc.env.SESSION_SECRET = val
+              break
             }
-            secret = val
-            process.env.SESSION_SECRET = val
-            break
           }
         }
       }

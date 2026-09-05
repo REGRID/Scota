@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from "next/server"
 import { queryPg, isDatabaseConfigured } from "@/lib/pgDb"
+import { getSession } from "@/lib/authHelper"
 import * as XLSX from "xlsx"
 
 export async function GET(req: NextRequest) {
   try {
+    const session = await getSession(req)
+    if (!session) {
+      return NextResponse.json({ error: "Sesi tidak valid. Silakan login." }, { status: 401 })
+    }
+
     const { searchParams } = new URL(req.url)
     const search = searchParams.get("search") || ""
     const category = searchParams.get("category") || ""
@@ -57,8 +63,10 @@ export async function GET(req: NextRequest) {
             ) as items
           FROM receipts r
           LEFT JOIN receipt_items i ON i."receiptId" = r.id
+          WHERE r."tenantId" = $1
           GROUP BY r.id
-          ORDER BY r.date ${sortDirection}, r."createdAt" ${sortDirection}`
+          ORDER BY r.date ${sortDirection}, r."createdAt" ${sortDirection}`,
+          [session.tenantId]
         )
         receipts = pgRes.rows || []
       } catch (err) {

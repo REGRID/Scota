@@ -1,0 +1,52 @@
+import { NextRequest, NextResponse } from "next/server"
+import { verifySessionToken } from "@/lib/session"
+
+// Daftar route yang MEMANG boleh diakses tanpa login.
+// Prinsipnya: default TERTUTUP -- kalau tidak ada di daftar ini, wajib punya sesi valid.
+const PUBLIC_API_ROUTES = [
+  "/api/ping",
+  "/api/auth/login",
+  "/api/auth/register",
+  "/api/auth/forgot-password",
+  "/api/auth/session",
+  "/api/auth/logout",
+  "/api/parse-receipt", // publik by design untuk scan sebelum login
+]
+
+export async function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl
+
+  // Hanya filter rute yang diawali dengan /api/
+  if (!pathname.startsWith("/api/")) {
+    return NextResponse.next()
+  }
+
+  const isPublic = PUBLIC_API_ROUTES.some((route) => pathname === route || pathname.startsWith(route + "/"))
+  if (isPublic) {
+    return NextResponse.next()
+  }
+
+  const sessionCookie = req.cookies.get("nota_admin_session")?.value
+  const authHeader = req.headers.get("authorization")?.replace("Bearer ", "").trim()
+  const token = sessionCookie || authHeader
+
+  if (!token) {
+    return NextResponse.json({ error: "Sesi tidak valid. Silakan login." }, { status: 401 })
+  }
+
+  const session = await verifySessionToken(token)
+  if (!session) {
+    return NextResponse.json({ error: "Sesi tidak valid atau kedaluwarsa." }, { status: 401 })
+  }
+
+  // Teruskan hasil verifikasi lewat header internal
+  const requestHeaders = new Headers(req.headers)
+  requestHeaders.set("x-verified-username", session.username)
+  requestHeaders.set("x-verified-tenant-id", session.tenantId || "")
+
+  return NextResponse.next({ request: { headers: requestHeaders } })
+}
+
+export const config = {
+  matcher: "/api/:path*",
+}

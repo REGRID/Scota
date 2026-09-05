@@ -68,7 +68,7 @@ async function run() {
   console.log("  Status code:", res3.status)
   console.log("  Response body:", data3)
 
-  if (res3.status !== 400 || res3.status === 404) {
+  if ((res3.status as number) !== 400) {
     throw new Error(`Test 3 Failed: expected status 400, got ${res3.status}`)
   }
   if (!data3.error.includes("Kode OTP salah atau kedaluwarsa")) {

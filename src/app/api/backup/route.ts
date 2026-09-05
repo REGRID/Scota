@@ -1,14 +1,18 @@
 import { NextRequest, NextResponse } from "next/server"
 import { queryPg, isDatabaseConfigured } from "@/lib/pgDb"
 import { invalidateCategoriesCache } from "@/lib/categories"
+import { getSession } from "@/lib/authHelper"
 
-// GET: Export entire database data as JSON
-export async function GET() {
+// GET: Export entire database data as JSON for the active tenant
+export async function GET(req: NextRequest) {
   try {
+    const session = await getSession(req)
+    if (!session) {
+      return NextResponse.json({ error: "Sesi tidak valid. Silakan login." }, { status: 401 })
+    }
+
     let receipts: any[] = []
     let customCategories: any[] = []
-    let merchantDictionaries: any[] = []
-    let productDictionaries: any[] = []
 
     if (isDatabaseConfigured) {
       const receiptsRes = await queryPg(
@@ -20,35 +24,36 @@ export async function GET() {
           ) as items
         FROM receipts r
         LEFT JOIN receipt_items i ON i."receiptId" = r.id
+        WHERE r."tenantId" = $1
         GROUP BY r.id
-        ORDER BY r."createdAt" ASC`
+        ORDER BY r."createdAt" ASC`,
+        [session.tenantId]
       )
       receipts = receiptsRes.rows || []
 
-      const catsRes = await queryPg(`SELECT * FROM custom_categories ORDER BY "createdAt" ASC`)
+      const catsRes = await queryPg(
+        `SELECT * FROM custom_categories WHERE "tenantId" = $1 ORDER BY "createdAt" ASC`,
+        [session.tenantId]
+      )
       customCategories = catsRes.rows || []
-
-      const merchRes = await queryPg(`SELECT * FROM merchant_dictionaries`)
-      merchantDictionaries = merchRes.rows || []
-
-      const prodRes = await queryPg(`SELECT * FROM product_dictionaries`)
-      productDictionaries = prodRes.rows || []
     }
+
+    // merchant_dictionaries & product_dictionaries sengaja TIDAK diikutkan --
+    // itu kamus OCR bersama lintas tenant, bukan data milik satu tenant.
 
     const backupData = {
       version: "1.0",
       exportedAt: new Date().toISOString(),
+      tenantId: session.tenantId,
       receipts,
       customCategories,
-      merchantDictionaries,
-      productDictionaries,
     }
 
     return new NextResponse(JSON.stringify(backupData, null, 2), {
       status: 200,
       headers: {
         "Content-Type": "application/json",
-        "Content-Disposition": `attachment; filename="NotaPhoto_Backup_${new Date().toISOString().split("T")[0]}.json"`,
+        "Content-Disposition": `attachment; filename="Backup_${session.tenantId}_${new Date().toISOString().split("T")[0]}.json"`,
       },
     })
   } catch (error: any) {
@@ -57,9 +62,14 @@ export async function GET() {
   }
 }
 
-// POST: Restore / Import database data from JSON backup file
+// POST: Restore / Import database data from JSON backup file for the active tenant
 export async function POST(req: NextRequest) {
   try {
+    const session = await getSession(req)
+    if (!session) {
+      return NextResponse.json({ error: "Sesi tidak valid. Silakan login." }, { status: 401 })
+    }
+
     const backupData = await req.json()
 
     if (!backupData || !backupData.receipts) {
@@ -75,10 +85,10 @@ export async function POST(req: NextRequest) {
         for (const cat of backupData.customCategories) {
           try {
             await queryPg(
-              `INSERT INTO custom_categories (id, name, "parentId", "createdAt")
-               VALUES ($1, $2, $3, NOW())
+              `INSERT INTO custom_categories (id, name, "parentId", "tenantId", "createdAt")
+               VALUES ($1, $2, $3, $4, NOW())
                ON CONFLICT (id) DO NOTHING`,
-              [cat.id, cat.name, cat.parentId || null]
+              [cat.id, cat.name, cat.parentId || null, session.tenantId]
             )
             importedCategories++
           } catch (e) {}
@@ -90,12 +100,13 @@ export async function POST(req: NextRequest) {
         for (const r of backupData.receipts) {
           try {
             const createRes = await queryPg<{ id: string }>(
-              `INSERT INTO receipts (id, "merchantName", date, "imageUrl", subtotal, "discountAmount", "taxAmount", "totalAmount", "paymentMethod", "paymentStatus", note, "createdAt", "updatedAt")
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, COALESCE($12::timestamptz, NOW()), NOW())
+              `INSERT INTO receipts (id, "tenantId", "merchantName", date, "imageUrl", subtotal, "discountAmount", "taxAmount", "totalAmount", "paymentMethod", "paymentStatus", note, "createdAt", "updatedAt")
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, COALESCE($13::timestamptz, NOW()), NOW())
                ON CONFLICT (id) DO NOTHING
                RETURNING id`,
               [
                 r.id,
+                session.tenantId,
                 r.merchantName || "Nota / Toko",
                 r.date,
                 r.imageUrl || null,

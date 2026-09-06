@@ -413,14 +413,6 @@ export function IntroductionDashboard({
                 <span>Coba Gratis 14 Hari</span>
               </Link>
 
-              <a
-                href="#simulasi"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-2xl bg-slate-900/90 hover:bg-slate-800 text-emerald-400 border border-emerald-500/30 hover:border-emerald-500/60 font-bold text-sm transition-all hover:-translate-y-0.5 cursor-pointer shadow-md shadow-emerald-500/5"
-              >
-                <Sparkles className="w-4 h-4 text-emerald-400" />
-                <span>Coba Demo Scan Gratis</span>
-              </a>
-
               <Link
                 href="/pricing"
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-2xl bg-slate-900/90 hover:bg-slate-800 text-slate-200 border border-slate-700/80 hover:border-slate-600 font-bold text-sm transition-all hover:-translate-y-0.5 cursor-pointer shadow-md"

@@ -20,6 +20,7 @@ import {
   MessageSquare,
   ExternalLink,
   ArrowLeft,
+  Mail,
 } from "lucide-react"
 import { signIn } from "next-auth/react"
 import { SubscriptionTier } from "@/lib/subscription"
@@ -46,6 +47,8 @@ export function AdminLoginScreen({
 
   const switchMode = (mode: "login" | "register" | "forgot") => {
     setAuthMode(mode)
+    setRegStep(1)
+    setRegOtp("")
     setErrorMessage(null)
     setSuccessMessage(null)
     if (typeof window !== "undefined") {
@@ -120,6 +123,19 @@ export function AdminLoginScreen({
   const [regPhone, setRegPhone] = useState("")
   const [regPassword, setRegPassword] = useState("")
   const [showRegPassword, setShowRegPassword] = useState(false)
+  const [regStep, setRegStep] = useState<1 | 2>(1)
+  const [regOtp, setRegOtp] = useState("")
+  const [isSendingOtp, setIsSendingOtp] = useState(false)
+  const [otpCooldown, setOtpCooldown] = useState(0)
+
+  // Countdown timer untuk pengiriman ulang kode OTP email
+  useEffect(() => {
+    if (otpCooldown <= 0) return
+    const timer = setInterval(() => {
+      setOtpCooldown((prev) => (prev > 0 ? prev - 1 : 0))
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [otpCooldown])
 
   // Forgot Password Form States
   const [forgotUsername, setForgotUsername] = useState("")
@@ -134,6 +150,40 @@ export function AdminLoginScreen({
   const [isLoading, setIsLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
+
+  // Handle Kirim Ulang OTP Email
+  const handleResendOtp = async () => {
+    if (isSendingOtp || otpCooldown > 0) return
+    const cleanEmail = regUsername.trim().toLowerCase()
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!cleanEmail || !emailRegex.test(cleanEmail)) {
+      setErrorMessage("Alamat email tidak valid.")
+      return
+    }
+
+    setIsSendingOtp(true)
+    setErrorMessage(null)
+    try {
+      const res = await fetch("/api/auth/send-register-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: cleanEmail,
+          fullName: regFullName.trim(),
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || "Gagal mengirim ulang kode verifikasi.")
+      }
+      setOtpCooldown(60)
+      setSuccessMessage(data.message || `Kode verifikasi baru telah dikirimkan ke ${cleanEmail}.`)
+    } catch (err: any) {
+      setErrorMessage(err.message || "Gagal mengirim kode verifikasi.")
+    } finally {
+      setIsSendingOtp(false)
+    }
+  }
 
   // Handle Login Submit
   const handleLoginSubmit = async (e: React.FormEvent) => {
@@ -177,14 +227,16 @@ export function AdminLoginScreen({
     }
   }
 
-  // Handle Register Submit (Standard Free Trial Onboarding)
+  // Handle Register Submit (Step 1: Kirim OTP, Step 2: Verifikasi & Buat Akun)
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     const isFromGoogle = Boolean(googleProfile?.googleId)
+    const cleanEmail = regUsername.trim().toLowerCase()
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-    if (!regUsername.trim()) {
-      setErrorMessage("ID Pengguna / Email harus diisi.")
+    if (!cleanEmail || !emailRegex.test(cleanEmail)) {
+      setErrorMessage("Alamat email bisnis wajib diisi dengan format valid (contoh: nama@bisnis.com).")
       return
     }
 
@@ -198,6 +250,45 @@ export function AdminLoginScreen({
       return
     }
 
+    // Step 1: Pendaftaran manual memerlukan verifikasi email terlebih dahulu
+    if (!isFromGoogle && regStep === 1) {
+      setIsLoading(true)
+      setErrorMessage(null)
+      setSuccessMessage(null)
+
+      try {
+        const res = await fetch("/api/auth/send-register-otp", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: cleanEmail,
+            fullName: regFullName.trim(),
+          }),
+        })
+
+        const data = await res.json()
+
+        if (!res.ok) {
+          throw new Error(data.error || "Gagal mengirimkan kode verifikasi ke email.")
+        }
+
+        setRegStep(2)
+        setOtpCooldown(60)
+        setSuccessMessage(data.message || `Kode verifikasi 6-digit telah dikirimkan ke ${cleanEmail}.`)
+      } catch (err: any) {
+        setErrorMessage(err.message || "Gagal memproses verifikasi email.")
+      } finally {
+        setIsLoading(false)
+      }
+      return
+    }
+
+    // Step 2: Validasi input OTP 6-digit
+    if (!isFromGoogle && regOtp.trim().length !== 6) {
+      setErrorMessage("Masukkan 6-digit kode verifikasi yang telah dikirim ke email Anda.")
+      return
+    }
+
     setIsLoading(true)
     setErrorMessage(null)
     setSuccessMessage(null)
@@ -207,14 +298,15 @@ export function AdminLoginScreen({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          username: regUsername.trim(),
+          email: cleanEmail,
+          username: cleanEmail,
           password: regPassword.trim() || undefined,
           fullName: regFullName.trim(),
           businessName: regBusinessName.trim() || regFullName.trim() || "Scota Business",
           phone: regPhone.trim(),
           interestedTier: "trial",
           googleId: googleProfile?.googleId || undefined,
-          email: googleProfile?.email || (regUsername.includes("@") ? regUsername.trim() : undefined),
+          otpCode: !isFromGoogle ? regOtp.trim() : undefined,
         }),
       })
 
@@ -224,8 +316,8 @@ export function AdminLoginScreen({
         throw new Error(data.error || "Gagal mendaftarkan akun.")
       }
 
-      if (data.user?.username || regUsername.trim()) {
-        localStorage.setItem("nota_admin_user", data.user?.username || regUsername.trim())
+      if (data.user?.username || cleanEmail) {
+        localStorage.setItem("nota_admin_user", data.user?.username || cleanEmail)
         localStorage.setItem("nota_admin_role", "ADMIN")
       }
 
@@ -235,7 +327,7 @@ export function AdminLoginScreen({
 
       setSuccessMessage("Pendaftaran berhasil! Mengaktifkan Free Trial 14 hari Anda...")
       setTimeout(() => {
-        onLoginSuccess(data.token || "", data.user?.username || regUsername.trim())
+        onLoginSuccess(data.token || "", data.user?.username || cleanEmail)
       }, 500)
     } catch (err: any) {
       setErrorMessage(err.message || "Gagal mendaftar akun.")
@@ -623,118 +715,199 @@ export function AdminLoginScreen({
                 </>
               )}
 
-              <div className="p-3.5 rounded-2xl bg-emerald-950/40 border border-emerald-500/30 flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
-                  <Zap className="w-4 h-4" />
-                </div>
-                <div className="text-[11.5px] leading-tight">
-                  <strong className="text-emerald-300 font-bold block">Free Trial 14 Hari Otomatis</strong>
-                  <span className="text-slate-400">Langsung coba seluruh fitur AI tanpa biaya awal.</span>
-                </div>
-              </div>
+              {/* Pendaftaran Step 1: Input Data Formulir */}
+              {regStep === 1 && (
+                <>
+                  <div className="p-3.5 rounded-2xl bg-emerald-950/40 border border-emerald-500/30 flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                      <Zap className="w-4 h-4" />
+                    </div>
+                    <div className="text-[11.5px] leading-tight">
+                      <strong className="text-emerald-300 font-bold block">Free Trial 14 Hari Otomatis</strong>
+                      <span className="text-slate-400">Langsung coba seluruh fitur AI tanpa biaya awal.</span>
+                    </div>
+                  </div>
 
-              {/* Nama Lengkap */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
-                  <User className="w-3.5 h-3.5 text-emerald-400" /> Nama Lengkap
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={regFullName}
-                  onChange={(e) => setRegFullName(e.target.value)}
-                  placeholder="Nama lengkap Anda"
-                  className="w-full bg-slate-950/80 border border-slate-800 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 rounded-2xl px-4 py-3 text-sm font-semibold text-white placeholder:text-slate-500 transition-all outline-none"
-                />
-              </div>
+                  {/* Nama Lengkap */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                      <User className="w-3.5 h-3.5 text-emerald-400" /> Nama Lengkap
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={regFullName}
+                      onChange={(e) => setRegFullName(e.target.value)}
+                      placeholder="Nama lengkap Anda"
+                      className="w-full bg-slate-950/80 border border-slate-800 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 rounded-2xl px-4 py-3 text-sm font-semibold text-white placeholder:text-slate-500 transition-all outline-none"
+                    />
+                  </div>
 
-              {/* Nama Usaha / Toko */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
-                  <Store className="w-3.5 h-3.5 text-emerald-400" /> Nama Usaha / Toko <span className="text-slate-500 font-normal">(opsional)</span>
-                </label>
-                <input
-                  type="text"
-                  value={regBusinessName}
-                  onChange={(e) => setRegBusinessName(e.target.value)}
-                  placeholder="Contoh: Kopi Senja, CV Sukses"
-                  className="w-full bg-slate-950/80 border border-slate-800 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 rounded-2xl px-4 py-3 text-sm font-semibold text-white placeholder:text-slate-500 transition-all outline-none"
-                />
-              </div>
+                  {/* Nama Usaha / Toko */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                      <Store className="w-3.5 h-3.5 text-emerald-400" /> Nama Usaha / Toko <span className="text-slate-500 font-normal">(opsional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={regBusinessName}
+                      onChange={(e) => setRegBusinessName(e.target.value)}
+                      placeholder="Contoh: Kopi Senja, CV Sukses"
+                      className="w-full bg-slate-950/80 border border-slate-800 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 rounded-2xl px-4 py-3 text-sm font-semibold text-white placeholder:text-slate-500 transition-all outline-none"
+                    />
+                  </div>
 
-              {/* ID Pengguna / Email */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
-                  <User className="w-3.5 h-3.5 text-emerald-400" /> ID Pengguna / Email
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={regUsername}
-                  onChange={(e) => setRegUsername(e.target.value)}
-                  placeholder="Username atau Email untuk login"
-                  autoComplete="username"
-                  className="w-full bg-slate-950/80 border border-slate-800 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 rounded-2xl px-4 py-3 text-sm font-semibold text-white placeholder:text-slate-500 transition-all outline-none"
-                />
-              </div>
+                  {/* Alamat Email Bisnis */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                      <Mail className="w-3.5 h-3.5 text-emerald-400" /> Alamat Email Bisnis
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      value={regUsername}
+                      onChange={(e) => setRegUsername(e.target.value)}
+                      placeholder="nama@bisnis.com"
+                      autoComplete="email"
+                      className="w-full bg-slate-950/80 border border-slate-800 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 rounded-2xl px-4 py-3 text-sm font-semibold text-white placeholder:text-slate-500 transition-all outline-none"
+                    />
+                  </div>
 
-              {/* No WhatsApp */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
-                  <Phone className="w-3.5 h-3.5 text-emerald-400" /> No. WhatsApp Usaha
-                </label>
-                <input
-                  type="tel"
-                  required
-                  value={regPhone}
-                  onChange={(e) => setRegPhone(e.target.value)}
-                  placeholder="0812xxxx atau 628xxxx"
-                  className="w-full bg-slate-950/80 border border-slate-800 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 rounded-2xl px-4 py-3 text-sm font-semibold text-white placeholder:text-slate-500 transition-all outline-none"
-                />
-              </div>
+                  {/* No WhatsApp */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                      <Phone className="w-3.5 h-3.5 text-emerald-400" /> No. WhatsApp Usaha
+                    </label>
+                    <input
+                      type="tel"
+                      required
+                      value={regPhone}
+                      onChange={(e) => setRegPhone(e.target.value)}
+                      placeholder="0812xxxx atau 628xxxx"
+                      className="w-full bg-slate-950/80 border border-slate-800 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 rounded-2xl px-4 py-3 text-sm font-semibold text-white placeholder:text-slate-500 transition-all outline-none"
+                    />
+                  </div>
 
-              {/* Password */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
-                  <Lock className="w-3.5 h-3.5 text-emerald-400" /> Password {googleProfile?.googleId && <span className="text-slate-500 font-normal">(opsional jika login dengan Google)</span>}
-                </label>
-                <div className="relative">
-                  <input
-                    type={showRegPassword ? "text" : "password"}
-                    required={!googleProfile?.googleId}
-                    value={regPassword}
-                    onChange={(e) => setRegPassword(e.target.value)}
-                    placeholder={googleProfile?.googleId ? "Opsional (minimal 8 karakter jika diisi)" : "Minimal 8 karakter"}
-                    autoComplete="new-password"
-                    className="w-full bg-slate-950/80 border border-slate-800 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 rounded-2xl pl-4 pr-10 py-3 text-sm font-semibold text-white placeholder:text-slate-500 transition-all outline-none"
-                  />
+                  {/* Password */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                      <Lock className="w-3.5 h-3.5 text-emerald-400" /> Password {googleProfile?.googleId && <span className="text-slate-500 font-normal">(opsional jika login dengan Google)</span>}
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showRegPassword ? "text" : "password"}
+                        required={!googleProfile?.googleId}
+                        value={regPassword}
+                        onChange={(e) => setRegPassword(e.target.value)}
+                        placeholder={googleProfile?.googleId ? "Opsional (minimal 8 karakter jika diisi)" : "Minimal 8 karakter"}
+                        autoComplete="new-password"
+                        className="w-full bg-slate-950/80 border border-slate-800 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 rounded-2xl pl-4 pr-10 py-3 text-sm font-semibold text-white placeholder:text-slate-500 transition-all outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowRegPassword(!showRegPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-1 rounded-xl transition-colors cursor-pointer"
+                      >
+                        {showRegPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                  </div>
+
                   <button
-                    type="button"
-                    onClick={() => setShowRegPassword(!showRegPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-1 rounded-xl transition-colors cursor-pointer"
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full inline-flex items-center justify-center gap-2 py-4 px-6 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:scale-98 disabled:opacity-50 text-slate-950 font-black text-sm transition-all shadow-lg shadow-emerald-500/25 cursor-pointer mt-2"
                   >
-                    {showRegPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>{googleProfile?.googleId ? "Mendaftarkan..." : "Mengirim Kode Verifikasi..."}</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>{googleProfile?.googleId ? "Mulai Free Trial Sekarang" : "Kirim Kode Verifikasi Email"}</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </>
+                    )}
                   </button>
-                </div>
-              </div>
+                </>
+              )}
 
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full inline-flex items-center justify-center gap-2 py-4 px-6 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:scale-98 disabled:opacity-50 text-slate-950 font-black text-sm transition-all shadow-lg shadow-emerald-500/25 cursor-pointer mt-2"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Mendaftarkan...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>Mulai Free Trial Sekarang</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </>
-                )}
-              </button>
+              {/* Pendaftaran Step 2: Masukkan Kode OTP Email */}
+              {regStep === 2 && !googleProfile?.googleId && (
+                <div className="space-y-4 animate-in fade-in slide-in-from-right-2 duration-200">
+                  <div className="p-4 rounded-2xl bg-emerald-950/40 border border-emerald-500/30 text-center space-y-1.5">
+                    <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto mb-1">
+                      <Mail className="w-5 h-5" />
+                    </div>
+                    <h4 className="text-sm font-black text-white">Masukkan Kode Verifikasi Email</h4>
+                    <p className="text-xs text-slate-300">
+                      Kode OTP 6-digit telah dikirim ke <strong className="text-emerald-400">{regUsername}</strong>
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setRegStep(1)}
+                      className="text-[11px] font-bold text-emerald-400 hover:text-emerald-300 underline cursor-pointer"
+                    >
+                      Ganti Alamat Email
+                    </button>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-300 text-center block">
+                      Kode OTP 6-Digit
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={6}
+                      autoFocus
+                      required
+                      value={regOtp}
+                      onChange={(e) => setRegOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                      placeholder="123456"
+                      className="w-full bg-slate-950 border-2 border-emerald-500/50 focus:border-emerald-400 focus:ring-4 focus:ring-emerald-500/20 rounded-2xl py-3.5 text-center text-2xl font-black tracking-[0.4em] text-white placeholder:text-slate-600 transition-all outline-none"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isLoading || regOtp.length !== 6}
+                    className="w-full inline-flex items-center justify-center gap-2 py-4 px-6 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:scale-98 disabled:opacity-50 text-slate-950 font-black text-sm transition-all shadow-lg shadow-emerald-500/25 cursor-pointer"
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Memverifikasi Akun...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Verifikasi & Mulai Free Trial</span>
+                        <CheckCircle2 className="w-4 h-4" />
+                      </>
+                    )}
+                  </button>
+
+                  <div className="flex items-center justify-between text-xs text-slate-400 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setRegStep(1)}
+                      className="hover:text-white transition-colors cursor-pointer"
+                    >
+                      ← Kembali ke formulir
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isSendingOtp || otpCooldown > 0}
+                      onClick={handleResendOtp}
+                      className="text-emerald-400 font-bold hover:underline disabled:opacity-50 disabled:no-underline cursor-pointer"
+                    >
+                      {otpCooldown > 0 ? `Kirim ulang (${otpCooldown}s)` : "Kirim Ulang Kode"}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <div className="pt-2 text-center">
                 <p className="text-xs text-slate-400">

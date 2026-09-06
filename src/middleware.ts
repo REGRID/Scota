@@ -7,6 +7,7 @@ const PUBLIC_API_ROUTES = [
   "/api/ping",
   "/api/auth/login",
   "/api/auth/register",
+  "/api/auth/send-register-otp", // endpoint pengiriman kode OTP verifikasi email pendaftaran
   "/api/auth/forgot-password",
   "/api/auth/session",
   "/api/auth/logout",

@@ -83,6 +83,17 @@ async function runSetup() {
         value TEXT NOT NULL,
         "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now()
       );
+      CREATE TABLE IF NOT EXISTS email_verifications (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        email TEXT NOT NULL,
+        "otpCode" VARCHAR(6) NOT NULL,
+        "expiresAt" TIMESTAMPTZ NOT NULL,
+        "isUsed" BOOLEAN DEFAULT false,
+        "attempts" INTEGER DEFAULT 0,
+        "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS email_verif_email_idx ON email_verifications (LOWER(email));
+      CREATE INDEX IF NOT EXISTS email_verif_otp_idx ON email_verifications ("otpCode");
     `);
     console.log('✓ All 11 PostgreSQL Tables, Demo Columns, System Settings & Indexes created/verified successfully!');
 

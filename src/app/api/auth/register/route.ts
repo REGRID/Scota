@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { registerAdminAccount } from "@/lib/adminAccounts"
+import { verifyEmailOtp } from "@/lib/emailSender"
 import { TIER_CONFIG, SubscriptionTier } from "@/lib/subscription"
 import { saveSubscriptionInfo, getSubscriptionInfo } from "@/lib/subscriptionServer"
 import { createSessionToken } from "@/lib/session"
@@ -20,33 +21,48 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const { username, password, fullName, businessName, phone, email, selectedTier, interestedTier, googleId } = await req.json()
+    const { username, password, fullName, businessName, phone, email, selectedTier, interestedTier, googleId, otpCode, otp } = await req.json()
 
-    const cleanUsername = (username || "").trim().toLowerCase()
+    const rawEmail = (email || (username && username.includes("@") ? username : "")).trim().toLowerCase()
     const cleanPassword = (password || "").trim()
     const cleanFullName = (fullName || "").trim()
     const cleanBusinessName = (businessName || "").trim()
     const cleanPhone = (phone || "").trim()
-    const cleanEmail = (email || (cleanUsername.includes("@") ? cleanUsername : "")).trim().toLowerCase()
     const cleanGoogleId = (googleId || "").trim()
+    const cleanOtp = (otpCode || otp || "").trim()
+
+    // 1. Validasi Format Email Ketat
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!rawEmail || !emailRegex.test(rawEmail)) {
+      return NextResponse.json({ error: "Alamat email wajib diisi dengan format yang valid (contoh: nama@bisnis.com)" }, { status: 400 })
+    }
+    const cleanEmail = rawEmail
+    const cleanUsername = cleanEmail // Akun didaftarkan dengan ID berbasis email
+
+    // 2. Verifikasi OTP Email untuk pendaftaran manual (non-Google)
+    if (!cleanGoogleId) {
+      if (!cleanOtp) {
+        return NextResponse.json({ error: "Kode verifikasi OTP email wajib diisi" }, { status: 400 })
+      }
+
+      const verifyRes = await verifyEmailOtp(cleanEmail, cleanOtp)
+      if (!verifyRes.valid) {
+        return NextResponse.json({ error: verifyRes.error || "Kode verifikasi email salah atau kedaluwarsa" }, { status: 400 })
+      }
+
+      if (!cleanPassword) {
+        return NextResponse.json({ error: "Password harus diisi" }, { status: 400 })
+      }
+
+      if (cleanPassword.length < 8) {
+        return NextResponse.json({ error: "Password minimal 8 karakter" }, { status: 400 })
+      }
+    }
 
     // SECURITY ENFORCEMENT:
     // Pendaftaran mandiri (self-service) HANYA dan SELALU mendapatkan paket "trial".
-    // Input `selectedTier` dari client tidak boleh dipercaya untuk menentukan hak akses/kuota aktif.
     const activeTier: SubscriptionTier = "trial"
     const leadInterestedTier = (interestedTier || selectedTier || "trial").toLowerCase().trim()
-
-    if (!cleanUsername) {
-      return NextResponse.json({ error: "ID Pengguna / Email harus diisi" }, { status: 400 })
-    }
-
-    if (!cleanGoogleId && !cleanPassword) {
-      return NextResponse.json({ error: "Password harus diisi" }, { status: 400 })
-    }
-
-    if (cleanPassword && cleanPassword.length < 8) {
-      return NextResponse.json({ error: "Password minimal 8 karakter" }, { status: 400 })
-    }
 
     // Register as ADMIN role with strictly "trial" tier
     const regResult = await registerAdminAccount({

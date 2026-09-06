@@ -302,3 +302,17 @@ CREATE INDEX IF NOT EXISTS tenants_demo_expiry_idx ON tenants ("expiresAt") WHER
 ALTER TABLE tenants ADD COLUMN IF NOT EXISTS "demoIpAddress" TEXT;
 CREATE UNIQUE INDEX IF NOT EXISTS tenants_demo_ip_idx ON tenants ("demoIpAddress") WHERE "isDemo" = true;
 
+-- 17. Table: email_verifications (Kode OTP Verifikasi Email Pendaftaran)
+CREATE TABLE IF NOT EXISTS public.email_verifications (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email TEXT NOT NULL,
+    "otpCode" VARCHAR(6) NOT NULL,
+    "expiresAt" TIMESTAMPTZ NOT NULL,
+    "isUsed" BOOLEAN DEFAULT false,
+    "attempts" INTEGER DEFAULT 0,
+    "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS email_verif_email_idx ON public.email_verifications (LOWER(email));
+CREATE INDEX IF NOT EXISTS email_verif_otp_idx ON public.email_verifications ("otpCode");
+
+

@@ -722,9 +722,8 @@ export function AdminLoginScreen({
                     <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
                       <Zap className="w-4 h-4" />
                     </div>
-                    <div className="text-[11.5px] leading-tight">
+                    <div className="text-[12px] leading-tight">
                       <strong className="text-emerald-300 font-bold block">Free Trial 14 Hari Otomatis</strong>
-                      <span className="text-slate-400">Langsung coba seluruh fitur AI tanpa biaya awal.</span>
                     </div>
                   </div>
 

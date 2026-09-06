@@ -29,7 +29,7 @@ export default function SuperadminAiSettingsPage() {
   const [apiKey, setApiKey] = useState("")
   const [maskedKeyPlaceholder, setMaskedKeyPlaceholder] = useState("")
   const [showApiKey, setShowApiKey] = useState(false)
-  const [aiModel, setAiModel] = useState("gemini-2.5-flash")
+  const [aiModel, setAiModel] = useState("gemini-2.0-flash")
   const [temperature, setTemperature] = useState("0.1")
   const [autoLearnEnabled, setAutoLearnEnabled] = useState(true)
   const [supportWhatsApp, setSupportWhatsApp] = useState("6285215973776")
@@ -49,7 +49,8 @@ export default function SuperadminAiSettingsPage() {
               setMaskedKeyPlaceholder(data.settings.apiKeyMasked)
             }
             if (data.settings.model) {
-              setAiModel(data.settings.model)
+              const m = data.settings.model
+              setAiModel(m === "gemini-2.5-flash" ? "gemini-2.0-flash" : m)
             }
           }
         }
@@ -64,50 +65,39 @@ export default function SuperadminAiSettingsPage() {
     }
   }, [])
 
-  // Live Ping Test to Gemini API
+  // Live Ping Test to Gemini API (via Secure Server Proxy)
   const handleTestConnection = async () => {
     const cleanKey = apiKey.trim().replace(/^["']|["']$/g, "")
-    if (!cleanKey) {
-      toast.error("Masukkan Google Gemini API Key pada kolom input untuk menguji koneksi.")
+    if (!cleanKey && !maskedKeyPlaceholder) {
+      toast.error("Masukkan Google Gemini API Key terlebih dahulu untuk menguji koneksi.")
       return
     }
 
     setIsTesting(true)
     setTestResult(null)
-    const startTime = Date.now()
 
     try {
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${aiModel}:generateContent?key=${cleanKey}`, {
+      const res = await fetch("/api/superadmin/ai-settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: "Ping test: balas satu kata 'OK'." }] }],
-          generationConfig: { maxOutputTokens: 10, temperature: 0.1 },
+          action: "test",
+          apiKey: cleanKey || undefined,
+          model: aiModel,
         }),
       })
 
-      const latencyMs = Date.now() - startTime
-
-      if (!res.ok) {
-        const errText = await res.text()
-        if (errText.includes("API_KEY_INVALID") || res.status === 400) {
-          throw new Error("API Key tidak valid atau dinonaktifkan oleh Google.")
-        }
-        if (res.status === 429) {
-          throw new Error("Kuota API Google Cloud terlampaui (Rate Limit / Quota Exceeded).")
-        }
-        throw new Error(`Koneksi gagal (HTTP ${res.status}): ${errText.slice(0, 100)}`)
-      }
-
       const data = await res.json()
-      const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "OK"
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || `Koneksi gagal (HTTP ${res.status})`)
+      }
 
       setTestResult({
         success: true,
-        message: `Koneksi Berhasil! Model ${aiModel} merespons: "${reply}"`,
-        latencyMs,
+        message: data.message,
+        latencyMs: data.latencyMs,
       })
-      toast.success(`Tes koneksi Google Gemini berhasil (${latencyMs}ms)!`)
+      toast.success(`Tes koneksi Google Gemini berhasil (${data.latencyMs}ms)!`)
     } catch (err: any) {
       setTestResult({
         success: false,
@@ -306,23 +296,42 @@ export default function SuperadminAiSettingsPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div
-                onClick={() => setAiModel("gemini-2.5-flash")}
+                onClick={() => setAiModel("gemini-2.0-flash")}
                 className={`p-3.5 rounded-xl border cursor-pointer transition-all ${
-                  aiModel === "gemini-2.5-flash"
+                  aiModel === "gemini-2.0-flash"
                     ? "border-emerald-500 bg-emerald-500/10 text-white font-bold"
                     : "border-slate-800 bg-slate-950/60 text-slate-400 hover:border-slate-700"
                 }`}
               >
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-black text-emerald-400">Gemini 2.5 Flash</span>
+                  <span className="text-xs font-black text-emerald-400">Gemini 2.0 Flash</span>
                   <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 uppercase">
                     Rekomendasi
                   </span>
                 </div>
                 <p className="text-[11px] font-normal leading-relaxed text-slate-300">
-                  Model generasi terbaru: latensi rendah, efisiensi token optimal, dan akurat membaca berbagai kondisi nota.
+                  Model generasi terbaru: latensi sangat rendah, efisiensi token optimal, dan akurat membaca foto nota.
+                </p>
+              </div>
+
+              <div
+                onClick={() => setAiModel("gemini-1.5-flash")}
+                className={`p-3.5 rounded-xl border cursor-pointer transition-all ${
+                  aiModel === "gemini-1.5-flash"
+                    ? "border-emerald-500 bg-emerald-500/10 text-white font-bold"
+                    : "border-slate-800 bg-slate-950/60 text-slate-400 hover:border-slate-700"
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-black text-teal-400">Gemini 1.5 Flash</span>
+                  <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-teal-500/20 text-teal-400 uppercase">
+                    Stabil
+                  </span>
+                </div>
+                <p className="text-[11px] font-normal leading-relaxed text-slate-300">
+                  Model vision standar yang stabil, efisien, dan cocok untuk pemindaian harian volume tinggi.
                 </p>
               </div>
 

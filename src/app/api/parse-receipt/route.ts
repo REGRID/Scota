@@ -265,14 +265,19 @@ Keluarkan HANYA JSON:
     contentsParts.push({ text: promptText })
 
     const targetModel =
-      configuredModel === "gemini-2.5-flash" ? "gemini-2.0-flash" : configuredModel || "gemini-2.0-flash"
+      configuredModel === "gemini-2.5-flash" || configuredModel === "gemini-2.0-flash"
+        ? "gemini-3.5-flash"
+        : configuredModel || "gemini-3.5-flash"
 
     const candidateModels = Array.from(
       new Set([
         targetModel,
+        "gemini-3.5-flash",
+        "gemini-3.8-flash",
+        "gemini-3.7-flash",
+        "gemini-3.1-pro",
         "gemini-2.0-flash",
         "gemini-1.5-flash",
-        "gemini-1.5-pro",
       ])
     )
     let textOutput = ""

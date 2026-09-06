@@ -29,11 +29,15 @@ export default function SuperadminAiSettingsPage() {
   const [apiKey, setApiKey] = useState("")
   const [maskedKeyPlaceholder, setMaskedKeyPlaceholder] = useState("")
   const [showApiKey, setShowApiKey] = useState(false)
-  const [aiModel, setAiModel] = useState("gemini-2.0-flash")
+  const [aiModel, setAiModel] = useState("gemini-3.5-flash")
   const [temperature, setTemperature] = useState("0.1")
   const [autoLearnEnabled, setAutoLearnEnabled] = useState(true)
   const [supportWhatsApp, setSupportWhatsApp] = useState("6285215973776")
   const [isTesting, setIsTesting] = useState(false)
+  const [isDiscovering, setIsDiscovering] = useState(false)
+  const [discoveredModels, setDiscoveredModels] = useState<
+    Array<{ id: string; displayName: string; description?: string; isFlash?: boolean; isPro?: boolean }>
+  >([])
   const [isSaving, setIsSaving] = useState(false)
   const [testResult, setTestResult] = useState<{ success?: boolean; message?: string; latencyMs?: number } | null>(null)
 
@@ -50,7 +54,11 @@ export default function SuperadminAiSettingsPage() {
             }
             if (data.settings.model) {
               const m = data.settings.model
-              setAiModel(m === "gemini-2.5-flash" ? "gemini-2.0-flash" : m)
+              if (m === "gemini-2.5-flash" || m === "gemini-2.0-flash" || m.startsWith("gemini-1.5")) {
+                setAiModel("gemini-3.5-flash")
+              } else {
+                setAiModel(m)
+              }
             }
           }
         }
@@ -64,6 +72,54 @@ export default function SuperadminAiSettingsPage() {
       setSupportWhatsApp(getSupportWhatsAppNumber())
     }
   }, [])
+
+  // Auto-Discover Models available for this API Key
+  const handleDiscoverModels = async () => {
+    const cleanKey = apiKey.trim().replace(/^["']|["']$/g, "")
+    if (!cleanKey && !maskedKeyPlaceholder) {
+      toast.error("Masukkan Google Gemini API Key terlebih dahulu untuk mendeteksi model.")
+      return
+    }
+
+    setIsDiscovering(true)
+    try {
+      const res = await fetch("/api/superadmin/ai-settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "discover_models",
+          apiKey: cleanKey || undefined,
+        }),
+      })
+
+      const data = await res.json()
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Gagal mendeteksi model dari Google.")
+      }
+
+      const models = data.models || []
+      setDiscoveredModels(models)
+      if (models.length > 0) {
+        toast.success(`Berhasil mendeteksi ${models.length} model aktif dari akun Google Anda!`)
+        // Auto-select flash model jika model saat ini tidak ada di daftar
+        const hasCurrent = models.some((m: any) => m.id === aiModel)
+        if (!hasCurrent) {
+          const best =
+            models.find((m: any) => m.id.includes("3.5-flash")) ||
+            models.find((m: any) => m.id.includes("3.8-flash")) ||
+            models.find((m: any) => m.id.includes("flash")) ||
+            models[0]
+          if (best) setAiModel(best.id)
+        }
+      } else {
+        toast.info("Tidak ada model generateContent yang ditemukan pada akun Google ini.")
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Gagal mendeteksi model.")
+    } finally {
+      setIsDiscovering(false)
+    }
+  }
 
   // Live Ping Test to Gemini API (via Secure Server Proxy)
   const handleTestConnection = async () => {
@@ -90,6 +146,10 @@ export default function SuperadminAiSettingsPage() {
       const data = await res.json()
       if (!res.ok || !data.success) {
         throw new Error(data.error || `Koneksi gagal (HTTP ${res.status})`)
+      }
+
+      if (data.activeModel && data.activeModel !== aiModel) {
+        setAiModel(data.activeModel)
       }
 
       setTestResult({
@@ -284,67 +344,80 @@ export default function SuperadminAiSettingsPage() {
 
           {/* Card 2: Model & Performance Tuning */}
           <div className="p-5 sm:p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-5">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20 flex items-center justify-center">
-                <Cpu className="w-4 h-4" />
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20 flex items-center justify-center">
+                  <Cpu className="w-4 h-4" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-black text-white">Model AI Vision & Ekstraksi OCR</h2>
+                  <p className="text-[11px] text-slate-400">
+                    Pilih arsitektur model AI untuk membaca detail struk, toko, subtotal, dan barang.
+                  </p>
+                </div>
               </div>
-              <div>
-                <h2 className="text-sm font-black text-white">Model AI Vision & Ekstraksi OCR</h2>
-                <p className="text-[11px] text-slate-400">
-                  Pilih arsitektur model AI untuk membaca detail struk, toko, subtotal, dan barang.
-                </p>
-              </div>
+
+              <button
+                type="button"
+                onClick={handleDiscoverModels}
+                disabled={isDiscovering}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/30 text-xs font-bold transition-all disabled:opacity-50 cursor-pointer shadow-sm"
+              >
+                <Sparkles className={`w-3.5 h-3.5 ${isDiscovering ? "animate-spin" : ""}`} />
+                <span>{isDiscovering ? "Mendeteksi dari Google..." : "Deteksi Model Aktif Akun Anda"}</span>
+              </button>
             </div>
 
+            {/* Default Flagship Model Cards (Gemini Generation 3) */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div
-                onClick={() => setAiModel("gemini-2.0-flash")}
+                onClick={() => setAiModel("gemini-3.5-flash")}
                 className={`p-3.5 rounded-xl border cursor-pointer transition-all ${
-                  aiModel === "gemini-2.0-flash"
+                  aiModel === "gemini-3.5-flash"
                     ? "border-emerald-500 bg-emerald-500/10 text-white font-bold"
                     : "border-slate-800 bg-slate-950/60 text-slate-400 hover:border-slate-700"
                 }`}
               >
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-black text-emerald-400">Gemini 2.0 Flash</span>
+                  <span className="text-xs font-black text-emerald-400">Gemini 3.5 Flash</span>
                   <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 uppercase">
                     Rekomendasi
                   </span>
                 </div>
                 <p className="text-[11px] font-normal leading-relaxed text-slate-300">
-                  Model generasi terbaru: latensi sangat rendah, efisiensi token optimal, dan akurat membaca foto nota.
+                  Model Generasi 3 standar: latensi sangat rendah, efisiensi token optimal, dan akurat membaca foto nota.
                 </p>
               </div>
 
               <div
-                onClick={() => setAiModel("gemini-1.5-flash")}
+                onClick={() => setAiModel("gemini-3.8-flash")}
                 className={`p-3.5 rounded-xl border cursor-pointer transition-all ${
-                  aiModel === "gemini-1.5-flash"
+                  aiModel === "gemini-3.8-flash"
                     ? "border-emerald-500 bg-emerald-500/10 text-white font-bold"
                     : "border-slate-800 bg-slate-950/60 text-slate-400 hover:border-slate-700"
                 }`}
               >
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-black text-teal-400">Gemini 1.5 Flash</span>
+                  <span className="text-xs font-black text-teal-400">Gemini 3.8 Flash</span>
                   <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-teal-500/20 text-teal-400 uppercase">
-                    Stabil
+                    Terbaru 2026
                   </span>
                 </div>
                 <p className="text-[11px] font-normal leading-relaxed text-slate-300">
-                  Model vision standar yang stabil, efisien, dan cocok untuk pemindaian harian volume tinggi.
+                  Model flagship mutakhir: pemrosesan berkecepatan tinggi dengan pemahaman konteks enterprise tingkat lanjut.
                 </p>
               </div>
 
               <div
-                onClick={() => setAiModel("gemini-1.5-pro")}
+                onClick={() => setAiModel("gemini-3.1-pro")}
                 className={`p-3.5 rounded-xl border cursor-pointer transition-all ${
-                  aiModel === "gemini-1.5-pro"
+                  aiModel === "gemini-3.1-pro"
                     ? "border-emerald-500 bg-emerald-500/10 text-white font-bold"
                     : "border-slate-800 bg-slate-950/60 text-slate-400 hover:border-slate-700"
                 }`}
               >
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-black text-blue-400">Gemini 1.5 Pro</span>
+                  <span className="text-xs font-black text-blue-400">Gemini 3.1 Pro</span>
                   <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-400 uppercase">
                     Heavy Workload
                   </span>
@@ -354,6 +427,39 @@ export default function SuperadminAiSettingsPage() {
                 </p>
               </div>
             </div>
+
+            {/* Live Discovered Models List from Google AI Studio */}
+            {discoveredModels.length > 0 && (
+              <div className="pt-2 border-t border-slate-800 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                    Model Aktif Ditemukan di Akun Google Anda ({discoveredModels.length})
+                  </span>
+                  <span className="text-[10px] text-slate-500">Klik model untuk memilih</span>
+                </div>
+                <div className="flex flex-wrap gap-2 max-h-36 overflow-y-auto p-1 bg-slate-950/40 rounded-xl border border-slate-800/80">
+                  {discoveredModels.map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => {
+                        setAiModel(m.id)
+                        toast.success(`Model terpilih: ${m.id}`)
+                      }}
+                      className={`text-xs px-2.5 py-1.5 rounded-lg border font-mono transition-all flex items-center gap-1.5 ${
+                        aiModel === m.id
+                          ? "bg-emerald-500/20 border-emerald-500 text-emerald-300 font-bold"
+                          : "bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200"
+                      }`}
+                    >
+                      <span>{m.id}</span>
+                      {aiModel === m.id && <Check className="w-3 h-3 text-emerald-400" />}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

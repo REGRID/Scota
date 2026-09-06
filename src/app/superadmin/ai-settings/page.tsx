@@ -54,11 +54,7 @@ export default function SuperadminAiSettingsPage() {
             }
             if (data.settings.model) {
               const m = data.settings.model
-              if (m === "gemini-2.5-flash" || m === "gemini-2.0-flash" || m.startsWith("gemini-1.5")) {
-                setAiModel("gemini-3.5-flash")
-              } else {
-                setAiModel(m)
-              }
+              setAiModel(m === "gemini-2.5-flash" ? "gemini-3.5-flash" : m)
             }
           }
         }
@@ -101,16 +97,6 @@ export default function SuperadminAiSettingsPage() {
       setDiscoveredModels(models)
       if (models.length > 0) {
         toast.success(`Berhasil mendeteksi ${models.length} model aktif dari akun Google Anda!`)
-        // Auto-select flash model jika model saat ini tidak ada di daftar
-        const hasCurrent = models.some((m: any) => m.id === aiModel)
-        if (!hasCurrent) {
-          const best =
-            models.find((m: any) => m.id.includes("3.5-flash")) ||
-            models.find((m: any) => m.id.includes("3.8-flash")) ||
-            models.find((m: any) => m.id.includes("flash")) ||
-            models[0]
-          if (best) setAiModel(best.id)
-        }
       } else {
         toast.info("Tidak ada model generateContent yang ditemukan pada akun Google ini.")
       }
@@ -146,10 +132,6 @@ export default function SuperadminAiSettingsPage() {
       const data = await res.json()
       if (!res.ok || !data.success) {
         throw new Error(data.error || `Koneksi gagal (HTTP ${res.status})`)
-      }
-
-      if (data.activeModel && data.activeModel !== aiModel) {
-        setAiModel(data.activeModel)
       }
 
       setTestResult({
@@ -368,13 +350,37 @@ export default function SuperadminAiSettingsPage() {
               </button>
             </div>
 
-            {/* Default Flagship Model Cards (Gemini Generation 3) */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {/* Active Model Indicator & Custom Input */}
+            <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-slate-400">Model Terpilih Saat Ini:</span>
+                <span className="px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-mono text-xs font-bold flex items-center gap-1.5">
+                  <Cpu className="w-3.5 h-3.5" />
+                  {aiModel}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <span className="text-[11px] text-slate-400 shrink-0">Ketik ID Model Manual:</span>
+                <input
+                  type="text"
+                  value={aiModel}
+                  onChange={(e) => setAiModel(e.target.value.trim())}
+                  placeholder="e.g. gemini-1.5-pro"
+                  className="bg-slate-900 border border-slate-700 text-xs font-mono text-white rounded-lg px-2.5 py-1.5 outline-none focus:border-emerald-500 w-48"
+                />
+              </div>
+            </div>
+
+            {/* Default Model Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <div
-                onClick={() => setAiModel("gemini-3.5-flash")}
+                onClick={() => {
+                  setAiModel("gemini-3.5-flash")
+                  toast.success("Model diubah ke Gemini 3.5 Flash")
+                }}
                 className={`p-3.5 rounded-xl border cursor-pointer transition-all ${
                   aiModel === "gemini-3.5-flash"
-                    ? "border-emerald-500 bg-emerald-500/10 text-white font-bold"
+                    ? "border-emerald-500 bg-emerald-500/10 text-white font-bold ring-1 ring-emerald-500"
                     : "border-slate-800 bg-slate-950/60 text-slate-400 hover:border-slate-700"
                 }`}
               >
@@ -390,10 +396,13 @@ export default function SuperadminAiSettingsPage() {
               </div>
 
               <div
-                onClick={() => setAiModel("gemini-3.8-flash")}
+                onClick={() => {
+                  setAiModel("gemini-3.8-flash")
+                  toast.success("Model diubah ke Gemini 3.8 Flash")
+                }}
                 className={`p-3.5 rounded-xl border cursor-pointer transition-all ${
                   aiModel === "gemini-3.8-flash"
-                    ? "border-emerald-500 bg-emerald-500/10 text-white font-bold"
+                    ? "border-emerald-500 bg-emerald-500/10 text-white font-bold ring-1 ring-emerald-500"
                     : "border-slate-800 bg-slate-950/60 text-slate-400 hover:border-slate-700"
                 }`}
               >
@@ -409,21 +418,46 @@ export default function SuperadminAiSettingsPage() {
               </div>
 
               <div
-                onClick={() => setAiModel("gemini-3.1-pro")}
+                onClick={() => {
+                  setAiModel("gemini-3.1-pro")
+                  toast.success("Model diubah ke Gemini 3.1 Pro")
+                }}
                 className={`p-3.5 rounded-xl border cursor-pointer transition-all ${
                   aiModel === "gemini-3.1-pro"
-                    ? "border-emerald-500 bg-emerald-500/10 text-white font-bold"
+                    ? "border-emerald-500 bg-emerald-500/10 text-white font-bold ring-1 ring-emerald-500"
                     : "border-slate-800 bg-slate-950/60 text-slate-400 hover:border-slate-700"
                 }`}
               >
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-xs font-black text-blue-400">Gemini 3.1 Pro</span>
                   <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-400 uppercase">
+                    Deep Reasoning
+                  </span>
+                </div>
+                <p className="text-[11px] font-normal leading-relaxed text-slate-300">
+                  Penalaran mendalam untuk faktur pajak panjang atau multi-halaman berukuran besar.
+                </p>
+              </div>
+
+              <div
+                onClick={() => {
+                  setAiModel("gemini-1.5-pro")
+                  toast.success("Model diubah ke Gemini 1.5 Pro")
+                }}
+                className={`p-3.5 rounded-xl border cursor-pointer transition-all ${
+                  aiModel === "gemini-1.5-pro"
+                    ? "border-emerald-500 bg-emerald-500/10 text-white font-bold ring-1 ring-emerald-500"
+                    : "border-slate-800 bg-slate-950/60 text-slate-400 hover:border-slate-700"
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-black text-purple-400">Gemini 1.5 Pro</span>
+                  <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-purple-500/20 text-purple-400 uppercase">
                     Heavy Workload
                   </span>
                 </div>
                 <p className="text-[11px] font-normal leading-relaxed text-slate-300">
-                  Kapasitas penalaran tertinggi untuk faktur pajak panjang atau multi-halaman berukuran besar.
+                  Model Pro multi-modal untuk pemrosesan dokumen kompleks bervolume tinggi.
                 </p>
               </div>
             </div>

@@ -36,12 +36,8 @@ export async function getActiveGeminiModel(): Promise<string> {
       )
       const dbModel = res.rows?.[0]?.value?.trim()
       if (dbModel) {
-        // Normalisasi model yang deprecated (gemini-2.5, gemini-2.0, gemini-1.5-flash)
-        if (
-          dbModel === "gemini-2.5-flash" ||
-          dbModel === "gemini-2.0-flash" ||
-          dbModel.startsWith("gemini-1.5")
-        ) {
+        // Hanya normalisasi jika sebelumnya tersimpan model non-existent gemini-2.5-flash
+        if (dbModel === "gemini-2.5-flash") {
           return "gemini-3.5-flash"
         }
         return dbModel

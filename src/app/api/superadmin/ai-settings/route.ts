@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requireSuperadmin } from "@/lib/superadminGuard"
-import { getAiSystemSettings, getActiveGeminiApiKey, setGeminiApiKey, setGeminiModel } from "@/lib/aiConfig"
+import { getAiSystemSettings, getActiveGeminiApiKey, getActiveGeminiModel, setGeminiApiKey, setGeminiModel } from "@/lib/aiConfig"
 import { recordAuditLog } from "@/lib/superadmin"
 
 export async function GET(req: NextRequest) {
@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 2. Live Test Connection Action with Automatic Discovery Fallback
+    // 2. Live Test Connection Action
     if (action === "test") {
       if (!testKey) {
         return NextResponse.json(
@@ -87,18 +87,14 @@ export async function POST(req: NextRequest) {
         )
       }
 
-      // Normalisasi model awal
-      let targetModel = model || "gemini-3.5-flash"
-      if (
-        targetModel === "gemini-2.5-flash" ||
-        targetModel === "gemini-2.0-flash" ||
-        targetModel.startsWith("gemini-1.5")
-      ) {
-        targetModel = "gemini-3.5-flash"
+      // Gunakan persis model yang diminta pengguna (hanya ubah jika gemini-2.5-flash non-existent)
+      let targetModel = (model || "").trim()
+      if (!targetModel || targetModel === "gemini-2.5-flash") {
+        targetModel = await getActiveGeminiModel()
       }
 
       const startTime = Date.now()
-      let geminiRes = await fetch(
+      const geminiRes = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${testKey}`,
         {
           method: "POST",
@@ -110,42 +106,6 @@ export async function POST(req: NextRequest) {
         }
       )
 
-      // Jika 404 (model tidak tersedia/deprecated), coba temukan model aktif secara otomatis
-      if (geminiRes.status === 404) {
-        try {
-          const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${testKey}`)
-          if (listRes.ok) {
-            const listData = await listRes.json()
-            const activeModels = (listData.models || [])
-              .filter((m: any) => m.supportedGenerationMethods?.includes("generateContent"))
-              .map((m: any) => m.name?.replace(/^models\//, ""))
-
-            // Cari model flash terbaru yang aktif
-            const fallbackModel =
-              activeModels.find((m: string) => m.includes("3.8-flash")) ||
-              activeModels.find((m: string) => m.includes("3.7-flash")) ||
-              activeModels.find((m: string) => m.includes("3.5-flash")) ||
-              activeModels.find((m: string) => m.includes("flash")) ||
-              activeModels[0]
-
-            if (fallbackModel && fallbackModel !== targetModel) {
-              targetModel = fallbackModel
-              geminiRes = await fetch(
-                `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${testKey}`,
-                {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    contents: [{ parts: [{ text: "Ping test: balas satu kata 'OK'." }] }],
-                    generationConfig: { maxOutputTokens: 10, temperature: 0.1 },
-                  }),
-                }
-              )
-            }
-          }
-        } catch {}
-      }
-
       const latencyMs = Date.now() - startTime
 
       if (!geminiRes.ok) {
@@ -156,7 +116,7 @@ export async function POST(req: NextRequest) {
         } else if (geminiRes.status === 429) {
           cleanErrMsg = "Kuota API Google Cloud terlampaui (Rate Limit / Quota Exceeded)."
         } else if (geminiRes.status === 404) {
-          cleanErrMsg = `Model ${targetModel} tidak ditemukan di Google Gemini API (HTTP 404). Silakan gunakan tombol 'Deteksi Model Aktif'.`
+          cleanErrMsg = `Model ${targetModel} tidak tersedia untuk API Key Anda (HTTP 404). Silakan pilih model lain atau gunakan 'Deteksi Model Aktif'.`
         }
         return NextResponse.json({ error: cleanErrMsg }, { status: geminiRes.status })
       }
@@ -166,8 +126,8 @@ export async function POST(req: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        activeModel: targetModel,
-        message: `Koneksi Berhasil! Model ${targetModel} aktif dan merespons: "${reply}"`,
+        testedModel: targetModel,
+        message: `Koneksi Berhasil! Model ${targetModel} merespons: "${reply}"`,
         latencyMs,
       })
     }

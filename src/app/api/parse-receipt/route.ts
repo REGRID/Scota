@@ -47,29 +47,85 @@ function sanitizeRawText(input: string): string {
   return sanitized
 }
 
+function cleanAndParseReceiptJson(rawText: string): any {
+  let cleaned = (rawText || "").trim()
+
+  // 1. Strip markdown code fences (```json ... ``` or ``` ...)
+  cleaned = cleaned.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim()
+
+  // 2. Extract outermost JSON object if surrounded by chat prose
+  const firstBrace = cleaned.indexOf("{")
+  const lastBrace = cleaned.lastIndexOf("}")
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    cleaned = cleaned.substring(firstBrace, lastBrace + 1)
+  }
+
+  // 3. Remove trailing commas in objects and arrays
+  cleaned = cleaned.replace(/,\s*([}\]])/g, "$1")
+
+  // 4. Try standard JSON parse
+  try {
+    return JSON.parse(cleaned)
+  } catch (err1) {
+    // 5. Attempt auto-repair for truncated JSON (unclosed quotes/brackets)
+    let repaired = cleaned
+
+    // Close any dangling open string quote
+    const quoteCount = (repaired.match(/"/g) || []).length
+    if (quoteCount % 2 !== 0) {
+      repaired += '"'
+    }
+
+    // Balance braces and brackets
+    const openBraces = (repaired.match(/{/g) || []).length
+    const closeBraces = (repaired.match(/}/g) || []).length
+    const openBrackets = (repaired.match(/\[/g) || []).length
+    const closeBrackets = (repaired.match(/\]/g) || []).length
+
+    if (openBrackets > closeBrackets) {
+      repaired += "]".repeat(openBrackets - closeBrackets)
+    }
+    if (openBraces > closeBraces) {
+      repaired += "}".repeat(openBraces - closeBraces)
+    }
+
+    repaired = repaired.replace(/,\s*([}\]])/g, "$1")
+    return JSON.parse(repaired)
+  }
+}
+
 async function callGeminiRestApi(apiKey: string, modelName: string, contentsParts: any[]) {
   const cleanKey = (apiKey || "").trim().replace(/^["']|["']$/g, "")
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${cleanKey}`
   
   const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), 9000)
+  const timeoutId = setTimeout(() => controller.abort(), 25000)
 
   try {
+    const generationConfig: Record<string, any> = {
+      temperature: 0.1,
+      maxOutputTokens: 8192,
+      responseMimeType: "application/json",
+    }
+
+    // Zero thinking budget untuk model 3.x agar respons instan dan tidak memotong kuota token JSON
+    if (modelName.includes("3.") || modelName.includes("flash")) {
+      generationConfig.thinkingConfig = {
+        thinkingBudget: 0,
+      }
+    }
+
     const response = await fetch(url, {
       method: "POST",
       signal: controller.signal,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{ parts: contentsParts }],
-        generationConfig: {
-          temperature: 0.1,
-          maxOutputTokens: 1024,
-          responseMimeType: "application/json",
-        },
+        generationConfig,
       }),
     })
 
-  if (!response.ok) {
+    if (!response.ok) {
       const errText = await response.text()
       if (errText.includes("API_KEY_INVALID") || errText.includes("API key not valid") || errText.includes("INVALID_ARGUMENT")) {
         const invalidErr = new Error("GOOGLE_API_KEY_INVALID")
@@ -330,14 +386,11 @@ Keluarkan HANYA JSON:
       )
     }
 
-    const jsonMatch = textOutput.match(/\{[\s\S]*\}/)
-    const cleanedJson = jsonMatch ? jsonMatch[0] : textOutput
-
     let parsedJson: ParsedReceiptResult
     try {
-      parsedJson = JSON.parse(cleanedJson) as ParsedReceiptResult
+      parsedJson = cleanAndParseReceiptJson(textOutput) as ParsedReceiptResult
     } catch (parseErr) {
-      console.error("Failed to parse JSON from Gemini output:", textOutput)
+      console.error("Failed to parse JSON from Gemini output:", textOutput, parseErr)
       return NextResponse.json(
         {
           error: "API_PARSE_INVALID_JSON",

@@ -39,11 +39,15 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // 3. Cari atau buat tenant demo terisolasi
-    const tenant = await getOrCreateDemoTenant(googleId, email, name)
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || 
+               req.headers.get("x-real-ip")?.trim() || 
+               "127.0.0.1"
+
+    // 3. Cari atau buat tenant demo terisolasi berbasis IP
+    const tenant = await getOrCreateDemoTenant(ip)
 
     // 4. Terbitkan sesi Scota (bukan sesi Auth.js)
-    const scotaToken = await issueDemoSession(tenant.id, email)
+    const scotaToken = await issueDemoSession(tenant.id, ip)
 
     const response = NextResponse.json({
       success: true,

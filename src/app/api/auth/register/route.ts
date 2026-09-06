@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const { username, password, fullName, businessName, phone, email, selectedTier, interestedTier } = await req.json()
+    const { username, password, fullName, businessName, phone, email, selectedTier, interestedTier, googleId } = await req.json()
 
     const cleanUsername = (username || "").trim().toLowerCase()
     const cleanPassword = (password || "").trim()
@@ -28,6 +28,7 @@ export async function POST(req: NextRequest) {
     const cleanBusinessName = (businessName || "").trim()
     const cleanPhone = (phone || "").trim()
     const cleanEmail = (email || (cleanUsername.includes("@") ? cleanUsername : "")).trim().toLowerCase()
+    const cleanGoogleId = (googleId || "").trim()
 
     // SECURITY ENFORCEMENT:
     // Pendaftaran mandiri (self-service) HANYA dan SELALU mendapatkan paket "trial".
@@ -35,11 +36,15 @@ export async function POST(req: NextRequest) {
     const activeTier: SubscriptionTier = "trial"
     const leadInterestedTier = (interestedTier || selectedTier || "trial").toLowerCase().trim()
 
-    if (!cleanUsername || !cleanPassword) {
-      return NextResponse.json({ error: "ID Pengguna / Email dan Password harus diisi" }, { status: 400 })
+    if (!cleanUsername) {
+      return NextResponse.json({ error: "ID Pengguna / Email harus diisi" }, { status: 400 })
     }
 
-    if (cleanPassword.length < 8) {
+    if (!cleanGoogleId && !cleanPassword) {
+      return NextResponse.json({ error: "Password harus diisi" }, { status: 400 })
+    }
+
+    if (cleanPassword && cleanPassword.length < 8) {
       return NextResponse.json({ error: "Password minimal 8 karakter" }, { status: 400 })
     }
 
@@ -52,13 +57,18 @@ export async function POST(req: NextRequest) {
       phone: cleanPhone,
       email: cleanEmail,
       tier: activeTier,
+      googleId: cleanGoogleId || undefined,
     })
 
     // Record registration attempt for this IP (success resets counter, failure increments)
     await recordAuthAttempt(ip, "register", regResult.success)
 
     if (!regResult.success) {
-      return NextResponse.json({ error: regResult.error || "Gagal membuat akun Admin" }, { status: 400 })
+      const isConflict = regResult.error?.includes("sudah terdaftar") || regResult.error?.includes("sudah terhubung")
+      return NextResponse.json(
+        { error: regResult.error || "Gagal membuat akun Admin" }, 
+        { status: isConflict ? 409 : 400 }
+      )
     }
 
     // Initialize business subscription profile strictly as "trial" (14 days validity, 50 scan quota)

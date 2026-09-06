@@ -156,6 +156,7 @@ CREATE TABLE IF NOT EXISTS admin_accounts (
 
 -- Idempotent column migration for existing admin_accounts table
 ALTER TABLE admin_accounts ADD COLUMN IF NOT EXISTS email TEXT;
+ALTER TABLE admin_accounts ADD COLUMN IF NOT EXISTS "googleId" TEXT UNIQUE;
 
 
 -- Default Seed Accounts (Linked to default tenant)
@@ -298,4 +299,6 @@ CREATE INDEX IF NOT EXISTS billing_transactions_tenant_idx ON public.billing_tra
 CREATE INDEX IF NOT EXISTS billing_transactions_invoice_idx ON public.billing_transactions ("invoiceNumber");
 CREATE UNIQUE INDEX IF NOT EXISTS tenants_demo_google_idx ON tenants ("demoGoogleId") WHERE "isDemo" = true;
 CREATE INDEX IF NOT EXISTS tenants_demo_expiry_idx ON tenants ("expiresAt") WHERE "isDemo" = true;
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS "demoIpAddress" TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS tenants_demo_ip_idx ON tenants ("demoIpAddress") WHERE "isDemo" = true;
 

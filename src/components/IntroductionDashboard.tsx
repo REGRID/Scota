@@ -413,13 +413,13 @@ export function IntroductionDashboard({
                 <span>Coba Gratis 14 Hari</span>
               </Link>
 
-              <Link
-                href="/demo/masuk"
+              <a
+                href="#simulasi"
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-2xl bg-slate-900/90 hover:bg-slate-800 text-emerald-400 border border-emerald-500/30 hover:border-emerald-500/60 font-bold text-sm transition-all hover:-translate-y-0.5 cursor-pointer shadow-md shadow-emerald-500/5"
               >
                 <Sparkles className="w-4 h-4 text-emerald-400" />
-                <span>Coba Demo (Akun Google)</span>
-              </Link>
+                <span>Coba Demo Scan Gratis</span>
+              </a>
 
               <Link
                 href="/pricing"
@@ -531,27 +531,20 @@ export function IntroductionDashboard({
                     </div>
 
                     <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
-                      <Link
-                        href="/demo/masuk"
-                        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-950 font-black text-xs sm:text-sm transition-all shadow-md shadow-teal-500/20 hover:-translate-y-0.5 cursor-pointer"
-                      >
-                        <Sparkles className="w-4 h-4" />
-                        <span>Coba Demo Akun Google</span>
-                      </Link>
                       <button
                         type="button"
                         onClick={() => onEnterApp({ mode: "register" })}
-                        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 font-bold text-xs sm:text-sm transition-all border border-emerald-500/30 cursor-pointer"
+                        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs sm:text-sm transition-all shadow-md shadow-emerald-500/20 hover:-translate-y-0.5 cursor-pointer"
                       >
-                        <span>Daftar Akun Gratis</span>
-                        <ArrowRight className="w-4 h-4" />
+                        <Zap className="w-4 h-4 fill-slate-950" />
+                        <span>Mulai Free Trial 14 Hari</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => onEnterApp({ mode: "login" })}
-                        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs sm:text-sm transition-all border border-slate-700 cursor-pointer"
+                        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs sm:text-sm transition-all border border-slate-700 cursor-pointer"
                       >
-                        Masuk
+                        Masuk ke Akun
                       </button>
                     </div>
                   </div>

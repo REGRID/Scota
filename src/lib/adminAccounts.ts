@@ -113,6 +113,7 @@ export async function getUserAccountDetails(username: string): Promise<{
   businessName?: string
   phone?: string
   tenantId?: string
+  googleId?: string
 } | null> {
   try {
     const cleanUser = normalizeAdminUsername(username)
@@ -128,8 +129,9 @@ export async function getUserAccountDetails(username: string): Promise<{
           businessName?: string
           phone?: string
           tenantId?: string
+          googleId?: string
         }>(
-          `SELECT username, password, role, "fullName", "businessName", phone, "tenantId" 
+          `SELECT username, password, role, "fullName", "businessName", phone, "tenantId", "googleId" 
            FROM admin_accounts 
            WHERE LOWER(username) = LOWER($1) 
            LIMIT 1`,
@@ -145,6 +147,7 @@ export async function getUserAccountDetails(username: string): Promise<{
             businessName: row.businessName || undefined,
             phone: row.phone || undefined,
             tenantId: row.tenantId || DEFAULT_TENANT_ID,
+            googleId: row.googleId || undefined,
           }
         }
       } catch (e) {
@@ -215,35 +218,140 @@ export async function updateAdminPassword(username: string, newPass: string): Pr
 }
 
 /**
+ * Mencari akun admin berdasarkan googleId.
+ */
+export async function findAdminAccountByGoogleId(googleId: string): Promise<{
+  username: string
+  role: string
+  fullName?: string
+  businessName?: string
+  phone?: string
+  email?: string
+  tenantId?: string
+  googleId?: string
+} | null> {
+  const cleanGoogleId = (googleId || "").trim()
+  if (!cleanGoogleId || !isDatabaseConfigured) return null
+  try {
+    const res = await queryPg<{
+      username: string
+      role: string
+      fullName?: string
+      businessName?: string
+      phone?: string
+      email?: string
+      tenantId?: string
+      googleId?: string
+    }>(
+      `SELECT username, role, "fullName", "businessName", phone, email, "tenantId", "googleId" 
+       FROM admin_accounts 
+       WHERE "googleId" = $1 
+       LIMIT 1`,
+      [cleanGoogleId]
+    )
+    if (res.rows && res.rows[0]) {
+      const row = res.rows[0]
+      return {
+        username: row.username,
+        role: row.role || "ADMIN",
+        fullName: row.fullName || undefined,
+        businessName: row.businessName || undefined,
+        phone: row.phone || undefined,
+        email: row.email || undefined,
+        tenantId: row.tenantId || DEFAULT_TENANT_ID,
+        googleId: row.googleId || undefined,
+      }
+    }
+  } catch (e) {
+    console.error("findAdminAccountByGoogleId error:", e)
+  }
+  return null
+}
+
+/**
+ * Mencari akun admin berdasarkan email.
+ */
+export async function findAdminAccountByEmail(email: string): Promise<{
+  username: string
+  role: string
+  fullName?: string
+  businessName?: string
+  phone?: string
+  email?: string
+  tenantId?: string
+  googleId?: string
+} | null> {
+  const cleanEmail = (email || "").trim().toLowerCase()
+  if (!cleanEmail || !isDatabaseConfigured) return null
+  try {
+    const res = await queryPg<{
+      username: string
+      role: string
+      fullName?: string
+      businessName?: string
+      phone?: string
+      email?: string
+      tenantId?: string
+      googleId?: string
+    }>(
+      `SELECT username, role, "fullName", "businessName", phone, email, "tenantId", "googleId" 
+       FROM admin_accounts 
+       WHERE LOWER(email) = LOWER($1) 
+       LIMIT 1`,
+      [cleanEmail]
+    )
+    if (res.rows && res.rows[0]) {
+      const row = res.rows[0]
+      return {
+        username: row.username,
+        role: row.role || "ADMIN",
+        fullName: row.fullName || undefined,
+        businessName: row.businessName || undefined,
+        phone: row.phone || undefined,
+        email: row.email || undefined,
+        tenantId: row.tenantId || DEFAULT_TENANT_ID,
+        googleId: row.googleId || undefined,
+      }
+    }
+  } catch (e) {
+    console.error("findAdminAccountByEmail error:", e)
+  }
+  return null
+}
+
+/**
  * Mendaftarkan akun Admin / Bisnis baru.
  * Otomatis membuat entitas Tenant baru, Subscription terpisah, dan mengikat akun ke tenantId tersebut.
  */
 export async function registerAdminAccount(params: {
   username: string
-  password: string
+  password?: string
   role?: string
   fullName?: string
   businessName?: string
   phone?: string
   email?: string
   tier?: string
+  googleId?: string
 }): Promise<{ success: boolean; username: string; role: string; tenantId: string; error?: string }> {
   try {
     const cleanUser = normalizeAdminUsername(params.username)
-    const cleanPass = params.password.trim()
+    const rawPass = (params.password || "").trim()
     const role = (params.role || "ADMIN").toUpperCase()
-    // SERVER-SIDE STRICT ENFORCEMENT:
-    // Registrasi akun admin baru mandiri HANYA dan SELALU menghasilkan paket 'trial'.
-    // Parameter tier dari pemanggil luar tidak boleh diizinkan langsung mengaktifkan tier berbayar.
+    const cleanGoogleId = (params.googleId || "").trim()
     const forcedTier: SubscriptionTier = "trial"
     const businessName = params.businessName?.trim() || params.fullName?.trim() || "Scota Business"
     const cleanEmail = (params.email || "").trim().toLowerCase()
 
-    if (!cleanUser || !cleanPass) {
-      return { success: false, username: cleanUser, role, tenantId: "", error: "ID Pengguna dan Password wajib diisi" }
+    if (!cleanUser) {
+      return { success: false, username: cleanUser, role, tenantId: "", error: "ID Pengguna wajib diisi" }
     }
 
-    if (cleanPass.length < 8) {
+    if (!cleanGoogleId && !rawPass) {
+      return { success: false, username: cleanUser, role, tenantId: "", error: "Password wajib diisi" }
+    }
+
+    if (rawPass && rawPass.length < 8) {
       return { success: false, username: cleanUser, role, tenantId: "", error: "Password minimal 8 karakter demi keamanan" }
     }
 
@@ -252,8 +360,24 @@ export async function registerAdminAccount(params: {
       return { success: false, username: cleanUser, role, tenantId: "", error: "ID Pengguna sudah terdaftar. Silakan gunakan ID lain." }
     }
 
-    // Hash password dengan bcrypt
-    const hashed = await hashPassword(cleanPass)
+    // Cek duplikasi email jika ada
+    if (cleanEmail) {
+      const existingEmail = await findAdminAccountByEmail(cleanEmail)
+      if (existingEmail) {
+        return { success: false, username: cleanUser, role, tenantId: "", error: "Email sudah terdaftar. Silakan login atau gunakan email lain." }
+      }
+    }
+
+    // Cek duplikasi googleId jika ada
+    if (cleanGoogleId) {
+      const existingGoogle = await findAdminAccountByGoogleId(cleanGoogleId)
+      if (existingGoogle) {
+        return { success: false, username: cleanUser, role, tenantId: "", error: "Akun Google ini sudah terhubung dengan bisnis lain. Silakan login." }
+      }
+    }
+
+    // Hash password jika ada, atau generate secure unguessable hash jika mendaftar murni via Google
+    const hashed = rawPass ? await hashPassword(rawPass) : await hashPassword(`google-auth-placeholder-${Date.now()}-${Math.random()}`)
 
     let createdTenantId = `tenant-${Date.now()}`
 
@@ -290,10 +414,10 @@ export async function registerAdminAccount(params: {
           ]
         )
 
-        // 3. Masukkan Akun Admin baru terikat ke createdTenantId dengan tier trial
+        // 3. Masukkan Akun Admin baru terikat ke createdTenantId dengan tier trial dan googleId jika ada
         await queryPg(
-          `INSERT INTO admin_accounts (username, password, role, "fullName", "businessName", phone, email, tier, "tenantId", "createdAt", "updatedAt")
-           VALUES ($1, $2, $3, $4, $5, $6, $7, 'trial', $8, NOW(), NOW())
+          `INSERT INTO admin_accounts (username, password, role, "fullName", "businessName", phone, email, tier, "tenantId", "googleId", "createdAt", "updatedAt")
+           VALUES ($1, $2, $3, $4, $5, $6, $7, 'trial', $8, $9, NOW(), NOW())
            ON CONFLICT (username) DO NOTHING`,
           [
             cleanUser,
@@ -304,6 +428,7 @@ export async function registerAdminAccount(params: {
             params.phone || "",
             cleanEmail || null,
             createdTenantId,
+            cleanGoogleId || null,
           ]
         )
       } catch (dbErr) {
@@ -323,3 +448,4 @@ export async function registerAdminAccount(params: {
     }
   }
 }
+

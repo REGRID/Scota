@@ -5,7 +5,7 @@ import { getOrSeedCategories } from "@/lib/categories"
 import { GoogleGenAI } from "@google/genai"
 import { getSession } from "@/lib/authHelper"
 import { queryPg } from "@/lib/pgDb"
-import { DEMO_SCAN_LIMIT, DEMO_RECEIPT_LIMIT } from "@/lib/demoTenant"
+import { getOrCreateDemoTenant, issueDemoSession, DEMO_SCAN_LIMIT, DEMO_RECEIPT_LIMIT } from "@/lib/demoTenant"
 import { invalidateReceiptsListCache } from "@/app/api/receipts/route"
 
 import { getActiveGeminiApiKey, getActiveGeminiModel } from "@/lib/aiConfig"
@@ -69,7 +69,7 @@ async function callGeminiRestApi(apiKey: string, modelName: string, contentsPart
       }),
     })
 
-    if (!response.ok) {
+  if (!response.ok) {
       const errText = await response.text()
       if (errText.includes("API_KEY_INVALID") || errText.includes("API key not valid") || errText.includes("INVALID_ARGUMENT")) {
         const invalidErr = new Error("GOOGLE_API_KEY_INVALID")
@@ -104,22 +104,29 @@ export async function POST(req: NextRequest) {
   try {
     // 1. Session Verification & Rate Limiting Enforcement
     const session = await getSession(req)
-    const isDemo = session?.role === "DEMO"
+    const isBusiness = Boolean(session && session.role && session.role !== "DEMO")
+    const rawIp =
+      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      req.headers.get("x-real-ip") ||
+      "127.0.0.1"
+    const cleanIp = normalizeIp(rawIp)
+
+    let activeTenantId = session?.tenantId
+    const isDemoMode = !isBusiness
     let currentDemoScans = 0
 
-    if (isDemo && session?.tenantId) {
-      // Pengecekan limit scan harian untuk akun demo (maksimal 2x scan per hari)
-      const tenantRes = await queryPg<{ demoScanCount: number }>(
-        `SELECT "demoScanCount" FROM tenants WHERE id = $1`,
-        [session.tenantId]
-      )
-      currentDemoScans = tenantRes.rows?.[0]?.demoScanCount || 0
+    if (isDemoMode) {
+      // Dapatkan atau buat tenant demo berdasarkan IP pengunjung (tanpa perlu login)
+      const demoTenant = await getOrCreateDemoTenant(cleanIp)
+      activeTenantId = demoTenant.id
+      currentDemoScans = demoTenant.demoScanCount || 0
 
+      // Limit scan demo harian: maksimal 2x per hari per IP
       if (currentDemoScans >= DEMO_SCAN_LIMIT) {
         return NextResponse.json(
           {
             error: "QUOTA_EXCEEDED",
-            message: "Kuota scan demo hari ini sudah habis (maksimal 2x scan per hari). Reset otomatis tengah malam, atau mulai Trial 14 hari sekarang untuk scan tanpa batas.",
+            message: "Batas uji coba scan gratis (2 kali per hari) untuk hari ini telah tercapai. Kuota akan direset otomatis tengah malam WIB, atau daftar akun bisnis Scota untuk menikmati fitur lengkap.",
             upsell: true,
             remaining: 0,
           },
@@ -127,40 +134,18 @@ export async function POST(req: NextRequest) {
         )
       }
 
-      // Pengecekan limit total nota tersimpan untuk akun demo (maksimal 3 nota)
+      // Limit total nota tersimpan untuk demo tenant: maksimal 3 nota
       const receiptCountRes = await queryPg<{ count: string }>(
         `SELECT COUNT(*) as count FROM receipts WHERE "tenantId" = $1`,
-        [session.tenantId]
+        [activeTenantId]
       )
       if (Number(receiptCountRes.rows?.[0]?.count || 0) >= DEMO_RECEIPT_LIMIT) {
         return NextResponse.json(
           {
             error: "RECEIPT_LIMIT_EXCEEDED",
-            message: "Batas maksimal 3 nota untuk akun demo tercapai. Lanjut Trial 14 hari untuk nota tanpa batas.",
+            message: "Batas maksimal 3 nota tersimpan untuk mode demo telah tercapai. Silakan daftar akun bisnis Scota untuk menyimpan nota tanpa batas.",
             upsell: true,
             remaining: 0,
-          },
-          { status: 429 }
-        )
-      }
-    } else {
-      // Pengguna publik tanpa sesi demo: gunakan pembatasan IP rate limiter
-      const rawIp =
-        req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-        req.headers.get("x-real-ip") ||
-        "127.0.0.1"
-
-      const cleanIp = normalizeIp(rawIp)
-      const rateLimit = await checkRateLimit(cleanIp)
-
-      if (!rateLimit.allowed) {
-        return NextResponse.json(
-          {
-            error: "QUOTA_EXCEEDED",
-            message: "Batas harian uji coba scan gratis (2 kali/hari per IP) telah tercapai. Silakan coba akun demo Google atau masuk untuk kuota penuh.",
-            upsell: true,
-            remaining: 0,
-            resetAt: rateLimit.resetAt,
           },
           { status: 429 }
         )
@@ -414,7 +399,7 @@ Keluarkan HANYA JSON:
     let remainingQuota = 0
     let savedReceiptId: string | undefined = undefined
 
-    if (isDemo && session?.tenantId) {
+    if (isDemoMode && activeTenantId) {
       // 1. Simpan nota ke database tenant demo secara otomatis
       try {
         const insertReceiptRes = await queryPg<{ id: string }>(
@@ -422,7 +407,7 @@ Keluarkan HANYA JSON:
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'Cash', 'Lunas', NOW(), NOW())
            RETURNING id`,
           [
-            session.tenantId,
+            activeTenantId,
             parsedJson.merchantName,
             parsedJson.date,
             imageBase64 || null,
@@ -454,9 +439,10 @@ Keluarkan HANYA JSON:
         // 2. Tambah hitungan demoScanCount pada tenant demo
         await queryPg(
           `UPDATE tenants SET "demoScanCount" = "demoScanCount" + 1, "updatedAt" = NOW() WHERE id = $1`,
-          [session.tenantId]
+          [activeTenantId]
         )
 
+        await incrementRateLimit(cleanIp)
         invalidateReceiptsListCache()
       } catch (dbErr) {
         console.error("Gagal menyimpan struk ke database tenant demo:", dbErr)
@@ -464,13 +450,8 @@ Keluarkan HANYA JSON:
 
       remainingQuota = Math.max(0, DEMO_SCAN_LIMIT - (currentDemoScans + 1))
     } else {
-      // Non-demo publik: increment rate limiter IP
-      const rawIp =
-        req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-        req.headers.get("x-real-ip") ||
-        "127.0.0.1"
-      const cleanIp = normalizeIp(rawIp)
-      remainingQuota = await incrementRateLimit(cleanIp)
+      // Business user scan
+      remainingQuota = 999
     }
 
     const response = NextResponse.json({
@@ -480,8 +461,27 @@ Keluarkan HANYA JSON:
       mode: "gemini_multimodal_vision",
       remainingQuota,
       savedReceiptId,
-      isDemo,
+      isDemo: isDemoMode,
+      tenantId: activeTenantId,
     })
+
+    // Pasang cookie sesi demo untuk anonymous visitor agar struk demo dapat dilihat di browser
+    if (isDemoMode && activeTenantId && (!session || session.role === "DEMO")) {
+      try {
+        const demoToken = await issueDemoSession(activeTenantId, cleanIp)
+        response.cookies.set({
+          name: "nota_admin_session",
+          value: demoToken,
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "lax",
+          path: "/",
+          maxAge: 60 * 60 * 24, // 1 hari
+        })
+      } catch (sessErr) {
+        console.warn("Gagal membuat token sesi demo:", sessErr)
+      }
+    }
 
     response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate")
     return response

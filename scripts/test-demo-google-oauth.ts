@@ -67,33 +67,31 @@ async function runTests() {
 
   // 2. Testing Demo Tenant Auto-Provisioning
   console.log("\n--- 2. Testing Demo Tenant Auto-Provisioning ---")
-  const testGoogleIdA = `test-google-user-${Date.now()}`
-  const testEmailA = "testuser.a@gmail.com"
-
-  const tenantA = await getOrCreateDemoTenant(testGoogleIdA, testEmailA, "User A")
+  const testIpA = `192.0.2.${Math.floor(Math.random() * 200 + 10)}`
+  const tenantA = await getOrCreateDemoTenant(testIpA)
   console.log("Provisioned Tenant A:", tenantA)
   if (!tenantA.id || tenantA.demoScanCount !== 0) {
     throw new Error("Invalid tenant A created!")
   }
 
-  // Same user calling again should return the SAME active tenant
-  const tenantARepeat = await getOrCreateDemoTenant(testGoogleIdA, testEmailA, "User A")
+  // Same IP calling again should return the SAME active tenant
+  const tenantARepeat = await getOrCreateDemoTenant(testIpA)
   if (tenantARepeat.id !== tenantA.id) {
-    throw new Error("getOrCreateDemoTenant is not idempotent for the same Google ID!")
+    throw new Error("getOrCreateDemoTenant is not idempotent for the same IP!")
   }
-  console.log("✅ Tenant A returned consistently for identical Google ID.")
+  console.log("✅ Tenant A returned consistently for identical IP.")
 
-  // Different user should get a separate isolated tenant
-  const testGoogleIdB = `test-google-user-b-${Date.now()}`
-  const tenantB = await getOrCreateDemoTenant(testGoogleIdB, "testuser.b@gmail.com", "User B")
+  // Different IP should get a separate isolated tenant
+  const testIpB = `198.51.100.${Math.floor(Math.random() * 200 + 10)}`
+  const tenantB = await getOrCreateDemoTenant(testIpB)
   if (tenantB.id === tenantA.id) {
-    throw new Error("Different Google IDs must receive distinct isolated tenants!")
+    throw new Error("Different IPs must receive distinct isolated tenants!")
   }
   console.log("✅ Tenant B isolated properly from Tenant A.")
 
   // 3. Testing Session Token Generation & Role DEMO
   console.log("\n--- 3. Testing Scota Session Token (Role DEMO) ---")
-  const tokenA = await issueDemoSession(tenantA.id, testEmailA)
+  const tokenA = await issueDemoSession(tenantA.id, testIpA)
   const verifiedA = await verifySessionToken(tokenA)
   console.log("Verified Session Token Payload:", verifiedA)
   if (!verifiedA || verifiedA.role !== "DEMO" || verifiedA.tenantId !== tenantA.id) {

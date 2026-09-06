@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
-import { checkRateLimit, DAILY_SCAN_LIMIT, normalizeIp } from "@/lib/rateLimiter"
+import { checkRateLimit, normalizeIp } from "@/lib/rateLimiter"
+import { DEMO_SCAN_LIMIT, getOrCreateDemoTenant } from "@/lib/demoTenant"
+import { isDatabaseConfigured } from "@/lib/pgDb"
 
 export async function GET(req: NextRequest) {
   try {
@@ -9,14 +11,29 @@ export async function GET(req: NextRequest) {
       "127.0.0.1"
 
     const cleanIp = normalizeIp(rawIp)
-    const rateLimit = await checkRateLimit(cleanIp)
+    let used = 0
+
+    if (isDatabaseConfigured) {
+      try {
+        const demoTenant = await getOrCreateDemoTenant(cleanIp)
+        used = demoTenant.demoScanCount || 0
+      } catch {
+        const rateLimit = await checkRateLimit(cleanIp)
+        used = rateLimit.current
+      }
+    } else {
+      const rateLimit = await checkRateLimit(cleanIp)
+      used = rateLimit.current
+    }
+
+    const remaining = Math.max(0, DEMO_SCAN_LIMIT - used)
+    const allowed = remaining > 0
 
     const res = NextResponse.json({
-      dailyLimit: DAILY_SCAN_LIMIT,
-      used: rateLimit.current,
-      remaining: rateLimit.remaining,
-      allowed: rateLimit.allowed,
-      resetAt: rateLimit.resetAt,
+      dailyLimit: DEMO_SCAN_LIMIT,
+      used,
+      remaining,
+      allowed,
       ip: cleanIp,
     })
 
@@ -25,9 +42,9 @@ export async function GET(req: NextRequest) {
     return res
   } catch (error: any) {
     return NextResponse.json({
-      dailyLimit: DAILY_SCAN_LIMIT,
+      dailyLimit: DEMO_SCAN_LIMIT,
       used: 0,
-      remaining: DAILY_SCAN_LIMIT,
+      remaining: DEMO_SCAN_LIMIT,
       allowed: true,
     })
   }

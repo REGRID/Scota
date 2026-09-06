@@ -11,6 +11,7 @@ const PUBLIC_API_ROUTES = [
   "/api/auth/session",
   "/api/auth/logout",
   "/api/auth/demo-login", // endpoint bridge sesi Scota untuk demo Google
+  "/api/auth/google-login", // endpoint bridge sesi Scota untuk login/register Google bisnis
   "/api/auth/callback", // endpoint callback Auth.js (mis. /api/auth/callback/google)
   "/api/auth/signin", // memulai redirect ke Google OAuth (Auth.js)
   "/api/auth/error", // menampilkan detail error OAuth resmi Auth.js

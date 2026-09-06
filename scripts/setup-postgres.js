@@ -75,6 +75,9 @@ async function runSetup() {
       CREATE UNIQUE INDEX IF NOT EXISTS tenants_demo_google_idx ON tenants ("demoGoogleId") WHERE "isDemo" = true;
       CREATE INDEX IF NOT EXISTS tenants_demo_expiry_idx ON tenants ("expiresAt") WHERE "isDemo" = true;
       ALTER TABLE admin_accounts ADD COLUMN IF NOT EXISTS email TEXT;
+      ALTER TABLE admin_accounts ADD COLUMN IF NOT EXISTS "googleId" TEXT UNIQUE;
+      ALTER TABLE tenants ADD COLUMN IF NOT EXISTS "demoIpAddress" TEXT;
+      CREATE UNIQUE INDEX IF NOT EXISTS tenants_demo_ip_idx ON tenants ("demoIpAddress") WHERE "isDemo" = true;
       CREATE TABLE IF NOT EXISTS system_settings (
         key VARCHAR(100) PRIMARY KEY,
         value TEXT NOT NULL,

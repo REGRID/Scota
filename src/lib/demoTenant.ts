@@ -12,23 +12,21 @@ export function nextMidnight(): Date {
 }
 
 /**
- * Cari tenant demo aktif milik googleId ini (belum expired).
+ * Cari tenant demo aktif milik alamat IP ini (belum expired).
  * Kalau tidak ada, buat baru dengan expiresAt = tengah malam nanti.
  */
-export async function getOrCreateDemoTenant(googleId: string, email: string, name: string) {
+export async function getOrCreateDemoTenant(ipAddress: string) {
   if (!isDatabaseConfigured) {
     throw new Error("Database PostgreSQL tidak terkonfigurasi")
   }
 
-  const cleanGoogleId = (googleId || "").trim()
-  const cleanEmail = (email || "").trim().toLowerCase()
-  const cleanName = (name || "Pengguna Demo").trim()
+  const cleanIp = (ipAddress || "127.0.0.1").trim()
 
   const existing = await queryPg<{ id: string; expiresAt: string; demoScanCount: number }>(
     `SELECT id, "expiresAt", "demoScanCount" FROM tenants
-     WHERE "demoGoogleId" = $1 AND "isDemo" = true AND "expiresAt" > NOW()
+     WHERE "demoIpAddress" = $1 AND "isDemo" = true AND "expiresAt" > NOW()
      LIMIT 1`,
-    [cleanGoogleId]
+    [cleanIp]
   )
 
   if (existing.rows?.[0]) {
@@ -36,10 +34,10 @@ export async function getOrCreateDemoTenant(googleId: string, email: string, nam
   }
 
   const created = await queryPg<{ id: string; expiresAt: string; demoScanCount: number }>(
-    `INSERT INTO tenants ("businessName", "isDemo", "demoGoogleId", "demoEmail", "expiresAt", "demoScanCount", status, "createdAt", "updatedAt")
-     VALUES ($1, true, $2, $3, $4, 0, 'active', NOW(), NOW())
+    `INSERT INTO tenants ("businessName", "isDemo", "demoIpAddress", "expiresAt", "demoScanCount", status, "createdAt", "updatedAt")
+     VALUES ($1, true, $2, $3, 0, 'active', NOW(), NOW())
      RETURNING id, "expiresAt", "demoScanCount"`,
-    [`Demo - ${cleanName}`, cleanGoogleId, cleanEmail, nextMidnight().toISOString()]
+    [`Demo - ${cleanIp}`, cleanIp, nextMidnight().toISOString()]
   )
 
   if (!created.rows?.[0]) {
@@ -52,12 +50,12 @@ export async function getOrCreateDemoTenant(googleId: string, email: string, nam
 /**
  * Menerbitkan token sesi Scota (cookie nota_admin_session) untuk tenant demo ini.
  */
-export async function issueDemoSession(tenantId: string, email: string) {
+export async function issueDemoSession(tenantId: string, ipAddress?: string) {
   return createSessionToken({
     username: `demo_${tenantId.slice(0, 8)}`,
     role: "DEMO",
     tenantId,
-    fullName: email,
+    fullName: `Demo (${ipAddress || "IP"})`,
     staffName: "Pengguna Demo",
   })
 }

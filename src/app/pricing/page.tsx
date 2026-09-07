@@ -2,7 +2,7 @@
 
 import React, { useState } from "react"
 import Link from "next/link"
-import { useUser, UserButton, SignedIn, SignedOut } from "@clerk/nextjs"
+import { useUser, UserButton, Show } from "@clerk/nextjs"
 import {
   Check,
   Zap,
@@ -111,7 +111,7 @@ export default function PricingPage() {
               <ArrowLeft className="w-3.5 h-3.5" />
               <span>Beranda</span>
             </Link>
-            <SignedIn>
+            <Show when="signed-in">
               <div className="flex items-center gap-2 sm:gap-3">
                 <Link
                   href="/dashboard"
@@ -139,8 +139,8 @@ export default function PricingPage() {
                   />
                 </div>
               </div>
-            </SignedIn>
-            <SignedOut>
+            </Show>
+            <Show when="signed-out">
               <Link
                 href="/login"
                 className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-900 border border-transparent hover:border-slate-800 transition-all"
@@ -154,7 +154,7 @@ export default function PricingPage() {
                 <span>Daftar Gratis</span>
                 <ArrowRight className="w-4 h-4" />
               </Link>
-            </SignedOut>
+            </Show>
           </div>
         </div>
       </nav>

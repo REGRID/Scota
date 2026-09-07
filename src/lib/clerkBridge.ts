@@ -48,19 +48,19 @@ export async function provisionTenantForClerkUser(clerkId: string): Promise<Sess
     const tenantId = tenantRes.rows[0].id
     const username = `clerk_${clerkId.replace(/[^a-zA-Z0-9]/g, "").slice(-10)}`
 
-    // Provision Admin Account linked to Clerk ID
+    // Provision Admin Account linked to Clerk ID with 14-day trial
     await queryPg(
-      `INSERT INTO admin_accounts (username, "clerkId", email, "fullName", role, "tenantId", "createdAt", "updatedAt")
-       VALUES ($1, $2, $3, $4, 'OWNER', $5, NOW(), NOW())
+      `INSERT INTO admin_accounts (username, "clerkId", email, "fullName", role, "tenantId", tier, "validUntil", "monthlyScanLimit", "createdAt", "updatedAt")
+       VALUES ($1, $2, $3, $4, 'OWNER', $5, 'trial', NOW() + INTERVAL '14 days', 30, NOW(), NOW())
        ON CONFLICT ("clerkId") DO UPDATE SET "updatedAt" = NOW()`,
       [username, clerkId, email, fullName, tenantId]
     )
 
     // Seed initial 14-day trial subscription for new tenant
     await queryPg(
-      `INSERT INTO subscriptions ("tenantId", tier, status, "validUntil", "createdAt", "updatedAt")
-       VALUES ($1, 'trial', 'trial', NOW() + INTERVAL '14 days', NOW(), NOW())
-       ON CONFLICT ("tenantId") DO NOTHING`,
+      `INSERT INTO subscriptions ("tenantId", tier, status, "validUntil", "monthlyScanLimit", "createdAt", "updatedAt")
+       VALUES ($1, 'trial', 'trial', NOW() + INTERVAL '14 days', 30, NOW(), NOW())
+       ON CONFLICT ("tenantId") DO UPDATE SET tier = 'trial', status = 'trial', "validUntil" = NOW() + INTERVAL '14 days', "monthlyScanLimit" = 30, "updatedAt" = NOW()`,
       [tenantId]
     )
 

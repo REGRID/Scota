@@ -53,7 +53,7 @@ export function SuperadminTopbar({
           <button
             type="button"
             onClick={() => setSearchOpen(true)}
-            className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-850 border border-slate-800 text-slate-400 text-xs font-medium transition-all cursor-pointer"
+            className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 text-xs font-medium transition-all cursor-pointer"
           >
             <Search className="w-3.5 h-3.5 text-slate-400" />
             <span>Cari tenant / invoice...</span>

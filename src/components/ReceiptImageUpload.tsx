@@ -593,7 +593,7 @@ export function ReceiptImageUpload({
                 type="button"
                 disabled={isQuotaReached || isProcessing}
                 onClick={handleLoadSampleReceipt}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-950 dark:hover:bg-slate-850 text-emerald-700 dark:text-emerald-400 text-xs font-bold border border-slate-300 dark:border-slate-800 transition-all cursor-pointer active:scale-[0.98]"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-950 dark:hover:bg-slate-800 text-emerald-700 dark:text-emerald-400 text-xs font-bold border border-slate-300 dark:border-slate-800 transition-all cursor-pointer active:scale-[0.98]"
               >
                 <Sparkles className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                 <span>Coba dengan Nota Sampel (1-Klik)</span>

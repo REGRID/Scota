@@ -438,7 +438,7 @@ export default function SettingsPage() {
               {showAddForm && (
                 <form
                   onSubmit={handleAddAccount}
-                  className="p-4 rounded-xl bg-slate-50 dark:bg-slate-850/60 border border-slate-200 dark:border-slate-700/80 space-y-4 animate-in fade-in duration-150"
+                  className="p-4 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-4 animate-in fade-in duration-150 shadow-inner"
                 >
                   <h3 className="text-xs font-black text-slate-900 dark:text-white flex items-center gap-2">
                     <UserPlus className="w-4 h-4 text-emerald-500" />
@@ -447,7 +447,7 @@ export default function SettingsPage() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-1">
-                      <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400">
+                      <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
                         Nama Lengkap
                       </label>
                       <input
@@ -456,12 +456,12 @@ export default function SettingsPage() {
                         value={newName}
                         onChange={(e) => setNewName(e.target.value)}
                         placeholder="Contoh: Siti Aisyah"
-                        className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                        className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
                       />
                     </div>
 
                     <div className="space-y-1">
-                      <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400">
+                      <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
                         Username Login
                       </label>
                       <input
@@ -470,12 +470,12 @@ export default function SettingsPage() {
                         value={newUsername}
                         onChange={(e) => setNewUsername(e.target.value)}
                         placeholder="Contoh: siti_kasir"
-                        className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500 lowercase"
+                        className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 lowercase"
                       />
                     </div>
 
                     <div className="space-y-1">
-                      <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400">
+                      <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
                         PIN / Sandi Akses
                       </label>
                       <input
@@ -484,12 +484,12 @@ export default function SettingsPage() {
                         value={newPin}
                         onChange={(e) => setNewPin(e.target.value)}
                         placeholder="4 - 8 digit angka / huruf"
-                        className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500 font-mono"
+                        className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 font-mono"
                       />
                     </div>
 
                     <div className="space-y-1">
-                      <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400">
+                      <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
                         Peran (Role)
                       </label>
                       <select
@@ -505,11 +505,11 @@ export default function SettingsPage() {
                     </div>
                   </div>
 
-                  <div className="flex justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-700">
+                  <div className="flex justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
                     <button
                       type="button"
                       onClick={() => setShowAddForm(false)}
-                      className="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800"
+                      className="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 cursor-pointer"
                     >
                       Batal
                     </button>
@@ -782,7 +782,7 @@ export default function SettingsPage() {
               </div>
 
               {/* Dual Control Switch */}
-              <div className="flex items-center justify-between p-4 rounded-xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-800">
+              <div className="flex items-center justify-between p-4 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
                 <div className="space-y-0.5">
                   <span className="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1.5">
                     <ShieldCheck className="w-4 h-4 text-emerald-500" />
@@ -810,7 +810,7 @@ export default function SettingsPage() {
               </div>
 
               {enableApproval && (
-                <div className="space-y-5 p-4 rounded-xl bg-slate-50/70 dark:bg-slate-850/40 border border-slate-200 dark:border-slate-800">
+                <div className="space-y-5 p-4 rounded-xl bg-slate-50/70 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800">
                   {/* Approval Routing Target */}
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-slate-700 dark:text-slate-300">

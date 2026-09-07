@@ -126,9 +126,9 @@ export async function getAllTenants(): Promise<TenantSummary[]> {
           const cleanUser = (acc.username || "").trim().toLowerCase()
           if (!cleanUser) continue
           const tenantId = acc.resolvedTenantId || acc.tenantId || DEFAULT_TENANT_ID
-          const tier = (acc.subTier || acc.tier || "starter") as SubscriptionTier
-          const tierCfg = TIER_CONFIG[tier] || TIER_CONFIG.starter
-          const validDate = new Date(acc.subValidUntil || acc.validUntil || Date.now() + 30 * 24 * 60 * 60 * 1000)
+          const tier = (acc.subTier || acc.tier || "trial") as SubscriptionTier
+          const tierCfg = TIER_CONFIG[tier] || TIER_CONFIG.trial
+          const validDate = new Date(acc.subValidUntil || acc.validUntil || Date.now() + 14 * 24 * 60 * 60 * 1000)
           const isExpired = validDate < new Date()
 
           let workflow: ApprovalWorkflowConfig = { ...DEFAULT_APPROVAL_WORKFLOW }
@@ -173,9 +173,9 @@ export async function getAllTenants(): Promise<TenantSummary[]> {
           businessName: "Scota Business",
           phone: "6285215973776",
           role: u === "superadmin" ? "SUPERADMIN" : (u === "admin" ? "ADMIN" : "KARYAWAN"),
-          tier: "starter",
-          validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-          monthlyScanLimit: 150,
+          tier: u === "superadmin" ? "enterprise" : "trial",
+          validUntil: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+          monthlyScanLimit: u === "superadmin" ? 99999 : 30,
           usedScansThisMonth: 0,
           createdAt: new Date().toISOString(),
           status: "active",

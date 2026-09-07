@@ -145,11 +145,11 @@ CREATE TABLE IF NOT EXISTS admin_accounts (
     "businessName" TEXT,
     phone TEXT,
     email TEXT,
-    tier TEXT DEFAULT 'starter',
-    "validUntil" TIMESTAMPTZ DEFAULT (now() + interval '30 days'),
-    "monthlyScanLimit" INTEGER DEFAULT 150,
+    tier TEXT DEFAULT 'trial',
+    "validUntil" TIMESTAMPTZ DEFAULT (now() + interval '14 days'),
+    "monthlyScanLimit" INTEGER DEFAULT 30,
     "usedScansThisMonth" INTEGER DEFAULT 0,
-    status TEXT DEFAULT 'active',
+    status TEXT DEFAULT 'trial',
     "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now(),
     "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -173,9 +173,10 @@ ON CONFLICT (username) DO NOTHING;
 CREATE TABLE IF NOT EXISTS subscriptions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     "tenantId" UUID UNIQUE REFERENCES tenants(id) DEFAULT '00000000-0000-0000-0000-000000000001',
-    tier TEXT NOT NULL DEFAULT 'starter',
-    "validUntil" TIMESTAMPTZ NOT NULL DEFAULT (now() + interval '30 days'),
-    "monthlyScanLimit" INTEGER NOT NULL DEFAULT 150,
+    tier TEXT NOT NULL DEFAULT 'trial',
+    status TEXT NOT NULL DEFAULT 'trial',
+    "validUntil" TIMESTAMPTZ NOT NULL DEFAULT (now() + interval '14 days'),
+    "monthlyScanLimit" INTEGER NOT NULL DEFAULT 30,
     "usedScansThisMonth" INTEGER NOT NULL DEFAULT 0,
     "activeLicenseKey" TEXT,
     "studioName" TEXT NOT NULL DEFAULT 'Scota Business',
@@ -191,8 +192,8 @@ CREATE TABLE IF NOT EXISTS subscriptions (
 );
 
 -- Default Subscription Row for Default Tenant
-INSERT INTO subscriptions ("tenantId", tier, "studioName", "monthlyScanLimit", "usedScansThisMonth")
-VALUES ('00000000-0000-0000-0000-000000000001', 'starter', 'Scota Business', 150, 0)
+INSERT INTO subscriptions ("tenantId", tier, status, "studioName", "monthlyScanLimit", "usedScansThisMonth", "validUntil")
+VALUES ('00000000-0000-0000-0000-000000000001', 'trial', 'trial', 'Scota Business', 30, 0, now() + interval '14 days')
 ON CONFLICT ("tenantId") DO NOTHING;
 
 -- 10. Table: push_subscriptions

@@ -2136,7 +2136,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                 className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold shadow-2xs transition-all cursor-pointer active:scale-95 ${
                   selectedCategories.length > 0
                     ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 font-black"
-                    : "bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-850 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-800"
+                    : "bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-800"
                 }`}
                 title="Pilih Kategori (Bisa Pilih > 1)"
               >
@@ -2241,7 +2241,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                 className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold shadow-2xs transition-all cursor-pointer active:scale-95 ${
                   selectedPaymentMethods.length > 0
                     ? "bg-sky-500/10 text-sky-700 dark:text-sky-300 border-sky-500/30 font-black"
-                    : "bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-850 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-800"
+                    : "bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-800"
                 }`}
                 title="Pilih Metode Pembayaran (Bisa Pilih > 1)"
               >
@@ -2345,7 +2345,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                 className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold shadow-2xs transition-all cursor-pointer active:scale-95 ${
                   selectedStatuses.length > 0 || selectedStatusFilter !== "Semua Status"
                     ? "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30 font-black"
-                    : "bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-850 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-800"
+                    : "bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-800"
                 }`}
                 title="Pilih Status Pelunasan (Bisa Pilih > 1)"
               >
@@ -2455,7 +2455,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                 className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold shadow-2xs transition-all cursor-pointer active:scale-95 ${
                   dateRangeFilter !== "all"
                     ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 font-black"
-                    : "bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-850 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-800"
+                    : "bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-800"
                 }`}
                 title="Pilih Rentang Waktu"
               >
@@ -2495,7 +2495,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
               <button
                 type="button"
                 onClick={() => setActiveFilterPopover(activeFilterPopover === "urutan" ? null : "urutan")}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold shadow-2xs transition-all cursor-pointer active:scale-95 bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-850 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-800"
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold shadow-2xs transition-all cursor-pointer active:scale-95 bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-800"
                 title="Urutan Transaksi"
               >
                 <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
@@ -2542,7 +2542,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                             className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold cursor-pointer transition-colors select-none ${
                               isChecked
                                 ? "bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white font-bold"
-                                : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-850"
+                                : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
                             }`}
                           >
                             <div
@@ -2568,7 +2568,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
             <button
               type="button"
               onClick={() => setShowManageCategoryModal(true)}
-              className="p-2 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-850 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-all shrink-0 border border-slate-200 dark:border-slate-800 active:scale-95 flex items-center justify-center cursor-pointer"
+              className="p-2 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-all shrink-0 border border-slate-200 dark:border-slate-800 active:scale-95 flex items-center justify-center cursor-pointer"
               title="Kelola Master Kategori & Sub-Kategori"
             >
               <Settings className="w-4 h-4" />
@@ -2870,7 +2870,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                     setSelectedPaymentMethods([])
                     setDateRangeFilter("all")
                   }}
-                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-950 dark:hover:bg-slate-850 text-slate-700 dark:text-slate-300 font-bold text-xs transition-all border border-slate-200 dark:border-slate-800 active:scale-[0.98] cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-950 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs transition-all border border-slate-200 dark:border-slate-800 active:scale-[0.98] cursor-pointer"
                 >
                   Reset Filter
                 </button>
@@ -2926,7 +2926,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                       ? "border-amber-500/50 bg-amber-500/10 ring-1 ring-amber-500/30"
                       : isSelected
                       ? "border-emerald-500 bg-emerald-500/10 shadow-lg"
-                      : "bg-white dark:bg-slate-900/90 border-slate-200/90 dark:border-slate-800 hover:border-emerald-500/50 hover:bg-slate-50 dark:hover:bg-slate-850 shadow-xs dark:shadow-none"
+                      : "bg-white dark:bg-slate-900/90 border-slate-200/90 dark:border-slate-800 hover:border-emerald-500/50 hover:bg-slate-50 dark:hover:bg-slate-800 shadow-xs dark:shadow-none"
                   }`}
                 >
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-center text-xs">

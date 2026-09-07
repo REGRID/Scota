@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react"
 import Link from "next/link"
-import { useUser, UserButton, SignedIn, SignedOut } from "@clerk/nextjs"
+import { useUser, UserButton, Show } from "@clerk/nextjs"
 import {
   Sparkles,
   CheckCircle2,
@@ -393,7 +393,7 @@ export function IntroductionDashboard({
 
           {/* Action CTA */}
           <div className="flex items-center gap-2 sm:gap-3 z-10">
-            <SignedIn>
+            <Show when="signed-in">
               <div className="flex items-center gap-2 sm:gap-3">
                 <Link
                   href="/dashboard"
@@ -421,8 +421,8 @@ export function IntroductionDashboard({
                   />
                 </div>
               </div>
-            </SignedIn>
-            <SignedOut>
+            </Show>
+            <Show when="signed-out">
               <Link
                 href="/login"
                 className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-900 border border-transparent hover:border-slate-800 transition-all cursor-pointer"
@@ -436,7 +436,7 @@ export function IntroductionDashboard({
                 <span>Daftar Gratis</span>
                 <ArrowRight className="w-4 h-4" />
               </Link>
-            </SignedOut>
+            </Show>
           </div>
         </div>
       </nav>
@@ -460,7 +460,7 @@ export function IntroductionDashboard({
 
             {/* CTAs */}
             <div className="pt-2 sm:pt-3 flex flex-col sm:flex-row items-center justify-center gap-3.5">
-              <SignedIn>
+              <Show when="signed-in">
                 <Link
                   href="/dashboard"
                   className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-slate-950 font-black text-sm transition-all shadow-xl shadow-emerald-500/25 hover:shadow-emerald-500/35 hover:-translate-y-0.5 active:scale-98 cursor-pointer"
@@ -468,8 +468,8 @@ export function IntroductionDashboard({
                   <Zap className="w-4 h-4 text-slate-950 fill-slate-950" />
                   <span>Buka Dashboard & Scan Nota</span>
                 </Link>
-              </SignedIn>
-              <SignedOut>
+              </Show>
+              <Show when="signed-out">
                 <Link
                   href="/register"
                   className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-slate-950 font-black text-sm transition-all shadow-xl shadow-emerald-500/25 hover:shadow-emerald-500/35 hover:-translate-y-0.5 active:scale-98 cursor-pointer"
@@ -477,7 +477,7 @@ export function IntroductionDashboard({
                   <Zap className="w-4 h-4 text-slate-950 fill-slate-950" />
                   <span>Coba Gratis 14 Hari</span>
                 </Link>
-              </SignedOut>
+              </Show>
 
               <Link
                 href="/pricing"

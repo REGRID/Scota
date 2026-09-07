@@ -16,10 +16,10 @@ const inMemoryTenantSubscriptions = new Map<string, SubscriptionInfo>()
 function getFallbackSubscription(tenantId: string): SubscriptionInfo {
   if (!inMemoryTenantSubscriptions.has(tenantId)) {
     inMemoryTenantSubscriptions.set(tenantId, {
-      tier: "starter",
-      status: "active",
-      validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-      monthlyScanLimit: 150,
+      tier: "trial",
+      status: "trial",
+      validUntil: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+      monthlyScanLimit: 30,
       usedScansThisMonth: 0,
       studioProfile: { ...DEFAULT_STUDIO_PROFILE },
       approvalWorkflow: { ...DEFAULT_APPROVAL_WORKFLOW },
@@ -44,7 +44,7 @@ export async function getSubscriptionInfo(tenantId: string = DEFAULT_TENANT_ID):
       const data = res.rows?.[0]
 
       if (data) {
-        const validUntil = new Date(data.validUntil || Date.now() + 30 * 86400000)
+        const validUntil = new Date(data.validUntil || Date.now() + 14 * 86400000)
         const now = new Date()
         const isExpired = validUntil < now
         const isExpiring = !isExpired && validUntil.getTime() - now.getTime() < 5 * 24 * 60 * 60 * 1000
@@ -73,10 +73,10 @@ export async function getSubscriptionInfo(tenantId: string = DEFAULT_TENANT_ID):
         }
 
         const result: SubscriptionInfo = {
-          tier: (data.tier as SubscriptionTier) || "starter",
+          tier: (data.tier as SubscriptionTier) || "trial",
           status,
           validUntil: data.validUntil || validUntil.toISOString(),
-          monthlyScanLimit: data.monthlyScanLimit || TIER_CONFIG[(data.tier as SubscriptionTier) || "starter"]?.monthlyScanLimit || 150,
+          monthlyScanLimit: data.monthlyScanLimit || TIER_CONFIG[(data.tier as SubscriptionTier) || "trial"]?.monthlyScanLimit || 30,
           usedScansThisMonth: data.usedScansThisMonth || 0,
           studioProfile: profile,
           activeLicenseKey: data.activeLicenseKey,
@@ -120,7 +120,7 @@ export async function updateApprovalWorkflow(
     try {
       await queryPg(
         `INSERT INTO subscriptions ("tenantId", tier, "studioName", "approvalWorkflow", "createdAt", "updatedAt")
-         VALUES ($1, 'starter', 'Scota Business', $2, NOW(), NOW())
+         VALUES ($1, 'trial', 'Scota Business', $2, NOW(), NOW())
          ON CONFLICT ("tenantId") 
          DO UPDATE SET "approvalWorkflow" = EXCLUDED."approvalWorkflow", "updatedAt" = NOW()`,
         [targetTenant, JSON.stringify(updatedWorkflow)]

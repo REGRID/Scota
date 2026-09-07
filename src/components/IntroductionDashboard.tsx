@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react"
 import Link from "next/link"
-import { useUser, UserButton } from "@clerk/nextjs"
+import { useUser, UserButton, SignedIn, SignedOut } from "@clerk/nextjs"
 import {
   Sparkles,
   CheckCircle2,
@@ -79,7 +79,23 @@ export function IntroductionDashboard({
   onOpenPricingModal,
 }: IntroductionDashboardProps) {
   const { isLoaded, isSignedIn, user } = useUser()
-  const isUserLoggedIn = Boolean(isAuthenticated || (isLoaded && isSignedIn))
+  const [cachedUser, setCachedUser] = useState<string | null>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("nota_admin_user")
+    }
+    return null
+  })
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setCachedUser(localStorage.getItem("nota_admin_user"))
+    }
+  }, [])
+
+  const isUserLoggedIn = Boolean(
+    isAuthenticated === true ||
+    (isLoaded ? isSignedIn : Boolean(cachedUser))
+  )
 
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly")
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0)
@@ -377,7 +393,7 @@ export function IntroductionDashboard({
 
           {/* Action CTA */}
           <div className="flex items-center gap-2 sm:gap-3 z-10">
-            {isUserLoggedIn ? (
+            <SignedIn>
               <div className="flex items-center gap-2 sm:gap-3">
                 <Link
                   href="/dashboard"
@@ -405,23 +421,22 @@ export function IntroductionDashboard({
                   />
                 </div>
               </div>
-            ) : (
-              <>
-                <Link
-                  href="/login"
-                  className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-900 border border-transparent hover:border-slate-800 transition-all cursor-pointer"
-                >
-                  Masuk
-                </Link>
-                <Link
-                  href="/register"
-                  className="inline-flex items-center gap-2 px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-slate-950 font-black text-xs sm:text-sm transition-all shadow-lg shadow-emerald-500/25 active:scale-98 cursor-pointer"
-                >
-                  <span>Daftar Gratis</span>
-                  <ArrowRight className="w-4 h-4" />
-                </Link>
-              </>
-            )}
+            </SignedIn>
+            <SignedOut>
+              <Link
+                href="/login"
+                className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-900 border border-transparent hover:border-slate-800 transition-all cursor-pointer"
+              >
+                Masuk
+              </Link>
+              <Link
+                href="/register"
+                className="inline-flex items-center gap-2 px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-slate-950 font-black text-xs sm:text-sm transition-all shadow-lg shadow-emerald-500/25 active:scale-98 cursor-pointer"
+              >
+                <span>Daftar Gratis</span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            </SignedOut>
           </div>
         </div>
       </nav>
@@ -445,7 +460,7 @@ export function IntroductionDashboard({
 
             {/* CTAs */}
             <div className="pt-2 sm:pt-3 flex flex-col sm:flex-row items-center justify-center gap-3.5">
-              {isUserLoggedIn ? (
+              <SignedIn>
                 <Link
                   href="/dashboard"
                   className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-slate-950 font-black text-sm transition-all shadow-xl shadow-emerald-500/25 hover:shadow-emerald-500/35 hover:-translate-y-0.5 active:scale-98 cursor-pointer"
@@ -453,7 +468,8 @@ export function IntroductionDashboard({
                   <Zap className="w-4 h-4 text-slate-950 fill-slate-950" />
                   <span>Buka Dashboard & Scan Nota</span>
                 </Link>
-              ) : (
+              </SignedIn>
+              <SignedOut>
                 <Link
                   href="/register"
                   className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-slate-950 font-black text-sm transition-all shadow-xl shadow-emerald-500/25 hover:shadow-emerald-500/35 hover:-translate-y-0.5 active:scale-98 cursor-pointer"
@@ -461,7 +477,7 @@ export function IntroductionDashboard({
                   <Zap className="w-4 h-4 text-slate-950 fill-slate-950" />
                   <span>Coba Gratis 14 Hari</span>
                 </Link>
-              )}
+              </SignedOut>
 
               <Link
                 href="/pricing"

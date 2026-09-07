@@ -2,7 +2,7 @@
 
 import React, { useState } from "react"
 import Link from "next/link"
-import { useUser, UserButton } from "@clerk/nextjs"
+import { useUser, UserButton, SignedIn, SignedOut } from "@clerk/nextjs"
 import {
   Check,
   Zap,
@@ -28,7 +28,20 @@ const TIER_DESCRIPTIONS: Record<SubscriptionTier, string> = {
 
 export default function PricingPage() {
   const { isLoaded, isSignedIn } = useUser()
-  const isUserLoggedIn = Boolean(isLoaded && isSignedIn)
+  const [cachedUser, setCachedUser] = useState<string | null>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("nota_admin_user")
+    }
+    return null
+  })
+
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      setCachedUser(localStorage.getItem("nota_admin_user"))
+    }
+  }, [])
+
+  const isUserLoggedIn = Boolean(isLoaded ? isSignedIn : Boolean(cachedUser))
 
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly")
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0)
@@ -98,7 +111,7 @@ export default function PricingPage() {
               <ArrowLeft className="w-3.5 h-3.5" />
               <span>Beranda</span>
             </Link>
-            {isUserLoggedIn ? (
+            <SignedIn>
               <div className="flex items-center gap-2 sm:gap-3">
                 <Link
                   href="/dashboard"
@@ -126,23 +139,22 @@ export default function PricingPage() {
                   />
                 </div>
               </div>
-            ) : (
-              <>
-                <Link
-                  href="/login"
-                  className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-900 border border-transparent hover:border-slate-800 transition-all"
-                >
-                  Masuk
-                </Link>
-                <Link
-                  href="/register"
-                  className="inline-flex items-center gap-2 px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs sm:text-sm transition-all shadow-lg shadow-emerald-500/25 cursor-pointer"
-                >
-                  <span>Daftar Gratis</span>
-                  <ArrowRight className="w-4 h-4" />
-                </Link>
-              </>
-            )}
+            </SignedIn>
+            <SignedOut>
+              <Link
+                href="/login"
+                className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-900 border border-transparent hover:border-slate-800 transition-all"
+              >
+                Masuk
+              </Link>
+              <Link
+                href="/register"
+                className="inline-flex items-center gap-2 px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs sm:text-sm transition-all shadow-lg shadow-emerald-500/25 cursor-pointer"
+              >
+                <span>Daftar Gratis</span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            </SignedOut>
           </div>
         </div>
       </nav>

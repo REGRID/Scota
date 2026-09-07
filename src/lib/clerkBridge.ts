@@ -1,6 +1,6 @@
 import { currentUser } from "@clerk/nextjs/server"
-import { queryPg, withTransactionPg } from "@/lib/pgDb"
-import type { SessionPayload } from "@/lib/session"
+import { queryPg, withTransactionPg, isDatabaseConfigured } from "@/lib/pgDb"
+import { DEFAULT_TENANT_ID, SessionPayload } from "@/lib/session"
 
 /**
  * Just-In-Time (JIT) Tenant & Account Provisioning for Clerk Users.
@@ -13,6 +13,17 @@ export async function provisionTenantForClerkUser(clerkId: string): Promise<Sess
 
     const email = user.emailAddresses?.[0]?.emailAddress || ""
     const fullName = `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.username || "Pengguna Baru"
+    const username = `clerk_${clerkId.replace(/[^a-zA-Z0-9]/g, "").slice(-10)}`
+
+    if (!isDatabaseConfigured) {
+      return {
+        username,
+        role: "OWNER" as any,
+        tenantId: DEFAULT_TENANT_ID,
+        staffName: fullName,
+        fullName,
+      }
+    }
 
     // Fast-path check
     const existing = await queryPg<{ username: string; role: string; tenantId: string; fullName: string }>(
@@ -33,7 +44,6 @@ export async function provisionTenantForClerkUser(clerkId: string): Promise<Sess
 
     // Provision new Tenant entity
     const businessTitle = `Bisnis ${fullName}`
-    const username = `clerk_${clerkId.replace(/[^a-zA-Z0-9]/g, "").slice(-10)}`
     let tenantId = ""
 
     await withTransactionPg(async (client) => {

@@ -2,6 +2,7 @@
 
 import React, { useState } from "react"
 import Link from "next/link"
+import { useUser, UserButton } from "@clerk/nextjs"
 import {
   Check,
   Zap,
@@ -26,6 +27,9 @@ const TIER_DESCRIPTIONS: Record<SubscriptionTier, string> = {
 }
 
 export default function PricingPage() {
+  const { isLoaded, isSignedIn } = useUser()
+  const isUserLoggedIn = Boolean(isLoaded && isSignedIn)
+
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly")
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0)
 
@@ -94,19 +98,51 @@ export default function PricingPage() {
               <ArrowLeft className="w-3.5 h-3.5" />
               <span>Beranda</span>
             </Link>
-            <Link
-              href="/login"
-              className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-900 border border-transparent hover:border-slate-800 transition-all"
-            >
-              Masuk
-            </Link>
-            <Link
-              href="/register"
-              className="inline-flex items-center gap-2 px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs sm:text-sm transition-all shadow-lg shadow-emerald-500/25 cursor-pointer"
-            >
-              <span>Daftar Gratis</span>
-              <ArrowRight className="w-4 h-4" />
-            </Link>
+            {isUserLoggedIn ? (
+              <div className="flex items-center gap-2 sm:gap-3">
+                <Link
+                  href="/dashboard"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs sm:text-sm transition-all shadow-lg shadow-emerald-500/25 cursor-pointer"
+                >
+                  <span>Buka Dashboard</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+                <div className="flex items-center pl-0.5">
+                  <UserButton
+                    appearance={{
+                      elements: {
+                        userButtonAvatarBox:
+                          "w-8 h-8 sm:w-9 sm:h-9 border border-emerald-500/50 hover:border-emerald-400 transition-all shadow-md shadow-emerald-500/10",
+                        userButtonPopoverCard:
+                          "bg-slate-900 border border-slate-800 text-white shadow-2xl rounded-2xl",
+                        userPreviewMainIdentifier: "text-white font-bold text-xs",
+                        userPreviewSecondaryIdentifier: "text-slate-400 text-[11px]",
+                        userButtonPopoverActionButton:
+                          "text-slate-200 hover:bg-slate-800 hover:text-white rounded-xl",
+                        userButtonPopoverActionButtonIcon: "text-emerald-400",
+                        userButtonPopoverFooter: "hidden",
+                      },
+                    }}
+                  />
+                </div>
+              </div>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-900 border border-transparent hover:border-slate-800 transition-all"
+                >
+                  Masuk
+                </Link>
+                <Link
+                  href="/register"
+                  className="inline-flex items-center gap-2 px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs sm:text-sm transition-all shadow-lg shadow-emerald-500/25 cursor-pointer"
+                >
+                  <span>Daftar Gratis</span>
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </nav>

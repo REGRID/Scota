@@ -6,6 +6,8 @@ const isPublicRoute = createRouteMatcher([
   "/",
   "/login(.*)",
   "/register(.*)",
+  "/sign-in(.*)",
+  "/sign-up(.*)",
   "/signin(.*)",
   "/signup(.*)",
   "/pricing(.*)",
@@ -14,13 +16,14 @@ const isPublicRoute = createRouteMatcher([
   "/api/quota",
   "/api/parse-receipt",
   "/api/auth/(.*)",
+  "/api/webhooks/clerk(.*)",
   "/api/subscription(.*)",
 ])
 
 export const middleware = clerkMiddleware(async (auth, req) => {
   const { pathname } = req.nextUrl
 
-  // Proteksi Halaman Superadmin
+  // 1. Proteksi Halaman Superadmin
   if (pathname.startsWith("/superadmin")) {
     const sessionCookie = req.cookies.get("nota_admin_session")?.value
     const authHeader = req.headers.get("authorization")?.replace("Bearer ", "").trim()
@@ -33,6 +36,23 @@ export const middleware = clerkMiddleware(async (auth, req) => {
     const session = await verifySessionToken(token)
     if (!session || session.role !== "SUPERADMIN") {
       return NextResponse.redirect(new URL("/", req.url))
+    }
+    return NextResponse.next()
+  }
+
+  // 2. Proteksi API Routes Non-Publik (/api/**)
+  if (pathname.startsWith("/api/") && !isPublicRoute(req)) {
+    const { userId } = await auth()
+    const sessionCookie = req.cookies.get("nota_admin_session")?.value
+    const authHeader = req.headers.get("authorization")?.replace("Bearer ", "").trim()
+    const token = sessionCookie || authHeader
+    const hasLegacySession = token && (await verifySessionToken(token))
+
+    if (!userId && !hasLegacySession) {
+      return NextResponse.json(
+        { error: "Sesi tidak valid. Silakan login terlebih dahulu." },
+        { status: 401 }
+      )
     }
   }
 

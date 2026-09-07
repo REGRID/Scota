@@ -157,6 +157,8 @@ CREATE TABLE IF NOT EXISTS admin_accounts (
 -- Idempotent column migration for existing admin_accounts table
 ALTER TABLE admin_accounts ADD COLUMN IF NOT EXISTS email TEXT;
 ALTER TABLE admin_accounts ADD COLUMN IF NOT EXISTS "googleId" TEXT UNIQUE;
+ALTER TABLE admin_accounts ADD COLUMN IF NOT EXISTS "clerkId" TEXT UNIQUE;
+CREATE INDEX IF NOT EXISTS admin_accounts_clerk_idx ON admin_accounts ("clerkId");
 
 
 -- Default Seed Accounts (Linked to default tenant)

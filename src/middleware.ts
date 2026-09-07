@@ -12,7 +12,6 @@ const isPublicRoute = createRouteMatcher([
   "/signup(.*)",
   "/pricing(.*)",
   "/sso-callback(.*)",
-  "/superadmin/login",
   "/api/ping",
   "/api/quota",
   "/api/parse-receipt",
@@ -24,20 +23,21 @@ const isPublicRoute = createRouteMatcher([
 export const middleware = clerkMiddleware(async (auth, req) => {
   const { pathname } = req.nextUrl
 
-  // 1. Proteksi Halaman Superadmin (Kecualikan /superadmin/login agar tidak infinite redirect)
-  if (pathname.startsWith("/superadmin") && pathname !== "/superadmin/login") {
+  // 1. Proteksi API Superadmin (/api/superadmin/**)
+  if (pathname.startsWith("/api/superadmin")) {
     const sessionCookie = req.cookies.get("nota_admin_session")?.value
     const authHeader = req.headers.get("authorization")?.replace("Bearer ", "").trim()
     const token = sessionCookie || authHeader
 
     if (!token) {
-      return NextResponse.redirect(new URL("/superadmin/login", req.url))
+      return NextResponse.json({ error: "Akses ditolak. Sesi Superadmin tidak valid." }, { status: 401 })
     }
 
     const session = await verifySessionToken(token)
     if (!session || session.role !== "SUPERADMIN") {
-      return NextResponse.redirect(new URL("/", req.url))
+      return NextResponse.json({ error: "Akses ditolak. Endpoint khusus Superadmin." }, { status: 403 })
     }
+
     return NextResponse.next()
   }
 

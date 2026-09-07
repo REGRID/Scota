@@ -4,7 +4,11 @@ import React, { useState } from "react"
 import { useRouter } from "next/navigation"
 import { ShieldCheck, Lock, User, Loader2, AlertCircle, ArrowRight } from "lucide-react"
 
-export function SuperadminLoginForm() {
+interface SuperadminLoginFormProps {
+  onSuccess?: () => void
+}
+
+export function SuperadminLoginForm({ onSuccess }: SuperadminLoginFormProps) {
   const router = useRouter()
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
@@ -44,8 +48,12 @@ export function SuperadminLoginForm() {
         localStorage.setItem("nota_admin_role", data.user.role || "SUPERADMIN")
       }
 
-      router.push("/superadmin")
-      router.refresh()
+      if (onSuccess) {
+        onSuccess()
+      } else {
+        router.push("/superadmin")
+        router.refresh()
+      }
     } catch {
       setError("Terjadi kesalahan jaringan saat menghubungi server.")
     } finally {
@@ -56,15 +64,15 @@ export function SuperadminLoginForm() {
   return (
     <form
       onSubmit={handleSubmit}
-      className="w-full max-w-sm space-y-5 bg-slate-900/90 backdrop-blur-xl p-6 sm:p-8 rounded-3xl border border-slate-800 shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+      className="w-full max-w-sm space-y-5 bg-slate-900/95 backdrop-blur-xl p-6 sm:p-8 rounded-3xl border border-slate-800 shadow-2xl animate-in fade-in zoom-in-95 duration-200"
     >
       {/* Header */}
       <div className="space-y-1.5 text-center">
-        <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto mb-2">
+        <div className="w-11 h-11 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto mb-2 shadow-inner">
           <ShieldCheck className="w-5 h-5" />
         </div>
-        <h1 className="text-base font-bold text-white tracking-tight">Internal Portal</h1>
-        <p className="text-xs text-slate-400 font-medium">Autentikasi Khusus Superadmin & Manajemen</p>
+        <h1 className="text-base font-bold text-white tracking-tight">Verifikasi Akses Superadmin</h1>
+        <p className="text-xs text-slate-400 font-medium">Masukkan ID & Password Master Superadmin</p>
       </div>
 
       {/* Error Alert */}
@@ -79,7 +87,7 @@ export function SuperadminLoginForm() {
       <div className="space-y-3.5">
         <div className="space-y-1.5">
           <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
-            <User className="w-3.5 h-3.5 text-emerald-400" /> Username Internal
+            <User className="w-3.5 h-3.5 text-emerald-400" /> ID Pengguna / Username
           </label>
           <input
             type="text"
@@ -120,7 +128,7 @@ export function SuperadminLoginForm() {
           </>
         ) : (
           <>
-            <span>Masuk ke Superadmin</span>
+            <span>Konfirmasi & Buka Portal</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </>
         )}

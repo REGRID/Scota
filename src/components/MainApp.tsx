@@ -30,7 +30,6 @@ import {
   ChevronDown,
   ArrowRight,
   Bell,
-  Database,
 } from "lucide-react"
 
 import { useAppDialog } from "@/components/ui/app-dialog"
@@ -972,15 +971,6 @@ export function MainApp({
                       >
                         <Settings className="w-4 h-4 text-slate-400" />
                         <span>Pengaturan & Notifikasi</span>
-                      </Link>
-
-                      <Link
-                        href="/superadmin"
-                        onClick={() => setShowProfileMenu(false)}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-purple-600 dark:text-purple-400 hover:bg-purple-500/10 transition-colors cursor-pointer"
-                      >
-                        <Database className="w-4 h-4 text-purple-500" />
-                        <span>Portal Superadmin</span>
                       </Link>
 
                       <button

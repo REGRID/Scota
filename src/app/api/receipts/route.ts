@@ -49,6 +49,43 @@ export async function GET(req: NextRequest) {
 
     if (isDatabaseConfigured) {
       try {
+        const searchTrim = search.trim()
+        const categoryTrim = category.trim()
+        const rootTrim = rootKeyword.trim()
+
+        const params: any[] = [targetTenantId]
+        const conditions: string[] = [`r."tenantId" = $1`]
+
+        if (searchTrim) {
+          params.push(`%${searchTrim}%`)
+          const p = `$${params.length}`
+          conditions.push(`(
+            r."merchantName" ILIKE ${p} OR
+            r.note ILIKE ${p} OR
+            r."paymentMethod" ILIKE ${p} OR
+            EXISTS (
+              SELECT 1 FROM receipt_items si
+              WHERE si."receiptId" = r.id
+                AND (si.name ILIKE ${p} OR si.category ILIKE ${p} OR si."subCategory" ILIKE ${p})
+            )
+          )`)
+        }
+
+        if (categoryTrim) {
+          params.push(`%${categoryTrim}%`)
+          const catP = `$${params.length}`
+          params.push(`%${rootTrim}%`)
+          const rootP = `$${params.length}`
+          conditions.push(`EXISTS (
+            SELECT 1 FROM receipt_items ci
+            WHERE ci."receiptId" = r.id
+              AND (ci.category ILIKE ${catP} OR ci."subCategory" ILIKE ${catP} OR ci.category ILIKE ${rootP})
+          )`)
+        }
+
+        const whereClause = conditions.join(" AND ")
+        const limitClause = limit ? `LIMIT ${limit}` : ""
+
         const pgRes = await queryPg(
           `SELECT 
             r.id, 
@@ -81,50 +118,16 @@ export async function GET(req: NextRequest) {
             ) as items
           FROM receipts r
           LEFT JOIN receipt_items i ON i."receiptId" = r.id
-          WHERE r."tenantId" = $1
+          WHERE ${whereClause}
           GROUP BY r.id
           ORDER BY r."createdAt" DESC
-          ${limit ? `LIMIT ${limit}` : ""}`,
-          [targetTenantId]
+          ${limitClause}`,
+          params
         )
         receipts = pgRes.rows || []
       } catch (pgErr) {
         console.warn("PostgreSQL receipts query notice:", pgErr)
       }
-    }
-
-    // In-memory filter for search/category criteria
-    if (search || category) {
-      const searchLower = search.toLowerCase().trim()
-      const categoryLower = category.toLowerCase().trim()
-      const rootLower = rootKeyword.toLowerCase().trim()
-
-      receipts = receipts.filter((r: any) => {
-        const matchesSearch = !searchLower || (
-          (r.merchantName || "").toLowerCase().includes(searchLower) ||
-          (r.note || "").toLowerCase().includes(searchLower) ||
-          (r.paymentMethod || "").toLowerCase().includes(searchLower) ||
-          (r.items || []).some((i: any) =>
-            (i.name || "").toLowerCase().includes(searchLower) ||
-            (i.category || "").toLowerCase().includes(searchLower) ||
-            (i.subCategory || "").toLowerCase().includes(searchLower)
-          )
-        )
-
-        const matchesCategory = !categoryLower || (
-          (r.items || []).some((i: any) => {
-            const itemCat = (i.category || "").toLowerCase()
-            const itemSub = (i.subCategory || "").toLowerCase()
-            return (
-              itemCat.includes(categoryLower) ||
-              itemSub.includes(categoryLower) ||
-              (rootLower && itemCat.includes(rootLower))
-            )
-          })
-        )
-
-        return matchesSearch && matchesCategory
-      })
     }
 
     // Fetch cached Custom Categories to map legacy category names

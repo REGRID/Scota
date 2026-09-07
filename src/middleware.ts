@@ -12,6 +12,7 @@ const isPublicRoute = createRouteMatcher([
   "/signup(.*)",
   "/pricing(.*)",
   "/sso-callback(.*)",
+  "/superadmin/login",
   "/api/ping",
   "/api/quota",
   "/api/parse-receipt",
@@ -23,14 +24,14 @@ const isPublicRoute = createRouteMatcher([
 export const middleware = clerkMiddleware(async (auth, req) => {
   const { pathname } = req.nextUrl
 
-  // 1. Proteksi Halaman Superadmin
-  if (pathname.startsWith("/superadmin")) {
+  // 1. Proteksi Halaman Superadmin (Kecualikan /superadmin/login agar tidak infinite redirect)
+  if (pathname.startsWith("/superadmin") && pathname !== "/superadmin/login") {
     const sessionCookie = req.cookies.get("nota_admin_session")?.value
     const authHeader = req.headers.get("authorization")?.replace("Bearer ", "").trim()
     const token = sessionCookie || authHeader
 
     if (!token) {
-      return NextResponse.redirect(new URL("/login", req.url))
+      return NextResponse.redirect(new URL("/superadmin/login", req.url))
     }
 
     const session = await verifySessionToken(token)

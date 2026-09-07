@@ -416,10 +416,10 @@ export async function registerAdminAccount(params: {
             ]
           )
 
-          // 3. Masukkan Akun Admin baru terikat ke createdTenantId dengan tier trial, validUntil, dan limit yang sinkron
+          // 3. Masukkan Akun Admin baru terikat ke createdTenantId
           await client.query(
-            `INSERT INTO admin_accounts (username, password, role, "fullName", "businessName", phone, email, tier, "validUntil", "monthlyScanLimit", "usedScansThisMonth", "tenantId", "googleId", "createdAt", "updatedAt")
-             VALUES ($1, $2, $3, $4, $5, $6, $7, 'trial', $8, $9, 0, $10, $11, NOW(), NOW())
+            `INSERT INTO admin_accounts (username, password, role, "fullName", "businessName", phone, email, "tenantId", "googleId", "createdAt", "updatedAt")
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
              ON CONFLICT (username) DO NOTHING`,
             [
               cleanUser,
@@ -429,8 +429,6 @@ export async function registerAdminAccount(params: {
               businessName,
               params.phone || "",
               cleanEmail || null,
-              validUntilIso,
-              tierConfig.monthlyScanLimit,
               createdTenantId,
               cleanGoogleId || null,
             ]

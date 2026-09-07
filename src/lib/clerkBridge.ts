@@ -1,5 +1,5 @@
 import { currentUser } from "@clerk/nextjs/server"
-import { queryPg } from "@/lib/pgDb"
+import { queryPg, withTransactionPg } from "@/lib/pgDb"
 import type { SessionPayload } from "@/lib/session"
 
 /**
@@ -33,36 +33,39 @@ export async function provisionTenantForClerkUser(clerkId: string): Promise<Sess
 
     // Provision new Tenant entity
     const businessTitle = `Bisnis ${fullName}`
-    const tenantRes = await queryPg<{ id: string }>(
-      `INSERT INTO tenants ("businessName", status, "createdAt", "updatedAt")
-       VALUES ($1, 'active', NOW(), NOW())
-       RETURNING id`,
-      [businessTitle]
-    )
-
-    if (!tenantRes.rows?.[0]?.id) {
-      console.error("[ClerkBridge] Failed to create tenant for clerk user:", clerkId)
-      return null
-    }
-
-    const tenantId = tenantRes.rows[0].id
     const username = `clerk_${clerkId.replace(/[^a-zA-Z0-9]/g, "").slice(-10)}`
+    let tenantId = ""
 
-    // Provision Admin Account linked to Clerk ID with 14-day trial
-    await queryPg(
-      `INSERT INTO admin_accounts (username, "clerkId", email, "fullName", role, "tenantId", tier, "validUntil", "monthlyScanLimit", "createdAt", "updatedAt")
-       VALUES ($1, $2, $3, $4, 'OWNER', $5, 'trial', NOW() + INTERVAL '14 days', 30, NOW(), NOW())
-       ON CONFLICT ("clerkId") DO UPDATE SET "updatedAt" = NOW()`,
-      [username, clerkId, email, fullName, tenantId]
-    )
+    await withTransactionPg(async (client) => {
+      // 1. Create Tenant in tenants table
+      const tenantRes = await client.query(
+        `INSERT INTO tenants ("businessName", status, "createdAt", "updatedAt")
+         VALUES ($1, 'active', NOW(), NOW())
+         RETURNING id`,
+        [businessTitle]
+      )
 
-    // Seed initial 14-day trial subscription for new tenant
-    await queryPg(
-      `INSERT INTO subscriptions ("tenantId", tier, status, "validUntil", "monthlyScanLimit", "createdAt", "updatedAt")
-       VALUES ($1, 'trial', 'trial', NOW() + INTERVAL '14 days', 30, NOW(), NOW())
-       ON CONFLICT ("tenantId") DO UPDATE SET tier = 'trial', status = 'trial', "validUntil" = NOW() + INTERVAL '14 days', "monthlyScanLimit" = 30, "updatedAt" = NOW()`,
-      [tenantId]
-    )
+      if (!tenantRes.rows?.[0]?.id) {
+        throw new Error(`Failed to create tenant for clerk user: ${clerkId}`)
+      }
+      tenantId = tenantRes.rows[0].id
+
+      // 2. Provision Admin Account linked to Clerk ID
+      await client.query(
+        `INSERT INTO admin_accounts (username, "clerkId", email, "fullName", role, "tenantId", "createdAt", "updatedAt")
+         VALUES ($1, $2, $3, $4, 'OWNER', $5, NOW(), NOW())
+         ON CONFLICT ("clerkId") DO UPDATE SET "updatedAt" = NOW()`,
+        [username, clerkId, email, fullName, tenantId]
+      )
+
+      // 3. Seed initial 14-day trial subscription for new tenant (SSOT)
+      await client.query(
+        `INSERT INTO subscriptions ("tenantId", tier, status, "validUntil", "monthlyScanLimit", "createdAt", "updatedAt")
+         VALUES ($1, 'trial', 'trial', NOW() + INTERVAL '14 days', 30, NOW(), NOW())
+         ON CONFLICT ("tenantId") DO UPDATE SET tier = 'trial', status = 'trial', "validUntil" = NOW() + INTERVAL '14 days', "monthlyScanLimit" = 30, "updatedAt" = NOW()`,
+        [tenantId]
+      )
+    })
 
     return {
       username,

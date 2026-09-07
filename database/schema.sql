@@ -151,11 +151,7 @@ CREATE TABLE IF NOT EXISTS admin_accounts (
     "businessName" TEXT,
     phone TEXT,
     email TEXT,
-    tier TEXT DEFAULT 'trial',
-    "validUntil" TIMESTAMPTZ DEFAULT (now() + interval '14 days'),
-    "monthlyScanLimit" INTEGER DEFAULT 30,
-    "usedScansThisMonth" INTEGER DEFAULT 0,
-    status TEXT DEFAULT 'trial',
+    status TEXT DEFAULT 'active',
     "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now(),
     "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now()
 );

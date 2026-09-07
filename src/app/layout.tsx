@@ -18,7 +18,7 @@ export const viewport: Viewport = {
 }
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://scota.id"),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://scota.web.id"),
   title: {
     default: "Scota — Otomatisasi Scan Nota & Pembukuan Bisnis",
     template: "%s | Scota",
@@ -49,7 +49,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "id_ID",
-    url: "https://scota.id",
+    url: "/",
     title: "Scota — Otomatisasi Scan Nota & Pembukuan Bisnis",
     description: "Cukup foto nota fisik, Scota otomatis mengekstrak rincian item, nominal, dan merekap pembukuan bisnis Anda.",
     siteName: "Scota",

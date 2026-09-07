@@ -685,6 +685,7 @@ export function MainApp({
   if (showLanding) {
     return (
       <IntroductionDashboard
+        isAuthenticated={isAuthenticated}
         onEnterApp={(options) => {
           if (options?.mode) {
             setAuthInitialMode(options.mode)
@@ -700,12 +701,36 @@ export function MainApp({
     )
   }
 
-  // 2. Render Auth Gate Guard
+  // 2. Auth Routes (/register & /login): Render form IMMEDIATELY without waiting for session round-trip
+  if (initialView === "register" || initialView === "login") {
+    if (isAuthenticated === true) {
+      router.replace("/dashboard")
+      return null
+    }
+    return (
+      <AdminLoginScreen
+        initialMode={authInitialMode}
+        initialTier={authInitialTier}
+        onLoginSuccess={(_token, user) => {
+          setAdminUser(user)
+          setIsAuthenticated(true)
+          fetchSubscription()
+          router.push("/dashboard")
+        }}
+        onBackToLanding={() => {
+          setShowLanding(true)
+          router.push("/")
+        }}
+      />
+    )
+  }
+
+  // 3. Protected Dashboard Routes: Wait for session verification
   if (isAuthenticated === null) {
     return (
       <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center space-y-3 font-sans">
         <Loader2 className="w-10 h-10 text-emerald-400 animate-spin" />
-        <p className="text-xs font-semibold text-slate-400">Memverifikasi Sesi Admin...</p>
+        <p className="text-xs font-semibold text-slate-400">Memuat Dashboard...</p>
       </div>
     )
   }

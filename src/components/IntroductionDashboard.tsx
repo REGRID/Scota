@@ -52,6 +52,7 @@ import { compressImageBase64 } from "@/lib/ocr"
 import { getSupportWhatsAppNumber } from "@/lib/contactConfig"
 
 interface IntroductionDashboardProps {
+  isAuthenticated?: boolean | null
   onEnterApp: (options?: { mode?: "login" | "register"; tier?: SubscriptionTier }) => void
   onOpenPricingModal?: () => void
 }
@@ -68,9 +69,11 @@ interface CustomParsedResult {
   }>
   totalAmount: number
   subtotal?: number
+  receiptId?: string
 }
 
 export function IntroductionDashboard({
+  isAuthenticated,
   onEnterApp,
   onOpenPricingModal,
 }: IntroductionDashboardProps) {
@@ -291,6 +294,7 @@ export function IntroductionDashboard({
           ],
           totalAmount: result.totalAmount || (result.items || []).reduce((a: number, b: any) => a + (b.price || 0), 0) || 0,
           subtotal: result.subtotal,
+          receiptId: data?.savedReceiptId || result?.receiptId || result?.id,
         })
         setScanError(null)
       } else {
@@ -745,11 +749,11 @@ export function IntroductionDashboard({
 
                         <div className="pt-1 flex flex-col sm:flex-row gap-2">
                           <Link
-                            href="/register"
+                            href={customParsedData.receiptId ? `/register?claimReceipt=${encodeURIComponent(customParsedData.receiptId)}` : "/register"}
                             className="flex-1 py-2.5 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-98 text-slate-950 font-black text-xs transition-all shadow-md shadow-emerald-500/25 flex items-center justify-center gap-1.5 cursor-pointer"
                           >
                             <ArrowRight className="w-3.5 h-3.5" />
-                            <span>Buka di Dashboard</span>
+                            <span>Simpan Nota Ini — Daftar Gratis</span>
                           </Link>
                           <button
                             onClick={() => setShowSourceModal(true)}
@@ -1243,9 +1247,15 @@ export function IntroductionDashboard({
             <Link href="/login" className="text-slate-400 hover:text-white transition-colors">
               Masuk
             </Link>
-            <Link href="/dashboard" className="text-emerald-400 hover:text-emerald-300 font-bold transition-colors">
-              Buka Dashboard →
-            </Link>
+            {isAuthenticated ? (
+              <Link href="/dashboard" className="text-emerald-400 hover:text-emerald-300 font-bold transition-colors">
+                Buka Dashboard →
+              </Link>
+            ) : (
+              <Link href="/register" className="text-emerald-400 hover:text-emerald-300 font-bold transition-colors">
+                Daftar Gratis →
+              </Link>
+            )}
           </div>
         </div>
       </footer>

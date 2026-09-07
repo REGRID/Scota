@@ -66,8 +66,9 @@ export function AdminLoginScreen({
     name?: string
   } | null>(null)
   const [isGoogleAuthLoading, setIsGoogleAuthLoading] = useState(false)
+  const [claimReceiptId, setClaimReceiptId] = useState<string | null>(null)
 
-  // Periksa parameter pendaftaran Google dari callback
+  // Periksa parameter pendaftaran Google dari callback dan claimReceipt
   useEffect(() => {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search)
@@ -75,6 +76,19 @@ export function AdminLoginScreen({
       let email = params.get("email") || ""
       let name = params.get("name") || ""
       let googleId = params.get("googleId") || ""
+      const claimParam = params.get("claimReceipt")
+
+      if (claimParam) {
+        setClaimReceiptId(claimParam)
+        try {
+          sessionStorage.setItem("scota_claim_receipt", claimParam)
+        } catch {}
+      } else {
+        try {
+          const storedClaim = sessionStorage.getItem("scota_claim_receipt")
+          if (storedClaim) setClaimReceiptId(storedClaim)
+        } catch {}
+      }
 
       if (!googleId) {
         try {
@@ -307,6 +321,7 @@ export function AdminLoginScreen({
           interestedTier: "trial",
           googleId: googleProfile?.googleId || undefined,
           otpCode: !isFromGoogle ? regOtp.trim() : undefined,
+          claimReceiptId: claimReceiptId || undefined,
         }),
       })
 
@@ -323,9 +338,14 @@ export function AdminLoginScreen({
 
       try {
         sessionStorage.removeItem("scota_google_profile")
+        sessionStorage.removeItem("scota_claim_receipt")
       } catch {}
 
-      setSuccessMessage("Pendaftaran berhasil! Mengaktifkan Free Trial 14 hari Anda...")
+      setSuccessMessage(
+        claimReceiptId
+          ? "Pendaftaran berhasil! Nota demo telah disimpan ke akun Anda..."
+          : "Pendaftaran berhasil! Mengaktifkan Free Trial 14 hari Anda..."
+      )
       setTimeout(() => {
         onLoginSuccess(data.token || "", data.user?.username || cleanEmail)
       }, 500)

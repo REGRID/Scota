@@ -5,6 +5,9 @@ import { TIER_CONFIG, SubscriptionTier } from "@/lib/subscription"
 import { saveSubscriptionInfo, getSubscriptionInfo } from "@/lib/subscriptionServer"
 import { createSessionToken } from "@/lib/session"
 import { checkAuthRateLimit, recordAuthAttempt, formatLockoutMessage } from "@/lib/authRateLimiter"
+import { queryPg } from "@/lib/pgDb"
+import { normalizeIp } from "@/lib/rateLimiter"
+import { invalidateReceiptsListCache } from "@/app/api/receipts/route"
 
 export async function POST(req: NextRequest) {
   try {
@@ -21,7 +24,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const { username, password, fullName, businessName, phone, email, selectedTier, interestedTier, googleId, otpCode, otp } = await req.json()
+    const { username, password, fullName, businessName, phone, email, selectedTier, interestedTier, googleId, otpCode, otp, claimReceiptId } = await req.json()
 
     const rawEmail = (email || (username && username.includes("@") ? username : "")).trim().toLowerCase()
     const cleanPassword = (password || "").trim()
@@ -121,6 +124,33 @@ export async function POST(req: NextRequest) {
       name: cleanFullName || cleanUsername,
     })
 
+    // Transfer claimed demo receipt to the new business tenant if requested & verified by demo IP
+    let claimedReceiptId: string | undefined = undefined
+    if (claimReceiptId && regResult.tenantId) {
+      try {
+        const cleanIp = normalizeIp(ip)
+        const claimRes = await queryPg<{ id: string }>(
+          `UPDATE receipts 
+           SET "tenantId" = $1, "updatedAt" = NOW()
+           WHERE id = $2
+             AND "tenantId" IN (
+               SELECT id FROM tenants 
+               WHERE "isDemo" = true AND "demoIpAddress" = $3
+             )
+           RETURNING id`,
+          [regResult.tenantId, claimReceiptId, cleanIp]
+        )
+
+        if (claimRes.rows?.[0]?.id) {
+          claimedReceiptId = claimRes.rows[0].id
+          invalidateReceiptsListCache()
+          console.log(`[Register] Successfully claimed demo receipt ${claimedReceiptId} for tenant ${regResult.tenantId}`)
+        }
+      } catch (claimErr) {
+        console.warn("[Register] Could not claim demo receipt:", claimErr)
+      }
+    }
+
     const response = NextResponse.json({
       success: true,
       message: `Pendaftaran Admin (${cleanUsername}) berhasil!`,
@@ -132,6 +162,7 @@ export async function POST(req: NextRequest) {
         businessName: cleanBusinessName,
         tier: activeTier,
         interestedTier: leadInterestedTier,
+        claimedReceiptId,
       },
     })
 

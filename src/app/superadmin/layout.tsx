@@ -67,7 +67,7 @@ export default function SuperadminLayout({
             </p>
           </div>
           <div className="pt-2 flex flex-col gap-2.5">
-            <SignInButton mode="modal">
+            <SignInButton mode="redirect" forceRedirectUrl="/superadmin">
               <button
                 type="button"
                 className="w-full py-2.5 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs transition-all shadow-lg shadow-emerald-500/20 active:scale-98 cursor-pointer"

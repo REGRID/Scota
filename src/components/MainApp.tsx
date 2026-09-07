@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react"
 import Link from "next/link"
 import { useRouter, usePathname } from "next/navigation"
 import { extractTextFromReceipt } from "@/lib/ocr"
+import { useUser, useClerk } from "@clerk/nextjs"
 import { ReceiptImageUpload, BatchFileItem } from "@/components/ReceiptImageUpload"
 import { VerificationSplitScreen } from "@/components/VerificationSplitScreen"
 import { ReceiptHistoryDashboard, ReceiptData } from "@/components/ReceiptHistoryDashboard"
@@ -47,6 +48,8 @@ export function MainApp({
   const router = useRouter()
   const pathname = usePathname()
   const { showAlert } = useAppDialog()
+  const { isLoaded: isClerkLoaded, isSignedIn: isClerkSignedIn, user: clerkUser } = useUser()
+  const { signOut: clerkSignOut } = useClerk()
 
   // Admin Auth Gate State
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
@@ -276,7 +279,7 @@ export function MainApp({
     [adminUser]
   )
 
-  // Initial Auth Check on Mount
+  // Initial Auth Check on Mount with Clerk & Session Sync
   useEffect(() => {
     const localUser = typeof window !== "undefined" ? localStorage.getItem("nota_admin_user") : null
     const localStaff = typeof window !== "undefined" ? localStorage.getItem("nota_staff_name") : null
@@ -288,6 +291,28 @@ export function MainApp({
       if (savedTab === "scan" || savedTab === "history") setActiveTab(savedTab as "scan" | "history")
     }
 
+    if (!isClerkLoaded) return
+
+    if (isClerkSignedIn && clerkUser) {
+      const displayName =
+        clerkUser.fullName ||
+        clerkUser.username ||
+        clerkUser.primaryEmailAddress?.emailAddress ||
+        "Admin"
+      const displayStaff = clerkUser.firstName || displayName
+      setAdminUser(displayName)
+      setStaffName(displayStaff)
+      if (typeof window !== "undefined") {
+        localStorage.setItem("nota_admin_user", displayName)
+        localStorage.setItem("nota_staff_name", displayStaff)
+      }
+      setIsAuthenticated(true)
+      if (initialView !== "landing" && pathname !== "/") {
+        setShowLanding(false)
+      }
+      return
+    }
+
     const checkSession = async () => {
       try {
         const res = await fetch("/api/auth/session")
@@ -297,7 +322,7 @@ export function MainApp({
             setIsAuthenticated(true)
             if (data.user?.username) setAdminUser(data.user.username)
             if (data.user?.role) setUserRole(data.user.role)
-            if (initialView !== "landing") setShowLanding(false)
+            if (initialView !== "landing" && pathname !== "/") setShowLanding(false)
             return
           }
         }
@@ -308,7 +333,7 @@ export function MainApp({
     }
 
     checkSession()
-  }, [initialView])
+  }, [isClerkLoaded, isClerkSignedIn, clerkUser, initialView, pathname])
 
   // Browser Close / Refresh Warning Protection during Scan & Verification
   useEffect(() => {
@@ -426,10 +451,14 @@ export function MainApp({
   const handleLogout = async () => {
     if (isProcessing) return
     try {
+      await clerkSignOut()
+    } catch {}
+    try {
       await fetch("/api/auth/logout", { method: "POST" })
     } catch {}
     localStorage.removeItem("nota_admin_token")
     localStorage.removeItem("nota_admin_user")
+    localStorage.removeItem("nota_staff_name")
     setIsAuthenticated(false)
     setShowLanding(true)
     if (pathname !== "/") {

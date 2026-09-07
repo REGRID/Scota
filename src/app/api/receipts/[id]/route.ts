@@ -20,9 +20,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     const session = await getSession(req)
-    const userRole = session?.role || "ADMIN"
+    const rawRole = (session?.role || "ADMIN").toUpperCase()
     const userTenantId = session?.tenantId || DEFAULT_TENANT_ID
-    const isSuperadmin = userRole === "SUPERADMIN"
+    const isSuperadmin = rawRole === "SUPERADMIN"
+    const isKasirOrStaff = ["KASIR", "KARYAWAN", "STAFF", "STAF"].includes(rawRole)
 
     let receipt: any = null
 
@@ -43,6 +44,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
             r."paymentStatus", 
             r.note, 
             r."staffName", 
+            r."createdByRole",
+            r."createdByUsername",
             r."createdAt", 
             r."updatedAt",
             COALESCE(
@@ -76,6 +79,25 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     if (!receipt) {
       return NextResponse.json({ error: "Nota tidak ditemukan di database" }, { status: 404 })
+    }
+
+    // Role Kasir & Staff Scope: Staf/Kasir tidak berhak melihat nota yang dibuat oleh Manajer atau Admin
+    if (isKasirOrStaff) {
+      const creatorRole = (receipt.createdByRole || "").toUpperCase()
+      const isCreatedByStaff = ["KASIR", "KARYAWAN", "STAFF", "STAF"].includes(creatorRole)
+      const isLegacyStaff = !receipt.createdByRole && (
+        (receipt.paymentMethod || "").toLowerCase().includes("talangan") ||
+        (receipt.note || "").toLowerCase().includes("(karyawan)") ||
+        (receipt.note || "").toLowerCase().includes("(kasir)") ||
+        (receipt.note || "").toLowerCase().includes("[diunggah oleh:")
+      )
+
+      if (!isCreatedByStaff && !isLegacyStaff && ["ADMIN", "OWNER", "MANAJER", "MANAGER", "SUPERADMIN"].includes(creatorRole)) {
+        return NextResponse.json(
+          { error: "Akses ditolak: Staf/Kasir hanya dapat melihat nota yang dibuat oleh sesama staf/kasir." },
+          { status: 403 }
+        )
+      }
     }
 
     const res = NextResponse.json(receipt)

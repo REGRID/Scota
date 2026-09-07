@@ -62,9 +62,15 @@ CREATE TABLE IF NOT EXISTS receipts (
     "paymentStatus" TEXT NOT NULL DEFAULT 'Lunas',
     note TEXT,
     "staffName" TEXT DEFAULT 'Admin',
+    "createdByRole" TEXT DEFAULT 'ADMIN',
+    "createdByUsername" TEXT,
     "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now(),
     "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Idempotent column migrations for receipts table
+ALTER TABLE receipts ADD COLUMN IF NOT EXISTS "createdByRole" TEXT DEFAULT 'ADMIN';
+ALTER TABLE receipts ADD COLUMN IF NOT EXISTS "createdByUsername" TEXT;
 
 -- 2. Table: receipt_items
 CREATE TABLE IF NOT EXISTS receipt_items (

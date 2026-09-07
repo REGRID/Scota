@@ -22,8 +22,9 @@ export function invalidateReceiptsListCache() {
 export async function GET(req: NextRequest) {
   try {
     const session = await getSession(req)
-    const userRole = session?.role || "ADMIN"
-    const isSuperadmin = userRole === "SUPERADMIN"
+    const rawRole = (session?.role || "ADMIN").toUpperCase()
+    const isSuperadmin = rawRole === "SUPERADMIN"
+    const isKasirOrStaff = ["KASIR", "KARYAWAN", "STAFF", "STAF"].includes(rawRole)
 
     const { searchParams } = new URL(req.url)
     const search = searchParams.get("search") || ""
@@ -35,7 +36,7 @@ export async function GET(req: NextRequest) {
     const requestedTenant = searchParams.get("tenantId")
     const targetTenantId = isSuperadmin && requestedTenant ? requestedTenant : session?.tenantId || DEFAULT_TENANT_ID
 
-    const cacheKey = `${targetTenantId}_${search}_${category}_${limit || "all"}`
+    const cacheKey = `${targetTenantId}_${rawRole}_${search}_${category}_${limit || "all"}`
     const now = Date.now()
 
     if (listCache && listCache.key === cacheKey && now - listCache.timestamp < LIST_CACHE_TTL) {
@@ -55,6 +56,22 @@ export async function GET(req: NextRequest) {
 
         const params: any[] = [targetTenantId]
         const conditions: string[] = [`r."tenantId" = $1`]
+
+        // Role Kasir & Staff Scope: Hanya dapat melihat nota buatan Kasir / Staf
+        if (isKasirOrStaff) {
+          conditions.push(`(
+            r."createdByRole" IN ('KASIR', 'KARYAWAN', 'STAFF', 'STAF')
+            OR (
+              r."createdByRole" IS NULL AND (
+                r."paymentMethod" ILIKE '%Talangan Karyawan%'
+                OR r.note ILIKE '%(karyawan)%'
+                OR r.note ILIKE '%(kasir)%'
+                OR r.note ILIKE '%[diunggah oleh:%'
+                OR r."staffName" ILIKE ANY(ARRAY['%kasir%', '%staf%', '%staff%', '%reza%', '%ummu%', '%cheisa%', '%novi%', '%titis%'])
+              )
+            )
+          )`)
+        }
 
         if (searchTrim) {
           params.push(`%${searchTrim}%`)
@@ -101,6 +118,8 @@ export async function GET(req: NextRequest) {
             r."paymentStatus",
             r.note,
             r."staffName",
+            r."createdByRole",
+            r."createdByUsername",
             r."createdAt", 
             r."updatedAt",
             COALESCE(
@@ -163,17 +182,26 @@ export async function GET(req: NextRequest) {
       }
     })
 
-    // Role KARYAWAN Data Scoping
-    if (userRole === "KARYAWAN") {
-      const knownStaff = ["reza", "ummu", "cheisa", "novi", "titis", "karyawan"]
+    // Strict Role Kasir & Staff Scoping:
+    // Staf/Kasir HANYA bisa melihat nota yang dibuat oleh sesama Staf/Kasir.
+    // Tidak bisa melihat nota yang dibuat oleh Manajer, Admin, Owner, atau Superadmin.
+    if (isKasirOrStaff) {
+      const knownStaff = ["reza", "ummu", "cheisa", "novi", "titis", "karyawan", "kasir", "staf", "staff"]
       normalizedReceipts = normalizedReceipts.filter((r: any) => {
+        const creatorRole = (r.createdByRole || "").toUpperCase()
+        if (["KASIR", "KARYAWAN", "STAFF", "STAF"].includes(creatorRole)) return true
+        if (["ADMIN", "OWNER", "MANAJER", "MANAGER", "SUPERADMIN"].includes(creatorRole)) return false
+
+        // Backward-compatibility check for legacy rows without createdByRole
         const noteText = (r.note || "").toLowerCase()
         const method = (r.paymentMethod || "").toLowerCase()
+        const staff = (r.staffName || "").toLowerCase()
         return (
           method === "talangan karyawan" ||
           noteText.includes("(karyawan)") ||
+          noteText.includes("(kasir)") ||
           noteText.includes("diunggah oleh:") ||
-          knownStaff.some((st) => noteText.includes(st))
+          knownStaff.some((st) => noteText.includes(st) || staff.includes(st))
         )
       })
     }
@@ -284,6 +312,8 @@ export async function POST(req: NextRequest) {
       paymentStatus: paymentStatus || "Lunas",
       note: cleanedNote,
       staffName: reqStaffName || null,
+      createdByRole: userRole,
+      createdByUsername: adminUser || null,
       items: items.map((it: any) => ({
         name: it.name || "Item",
         category: it.category || "Lain-lain",
@@ -311,9 +341,9 @@ export async function POST(req: NextRequest) {
 
       if (isDatabaseConfigured) {
         const insertRes = await queryPg<{ id: string }>(
-          `INSERT INTO receipts ("tenantId", "merchantName", date, "imageUrl", subtotal, "discountAmount", "taxAmount", "totalAmount", "paymentMethod", "paymentStatus", note, "staffName", "createdAt", "updatedAt")
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
-           RETURNING id, "merchantName", date, "totalAmount", "paymentMethod", "paymentStatus", "createdAt"`,
+          `INSERT INTO receipts ("tenantId", "merchantName", date, "imageUrl", subtotal, "discountAmount", "taxAmount", "totalAmount", "paymentMethod", "paymentStatus", note, "staffName", "createdByRole", "createdByUsername", "createdAt", "updatedAt")
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())
+           RETURNING id, "merchantName", date, "totalAmount", "paymentMethod", "paymentStatus", "createdByRole", "createdByUsername", "createdAt"`,
           [
             userTenantId,
             payloadObj.merchantName,
@@ -327,6 +357,8 @@ export async function POST(req: NextRequest) {
             payloadObj.paymentStatus,
             payloadObj.note,
             payloadObj.staffName,
+            payloadObj.createdByRole,
+            payloadObj.createdByUsername,
           ]
         )
         createdReceipt = insertRes.rows?.[0]

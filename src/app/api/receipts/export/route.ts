@@ -34,6 +34,8 @@ export async function GET(req: NextRequest) {
 
     const sortDirection = order === "desc" ? "DESC" : "ASC"
     const rootKeyword = category ? category.split("/")[0].trim() : ""
+    const rawRole = (session?.role || "ADMIN").toUpperCase()
+    const isKasirOrStaff = ["KASIR", "KARYAWAN", "STAFF", "STAF"].includes(rawRole)
 
     let receipts: any[] = []
 
@@ -52,6 +54,8 @@ export async function GET(req: NextRequest) {
             r."paymentStatus",
             r.note,
             r."staffName",
+            r."createdByRole",
+            r."createdByUsername",
             r."createdAt", 
             r."updatedAt",
             COALESCE(
@@ -71,6 +75,17 @@ export async function GET(req: NextRequest) {
           FROM receipts r
           LEFT JOIN receipt_items i ON i."receiptId" = r.id
           WHERE r."tenantId" = $1
+            ${isKasirOrStaff ? `AND (
+              r."createdByRole" IN ('KASIR', 'KARYAWAN', 'STAFF', 'STAF')
+              OR (
+                r."createdByRole" IS NULL AND (
+                  r."paymentMethod" ILIKE '%Talangan Karyawan%'
+                  OR r.note ILIKE '%(karyawan)%'
+                  OR r.note ILIKE '%(kasir)%'
+                  OR r.note ILIKE '%[diunggah oleh:%'
+                )
+              )
+            )` : ''}
           GROUP BY r.id
           ORDER BY r.date ${sortDirection}, r."createdAt" ${sortDirection}`,
           [session.tenantId]
@@ -87,6 +102,11 @@ export async function GET(req: NextRequest) {
 
     // Comprehensive client-aligned filter processing
     receipts = receipts.filter((r: any) => {
+      // 0. Role Scope for Kasir/Staff
+      if (isKasirOrStaff) {
+        const creatorRole = (r.createdByRole || "").toUpperCase()
+        if (["ADMIN", "OWNER", "MANAJER", "MANAGER", "SUPERADMIN"].includes(creatorRole)) return false
+      }
       // 1. Date Range
       if (dateRange === "today" && r.date !== todayStr) return false
       if (dateRange === "7days" && r.date < sevenDaysAgo) return false

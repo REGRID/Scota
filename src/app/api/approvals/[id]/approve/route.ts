@@ -123,10 +123,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       } = payload
 
       const compressedImageUrl = imageUrl ? await compressBase64Image(imageUrl) : null
+      const requestedByVal = pendingApproval.requestedBy || ""
+      const creatorRole = payload.createdByRole || (requestedByVal.toLowerCase().includes("karyawan") || requestedByVal.toLowerCase().includes("kasir") ? "KASIR" : "ADMIN")
+      const creatorUsername = payload.createdByUsername || pendingApproval.requestedBy || "system"
 
       const newReceiptRes = await queryPg<{ id: string }>(
-        `INSERT INTO receipts ("tenantId", "merchantName", date, "imageUrl", subtotal, "discountAmount", "taxAmount", "totalAmount", "paymentMethod", "paymentStatus", note, "staffName", "createdAt", "updatedAt")
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
+        `INSERT INTO receipts ("tenantId", "merchantName", date, "imageUrl", subtotal, "discountAmount", "taxAmount", "totalAmount", "paymentMethod", "paymentStatus", note, "staffName", "createdByRole", "createdByUsername", "createdAt", "updatedAt")
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())
          RETURNING id`,
         [
           targetTenantId,
@@ -141,6 +144,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           paymentStatus || "Lunas",
           note || null,
           staffName || null,
+          creatorRole,
+          creatorUsername,
         ]
       )
 

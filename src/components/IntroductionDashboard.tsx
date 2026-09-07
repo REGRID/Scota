@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react"
 import Link from "next/link"
+import { useUser, UserButton } from "@clerk/nextjs"
 import {
   Sparkles,
   CheckCircle2,
@@ -77,6 +78,9 @@ export function IntroductionDashboard({
   onEnterApp,
   onOpenPricingModal,
 }: IntroductionDashboardProps) {
+  const { isLoaded, isSignedIn, user } = useUser()
+  const isUserLoggedIn = Boolean(isAuthenticated || (isLoaded && isSignedIn))
+
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly")
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0)
 
@@ -373,19 +377,51 @@ export function IntroductionDashboard({
 
           {/* Action CTA */}
           <div className="flex items-center gap-2 sm:gap-3 z-10">
-            <Link
-              href="/login"
-              className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-900 border border-transparent hover:border-slate-800 transition-all cursor-pointer"
-            >
-              Masuk
-            </Link>
-            <Link
-              href="/register"
-              className="inline-flex items-center gap-2 px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-slate-950 font-black text-xs sm:text-sm transition-all shadow-lg shadow-emerald-500/25 active:scale-98 cursor-pointer"
-            >
-              <span>Daftar Gratis</span>
-              <ArrowRight className="w-4 h-4" />
-            </Link>
+            {isUserLoggedIn ? (
+              <div className="flex items-center gap-2 sm:gap-3">
+                <Link
+                  href="/dashboard"
+                  className="inline-flex items-center gap-1.5 sm:gap-2 px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-slate-950 font-black text-xs sm:text-sm transition-all shadow-lg shadow-emerald-500/25 active:scale-98 cursor-pointer"
+                >
+                  <span>Buka Dashboard</span>
+                  <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                </Link>
+                <div className="flex items-center pl-0.5">
+                  <UserButton
+                    appearance={{
+                      elements: {
+                        userButtonAvatarBox:
+                          "w-8 h-8 sm:w-9 sm:h-9 border border-emerald-500/50 hover:border-emerald-400 transition-all shadow-md shadow-emerald-500/10",
+                        userButtonPopoverCard:
+                          "bg-slate-900 border border-slate-800 text-white shadow-2xl rounded-2xl",
+                        userPreviewMainIdentifier: "text-white font-bold text-xs",
+                        userPreviewSecondaryIdentifier: "text-slate-400 text-[11px]",
+                        userButtonPopoverActionButton:
+                          "text-slate-200 hover:bg-slate-800 hover:text-white rounded-xl",
+                        userButtonPopoverActionButtonIcon: "text-emerald-400",
+                        userButtonPopoverFooter: "hidden",
+                      },
+                    }}
+                  />
+                </div>
+              </div>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-900 border border-transparent hover:border-slate-800 transition-all cursor-pointer"
+                >
+                  Masuk
+                </Link>
+                <Link
+                  href="/register"
+                  className="inline-flex items-center gap-2 px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-slate-950 font-black text-xs sm:text-sm transition-all shadow-lg shadow-emerald-500/25 active:scale-98 cursor-pointer"
+                >
+                  <span>Daftar Gratis</span>
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </nav>
@@ -409,13 +445,23 @@ export function IntroductionDashboard({
 
             {/* CTAs */}
             <div className="pt-2 sm:pt-3 flex flex-col sm:flex-row items-center justify-center gap-3.5">
-              <Link
-                href="/register"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-slate-950 font-black text-sm transition-all shadow-xl shadow-emerald-500/25 hover:shadow-emerald-500/35 hover:-translate-y-0.5 active:scale-98 cursor-pointer"
-              >
-                <Zap className="w-4 h-4 text-slate-950 fill-slate-950" />
-                <span>Coba Gratis 14 Hari</span>
-              </Link>
+              {isUserLoggedIn ? (
+                <Link
+                  href="/dashboard"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-slate-950 font-black text-sm transition-all shadow-xl shadow-emerald-500/25 hover:shadow-emerald-500/35 hover:-translate-y-0.5 active:scale-98 cursor-pointer"
+                >
+                  <Zap className="w-4 h-4 text-slate-950 fill-slate-950" />
+                  <span>Buka Dashboard & Scan Nota</span>
+                </Link>
+              ) : (
+                <Link
+                  href="/register"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-slate-950 font-black text-sm transition-all shadow-xl shadow-emerald-500/25 hover:shadow-emerald-500/35 hover:-translate-y-0.5 active:scale-98 cursor-pointer"
+                >
+                  <Zap className="w-4 h-4 text-slate-950 fill-slate-950" />
+                  <span>Coba Gratis 14 Hari</span>
+                </Link>
+              )}
 
               <Link
                 href="/pricing"

@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react"
 import Link from "next/link"
 import { useRouter, usePathname } from "next/navigation"
 import { extractTextFromReceipt } from "@/lib/ocr"
-import { useUser, useClerk } from "@clerk/nextjs"
+import { useUser, useClerk, UserButton } from "@clerk/nextjs"
 import { ReceiptImageUpload, BatchFileItem } from "@/components/ReceiptImageUpload"
 import { VerificationSplitScreen } from "@/components/VerificationSplitScreen"
 import { ReceiptHistoryDashboard, ReceiptData } from "@/components/ReceiptHistoryDashboard"
@@ -892,6 +892,26 @@ export function MainApp({
             </button>
 
             <ThemeToggle />
+
+            {/* Clerk User Profile Avatar */}
+            <div className="flex items-center">
+              <UserButton
+                appearance={{
+                  elements: {
+                    userButtonAvatarBox:
+                      "w-7 h-7 sm:w-8 sm:h-8 border border-emerald-500/50 hover:border-emerald-400 transition-all shadow-xs",
+                    userButtonPopoverCard:
+                      "bg-slate-900 border border-slate-800 text-white shadow-2xl rounded-2xl",
+                    userPreviewMainIdentifier: "text-white font-bold text-xs",
+                    userPreviewSecondaryIdentifier: "text-slate-400 text-[11px]",
+                    userButtonPopoverActionButton:
+                      "text-slate-200 hover:bg-slate-800 hover:text-white rounded-xl",
+                    userButtonPopoverActionButtonIcon: "text-emerald-400",
+                    userButtonPopoverFooter: "hidden",
+                  },
+                }}
+              />
+            </div>
 
             {/* Unified Account / Profile Pill */}
             <div className="relative">

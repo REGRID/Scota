@@ -1,5 +1,7 @@
 import { Pool } from "pg"
 
+export type PoolClient = Awaited<ReturnType<Pool["connect"]>>
+
 // Jika runtime belum menginjeksi process.env, coba baca langsung dari .env.local (hanya di Node.js server)
 if (!process.env.DATABASE_URL && typeof window === "undefined" && process.env.NEXT_RUNTIME !== "edge") {
   try {
@@ -74,4 +76,29 @@ export async function queryPg<T = any>(text: string, params?: any[]): Promise<{ 
     return { rows: [] }
   }
   return pool.query(text, params)
+}
+
+export async function withTransactionPg<T = any>(
+  callback: (client: PoolClient) => Promise<T>
+): Promise<T> {
+  const pool = getPgPool()
+  if (!pool) {
+    throw new Error("Database not configured")
+  }
+  const client = await pool.connect()
+  try {
+    await client.query("BEGIN")
+    const result = await callback(client)
+    await client.query("COMMIT")
+    return result
+  } catch (error) {
+    try {
+      await client.query("ROLLBACK")
+    } catch (rollbackErr) {
+      console.warn("Rollback error:", rollbackErr)
+    }
+    throw error
+  } finally {
+    client.release()
+  }
 }

@@ -1,4 +1,4 @@
-import { queryPg, isDatabaseConfigured } from "@/lib/pgDb"
+import { queryPg, isDatabaseConfigured, withTransactionPg } from "@/lib/pgDb"
 import { hashPassword, verifyPassword, isBcryptHash } from "@/lib/password"
 import { DEFAULT_TENANT_ID } from "@/lib/session"
 import { TIER_CONFIG, SubscriptionTier } from "@/lib/subscription"
@@ -383,56 +383,62 @@ export async function registerAdminAccount(params: {
 
     if (isDatabaseConfigured) {
       try {
-        // 1. Buat Tenant Baru di tabel tenants
-        const tenantRes = await queryPg<{ id: string }>(
-          `INSERT INTO tenants ("businessName", phone, status, "createdAt", "updatedAt")
-           VALUES ($1, $2, 'active', NOW(), NOW())
-           RETURNING id`,
-          [businessName, params.phone || ""]
-        )
-        if (tenantRes.rows?.[0]?.id) {
-          createdTenantId = tenantRes.rows[0].id
-        }
-
-        // 2. Buat Subscription Khusus untuk Tenant Baru (Selalu Trial 14 hari)
         const tierConfig = TIER_CONFIG.trial
         const validityDays = 14
         const validUntilDate = new Date()
         validUntilDate.setDate(validUntilDate.getDate() + validityDays)
+        const validUntilIso = validUntilDate.toISOString()
 
-        await queryPg(
-          `INSERT INTO subscriptions ("tenantId", tier, "validUntil", "monthlyScanLimit", "usedScansThisMonth", "studioName", phone, "createdAt", "updatedAt")
-           VALUES ($1, 'trial', $2, $3, 0, $4, $5, NOW(), NOW())
-           ON CONFLICT ("tenantId") DO UPDATE 
-           SET tier = EXCLUDED.tier, "validUntil" = EXCLUDED."validUntil"`,
-          [
-            createdTenantId,
-            validUntilDate.toISOString(),
-            tierConfig.monthlyScanLimit,
-            businessName,
-            params.phone || "",
-          ]
-        )
+        await withTransactionPg(async (client) => {
+          // 1. Buat Tenant Baru di tabel tenants
+          const tenantRes = await client.query(
+            `INSERT INTO tenants ("businessName", phone, status, "createdAt", "updatedAt")
+             VALUES ($1, $2, 'active', NOW(), NOW())
+             RETURNING id`,
+            [businessName, params.phone || ""]
+          )
+          if (tenantRes.rows?.[0]?.id) {
+            createdTenantId = tenantRes.rows[0].id
+          }
 
-        // 3. Masukkan Akun Admin baru terikat ke createdTenantId dengan tier trial dan googleId jika ada
-        await queryPg(
-          `INSERT INTO admin_accounts (username, password, role, "fullName", "businessName", phone, email, tier, "tenantId", "googleId", "createdAt", "updatedAt")
-           VALUES ($1, $2, $3, $4, $5, $6, $7, 'trial', $8, $9, NOW(), NOW())
-           ON CONFLICT (username) DO NOTHING`,
-          [
-            cleanUser,
-            hashed,
-            role,
-            params.fullName || "",
-            businessName,
-            params.phone || "",
-            cleanEmail || null,
-            createdTenantId,
-            cleanGoogleId || null,
-          ]
-        )
+          // 2. Buat Subscription Khusus untuk Tenant Baru (Selalu Trial 14 hari)
+          await client.query(
+            `INSERT INTO subscriptions ("tenantId", tier, "validUntil", "monthlyScanLimit", "usedScansThisMonth", "studioName", phone, "createdAt", "updatedAt")
+             VALUES ($1, 'trial', $2, $3, 0, $4, $5, NOW(), NOW())
+             ON CONFLICT ("tenantId") DO UPDATE 
+             SET tier = EXCLUDED.tier, "validUntil" = EXCLUDED."validUntil", "monthlyScanLimit" = EXCLUDED."monthlyScanLimit"`,
+            [
+              createdTenantId,
+              validUntilIso,
+              tierConfig.monthlyScanLimit,
+              businessName,
+              params.phone || "",
+            ]
+          )
+
+          // 3. Masukkan Akun Admin baru terikat ke createdTenantId dengan tier trial, validUntil, dan limit yang sinkron
+          await client.query(
+            `INSERT INTO admin_accounts (username, password, role, "fullName", "businessName", phone, email, tier, "validUntil", "monthlyScanLimit", "usedScansThisMonth", "tenantId", "googleId", "createdAt", "updatedAt")
+             VALUES ($1, $2, $3, $4, $5, $6, $7, 'trial', $8, $9, 0, $10, $11, NOW(), NOW())
+             ON CONFLICT (username) DO NOTHING`,
+            [
+              cleanUser,
+              hashed,
+              role,
+              params.fullName || "",
+              businessName,
+              params.phone || "",
+              cleanEmail || null,
+              validUntilIso,
+              tierConfig.monthlyScanLimit,
+              createdTenantId,
+              cleanGoogleId || null,
+            ]
+          )
+        })
       } catch (dbErr) {
-        console.warn("PostgreSQL insert tenant & admin notice:", dbErr)
+        console.error("PostgreSQL transaction error registering tenant & admin:", dbErr)
+        throw dbErr
       }
     }
 

@@ -1,4 +1,4 @@
-import { queryPg, isDatabaseConfigured } from "@/lib/pgDb"
+import { queryPg, isDatabaseConfigured, withTransactionPg } from "@/lib/pgDb"
 import { TIER_CONFIG, SubscriptionTier, ApprovalWorkflowConfig, DEFAULT_APPROVAL_WORKFLOW } from "@/lib/subscription"
 import { getUserAccountDetails, updateAdminPassword } from "@/lib/adminAccounts"
 import { hashPassword } from "@/lib/password"
@@ -451,63 +451,66 @@ export async function createTenantManual(
     // 2. Insert into database
     if (isDatabaseConfigured) {
       try {
-        // Create Tenant in tenants table
-        const tenantRes = await queryPg<{ id: string }>(
-          `INSERT INTO tenants ("businessName", phone, status, "createdAt", "updatedAt")
-           VALUES ($1, $2, 'active', NOW(), NOW())
-           RETURNING id`,
-          [businessName, payload.phone || ""]
-        )
-        if (tenantRes.rows?.[0]?.id) {
-          createdTenantId = tenantRes.rows[0].id
-        }
+        await withTransactionPg(async (client) => {
+          // Create Tenant in tenants table
+          const tenantRes = await client.query(
+            `INSERT INTO tenants ("businessName", phone, status, "createdAt", "updatedAt")
+             VALUES ($1, $2, 'active', NOW(), NOW())
+             RETURNING id`,
+            [businessName, payload.phone || ""]
+          )
+          if (tenantRes.rows?.[0]?.id) {
+            createdTenantId = tenantRes.rows[0].id
+          }
 
-        // Create subscription in subscriptions table
-        await queryPg(
-          `INSERT INTO subscriptions ("tenantId", tier, "validUntil", "monthlyScanLimit", "usedScansThisMonth", "studioName", phone, "createdAt", "updatedAt")
-           VALUES ($1, $2, $3, $4, 0, $5, $6, NOW(), NOW())
-           ON CONFLICT ("tenantId") DO UPDATE 
-           SET tier = EXCLUDED.tier, "validUntil" = EXCLUDED."validUntil", "monthlyScanLimit" = EXCLUDED."monthlyScanLimit"`,
-          [
-            createdTenantId,
-            tier,
-            validUntil,
-            tierCfg.monthlyScanLimit,
-            businessName,
-            payload.phone || "",
-          ]
-        )
+          // Create subscription in subscriptions table
+          await client.query(
+            `INSERT INTO subscriptions ("tenantId", tier, "validUntil", "monthlyScanLimit", "usedScansThisMonth", "studioName", phone, "createdAt", "updatedAt")
+             VALUES ($1, $2, $3, $4, 0, $5, $6, NOW(), NOW())
+             ON CONFLICT ("tenantId") DO UPDATE 
+             SET tier = EXCLUDED.tier, "validUntil" = EXCLUDED."validUntil", "monthlyScanLimit" = EXCLUDED."monthlyScanLimit"`,
+            [
+              createdTenantId,
+              tier,
+              validUntil,
+              tierCfg.monthlyScanLimit,
+              businessName,
+              payload.phone || "",
+            ]
+          )
 
-        // Insert into admin_accounts
-        await queryPg(
-          `INSERT INTO admin_accounts (username, password, role, "tenantId", "fullName", "businessName", phone, tier, "validUntil", "monthlyScanLimit", "usedScansThisMonth", status, "createdAt", "updatedAt")
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 0, 'active', NOW(), NOW())
-           ON CONFLICT (username) DO UPDATE SET 
-             password = EXCLUDED.password,
-             "tenantId" = EXCLUDED."tenantId",
-             "fullName" = EXCLUDED."fullName",
-             "businessName" = EXCLUDED."businessName",
-             role = EXCLUDED.role,
-             tier = EXCLUDED.tier,
-             "validUntil" = EXCLUDED."validUntil",
-             "monthlyScanLimit" = EXCLUDED."monthlyScanLimit",
-             status = 'active',
-             "updatedAt" = NOW()`,
-          [
-            cleanUser,
-            hashedPass,
-            role,
-            createdTenantId,
-            payload.fullName || cleanUser,
-            businessName,
-            payload.phone || "",
-            tier,
-            validUntil,
-            tierCfg.monthlyScanLimit,
-          ]
-        )
+          // Insert into admin_accounts
+          await client.query(
+            `INSERT INTO admin_accounts (username, password, role, "tenantId", "fullName", "businessName", phone, tier, "validUntil", "monthlyScanLimit", "usedScansThisMonth", status, "createdAt", "updatedAt")
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 0, 'active', NOW(), NOW())
+             ON CONFLICT (username) DO UPDATE SET 
+               password = EXCLUDED.password,
+               "tenantId" = EXCLUDED."tenantId",
+               "fullName" = EXCLUDED."fullName",
+               "businessName" = EXCLUDED."businessName",
+               role = EXCLUDED.role,
+               tier = EXCLUDED.tier,
+               "validUntil" = EXCLUDED."validUntil",
+               "monthlyScanLimit" = EXCLUDED."monthlyScanLimit",
+               status = 'active',
+               "updatedAt" = NOW()`,
+            [
+              cleanUser,
+              hashedPass,
+              role,
+              createdTenantId,
+              payload.fullName || cleanUser,
+              businessName,
+              payload.phone || "",
+              tier,
+              validUntil,
+              tierCfg.monthlyScanLimit,
+            ]
+          )
+        })
       } catch (err) {
-        console.warn("createTenantManual PostgreSQL insert notice:", err)
+        console.error("createTenantManual PostgreSQL transaction error:", err)
+        throw err
       }
     }
 

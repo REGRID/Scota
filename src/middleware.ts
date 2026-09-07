@@ -1,83 +1,52 @@
-import { NextRequest, NextResponse } from "next/server"
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server"
+import { NextResponse } from "next/server"
 import { verifySessionToken } from "@/lib/session"
 
-// Daftar route yang MEMANG boleh diakses tanpa login.
-// Prinsipnya: default TERTUTUP -- kalau tidak ada di daftar ini, wajib punya sesi valid.
-const PUBLIC_API_ROUTES = [
+const isPublicRoute = createRouteMatcher([
+  "/",
+  "/login(.*)",
+  "/register(.*)",
+  "/signin(.*)",
+  "/signup(.*)",
+  "/pricing(.*)",
+  "/sso-callback(.*)",
   "/api/ping",
-  "/api/auth/login",
-  "/api/auth/register",
-  "/api/auth/send-register-otp", // endpoint pengiriman kode OTP verifikasi email pendaftaran
-  "/api/auth/forgot-password",
-  "/api/auth/session",
-  "/api/auth/logout",
-  "/api/auth/demo-login", // endpoint bridge sesi Scota untuk demo Google
-  "/api/auth/google-login", // endpoint bridge sesi Scota untuk login/register Google bisnis
-  "/api/auth/callback", // endpoint callback Auth.js (mis. /api/auth/callback/google)
-  "/api/auth/signin", // memulai redirect ke Google OAuth (Auth.js)
-  "/api/auth/error", // menampilkan detail error OAuth resmi Auth.js
-  "/api/auth/csrf", // token CSRF internal Auth.js sebelum signin
-  "/api/auth/providers", // daftar provider OAuth aktif Auth.js
-  "/api/parse-receipt", // publik by design untuk scan sebelum login
-  "/api/quota", // satu paket dengan parse-receipt -- menampilkan sisa kuota IP, bukan data tenant
-]
+  "/api/quota",
+  "/api/parse-receipt",
+  "/api/auth/(.*)",
+  "/api/subscription(.*)",
+])
 
-export async function middleware(req: NextRequest) {
+export const middleware = clerkMiddleware(async (auth, req) => {
   const { pathname } = req.nextUrl
 
-  // --- Bagian 1: Proteksi Halaman /superadmin/** ---
+  // Proteksi Halaman Superadmin
   if (pathname.startsWith("/superadmin")) {
     const sessionCookie = req.cookies.get("nota_admin_session")?.value
     const authHeader = req.headers.get("authorization")?.replace("Bearer ", "").trim()
     const token = sessionCookie || authHeader
 
     if (!token) {
-      // Belum login sama sekali -> arahkan ke halaman login
       return NextResponse.redirect(new URL("/login", req.url))
     }
 
     const session = await verifySessionToken(token)
-
     if (!session || session.role !== "SUPERADMIN") {
-      // Sudah login TAPI bukan superadmin -> arahkan senyap ke halaman utama,
-      // BUKAN ke halaman 403 Forbidden agar tidak mengonfirmasi keberadaan panel superadmin
       return NextResponse.redirect(new URL("/", req.url))
     }
-
-    return NextResponse.next()
   }
 
-  // --- Bagian 2: Proteksi API /api/** ---
-  if (!pathname.startsWith("/api/")) {
-    return NextResponse.next()
-  }
+  return NextResponse.next()
+})
 
-  const isPublic = PUBLIC_API_ROUTES.some((route) => pathname === route || pathname.startsWith(route + "/"))
-  if (isPublic) {
-    return NextResponse.next()
-  }
-
-  const sessionCookie = req.cookies.get("nota_admin_session")?.value
-  const authHeader = req.headers.get("authorization")?.replace("Bearer ", "").trim()
-  const token = sessionCookie || authHeader
-
-  if (!token) {
-    return NextResponse.json({ error: "Sesi tidak valid. Silakan login." }, { status: 401 })
-  }
-
-  const session = await verifySessionToken(token)
-  if (!session) {
-    return NextResponse.json({ error: "Sesi tidak valid atau kedaluwarsa." }, { status: 401 })
-  }
-
-  // Teruskan hasil verifikasi lewat header internal
-  const requestHeaders = new Headers(req.headers)
-  requestHeaders.set("x-verified-username", session.username)
-  requestHeaders.set("x-verified-tenant-id", session.tenantId || "")
-
-  return NextResponse.next({ request: { headers: requestHeaders } })
-}
+export default middleware
 
 export const config = {
-  matcher: ["/api/:path*", "/superadmin/:path*"],
+  matcher: [
+    // Skip Next.js internals and all static files, unless found in search params
+    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
+    // Always run for API routes
+    "/(api|trpc)(.*)",
+    "/__clerk/:path*",
+  ],
 }

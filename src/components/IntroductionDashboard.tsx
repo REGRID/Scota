@@ -363,9 +363,9 @@ export function IntroductionDashboard({
   }
 
   return (
-    <div className="min-h-screen bg-white text-slate-900 dark:bg-[#080d1a] dark:text-slate-100 font-sans selection:bg-emerald-500 selection:text-white transition-colors duration-200 overflow-x-hidden">
+    <div className="min-h-screen bg-white text-slate-900 dark:bg-[#080d1a] dark:text-slate-100 font-sans selection:bg-emerald-500 selection:text-white transition-colors duration-200">
       {/* 1. TOP STICKY NAVBAR */}
-      <nav className="sticky top-0 z-40 bg-white/90 dark:bg-[#080d1a]/90 backdrop-blur-xl border-b border-slate-200/80 dark:border-slate-800/80 transition-colors">
+      <nav className="sticky top-0 z-50 bg-white/95 dark:bg-[#080d1a]/95 backdrop-blur-xl border-b border-slate-200/80 dark:border-slate-800/80 transition-colors shadow-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between relative">
           {/* Logo & Brand */}
           <div className="flex items-center gap-2 sm:gap-3 z-10">

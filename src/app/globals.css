@@ -197,3 +197,15 @@ html {
 .cl-internal-1667r8p {
   display: none !important;
 }
+
+/* Normalize Clerk Card Width to match parent container */
+.cl-rootBox,
+.cl-cardBox {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+.cl-card {
+  width: 100% !important;
+  max-width: 100% !important;
+}

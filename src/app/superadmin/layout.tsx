@@ -2,9 +2,9 @@
 
 import React, { useState, useEffect } from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { useUser, SignInButton } from "@clerk/nextjs"
-import { ShieldAlert, ShieldCheck, Lock, Loader2, ArrowLeft, ArrowRight } from "lucide-react"
+import { usePathname, useRouter } from "next/navigation"
+import { useUser, SignInButton, SignOutButton } from "@clerk/nextjs"
+import { ShieldAlert, ShieldCheck, Lock, Loader2, ArrowLeft, ArrowRight, LogOut } from "lucide-react"
 import { SuperadminSidebar } from "@/components/superadmin/SuperadminSidebar"
 import { SuperadminTopbar } from "@/components/superadmin/SuperadminTopbar"
 import { SuperadminLoginForm } from "@/components/SuperadminLoginForm"
@@ -19,14 +19,10 @@ export default function SuperadminLayout({
   children: React.ReactNode
 }) {
   const pathname = usePathname()
+  const router = useRouter()
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const { isLoaded, isSignedIn, user } = useUser()
   const [isSuperadminSessionValid, setIsSuperadminSessionValid] = useState<boolean | null>(null)
-
-  // Jika sedang di halaman /superadmin/login, render langsung tanpa layout dashboard
-  if (pathname === "/superadmin/login") {
-    return <>{children}</>
-  }
 
   // Verify internal superadmin JWT session
   const verifyInternalSession = async () => {
@@ -49,6 +45,13 @@ export default function SuperadminLayout({
     verifyInternalSession()
   }, [])
 
+  // Auto-redirect from /superadmin/login to /superadmin once fully authorized
+  useEffect(() => {
+    if (isSignedIn && isSuperadminSessionValid && pathname === "/superadmin/login") {
+      router.replace("/superadmin")
+    }
+  }, [isSignedIn, isSuperadminSessionValid, pathname, router])
+
   // 1. Loading State
   if (!isLoaded || isSuperadminSessionValid === null) {
     return (
@@ -68,18 +71,19 @@ export default function SuperadminLayout({
             <Lock className="w-6 h-6" />
           </div>
           <div className="space-y-1.5">
-            <h1 className="text-lg font-bold text-white">Autentikasi Diperlukan</h1>
+            <h1 className="text-lg font-bold text-white">Autentikasi Superadmin</h1>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Halaman ini hanya dapat diakses oleh akun Google resmi yang terdaftar sebagai Superadmin.
+              Silakan login menggunakan akun Google Anda untuk melanjutkan ke portal manajemen.
             </p>
           </div>
           <div className="pt-2 flex flex-col gap-2.5">
             <SignInButton mode="redirect" forceRedirectUrl="/superadmin">
               <button
                 type="button"
-                className="w-full py-2.5 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs transition-all shadow-lg shadow-emerald-500/20 active:scale-98 cursor-pointer"
+                className="w-full py-3 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs transition-all shadow-lg shadow-emerald-500/20 active:scale-98 cursor-pointer flex items-center justify-center gap-2"
               >
-                Login dengan Google Superadmin
+                <span>Login dengan Google</span>
+                <ArrowRight className="w-4 h-4" />
               </button>
             </SignInButton>
             <Link
@@ -95,27 +99,37 @@ export default function SuperadminLayout({
     )
   }
 
-  // 3. Gate 2: Check Allowed Google Email
+  // 3. Gate 2: Check Allowed Google Email (Strict: refo.gangga.dev@gmail.com)
   const userEmails = user.emailAddresses.map((e) => e.emailAddress.toLowerCase().trim())
   const hasAuthorizedEmail = userEmails.includes(ALLOWED_SUPERADMIN_EMAIL)
 
   if (!hasAuthorizedEmail) {
+    const currentEmail = user.primaryEmailAddress?.emailAddress || userEmails[0] || "Tidak Diketahui"
     return (
       <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4 relative font-sans selection:bg-emerald-500 selection:text-white">
-        <div className="w-full max-w-md bg-slate-900/95 border border-red-500/30 rounded-3xl p-6 sm:p-8 text-center space-y-5 shadow-2xl">
-          <div className="w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/30 text-red-400 flex items-center justify-center mx-auto shadow-inner">
+        <div className="w-full max-w-md bg-slate-900/95 border border-rose-500/30 rounded-3xl p-6 sm:p-8 text-center space-y-5 shadow-2xl">
+          <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-400 flex items-center justify-center mx-auto shadow-inner">
             <ShieldAlert className="w-6 h-6" />
           </div>
           <div className="space-y-1.5">
             <h1 className="text-lg font-bold text-white">Akses Ditolak</h1>
             <p className="text-xs text-slate-300 leading-relaxed">
-              Akun Google <strong className="text-white">({user.primaryEmailAddress?.emailAddress})</strong> tidak memiliki izin untuk membuka portal Superadmin.
+              Akun Google Anda <strong className="text-rose-400 font-bold">({currentEmail})</strong> tidak memiliki izin untuk membuka portal Superadmin.
             </p>
           </div>
-          <div className="pt-2">
+          <div className="pt-2 flex flex-col gap-2.5">
+            <SignOutButton redirectUrl="/superadmin">
+              <button
+                type="button"
+                className="w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs transition-all cursor-pointer flex items-center justify-center gap-2 border border-slate-700"
+              >
+                <LogOut className="w-3.5 h-3.5 text-rose-400" />
+                <span>Ganti Akun Google</span>
+              </button>
+            </SignOutButton>
             <Link
               href="/"
-              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs transition-all cursor-pointer"
+              className="inline-flex items-center justify-center gap-1.5 text-xs text-slate-400 hover:text-white py-2 transition-colors"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
               <span>Kembali ke Halaman Utama</span>

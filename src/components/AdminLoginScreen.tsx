@@ -60,12 +60,13 @@ export function AdminLoginScreen({
     },
     elements: {
       rootBox: "w-full flex justify-center",
+      cardBox: "w-full shadow-none border-none",
       footer: "hidden",
       footerAction: "hidden",
       footerPages: "hidden",
       card: isDark
-        ? "w-full bg-slate-900/95 backdrop-blur-2xl border border-slate-800 shadow-2xl rounded-3xl p-4 sm:p-6"
-        : "w-full bg-white backdrop-blur-2xl border border-slate-200 shadow-xl rounded-3xl p-4 sm:p-6",
+        ? "w-full bg-slate-900/90 backdrop-blur-2xl border border-slate-800 shadow-xl rounded-3xl p-5 sm:p-7"
+        : "w-full bg-white backdrop-blur-2xl border border-slate-200 shadow-lg rounded-3xl p-5 sm:p-7",
       headerTitle: isDark ? "text-base font-bold text-white tracking-tight" : "text-base font-bold text-slate-900 tracking-tight",
       headerSubtitle: isDark ? "text-xs text-slate-400 font-medium" : "text-xs text-slate-500 font-medium",
       formButtonPrimary: isDark
@@ -182,7 +183,7 @@ export function AdminLoginScreen({
               <ShieldCheck className="w-3 h-3 text-emerald-600 dark:text-emerald-500" /> Keamanan Terenkripsi
             </span>
             <span className="inline-flex items-center gap-1">
-              <Zap className="w-3 h-3 text-emerald-600 dark:text-emerald-500" /> Otentikasi Clerk
+              <Zap className="w-3 h-3 text-emerald-600 dark:text-emerald-500" /> Otentikasi Instan
             </span>
           </div>
         </div>

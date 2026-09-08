@@ -56,21 +56,21 @@ export function SuperadminLoginForm({ onSuccess }: SuperadminLoginFormProps) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="w-full max-w-sm space-y-5 bg-slate-900/95 backdrop-blur-xl p-6 sm:p-8 rounded-3xl border border-slate-800 shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+      className="w-full max-w-sm space-y-5 bg-white dark:bg-slate-900/95 backdrop-blur-xl p-6 sm:p-8 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl dark:shadow-2xl animate-in fade-in zoom-in-95 duration-200"
     >
       {/* Header */}
       <div className="space-y-1.5 text-center">
-        <div className="w-11 h-11 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto mb-2 shadow-inner">
+        <div className="w-11 h-11 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto mb-2 shadow-xs">
           <ShieldCheck className="w-5 h-5" />
         </div>
-        <h1 className="text-base font-bold text-white tracking-tight">Verifikasi Akses Superadmin</h1>
-        <p className="text-xs text-slate-400 font-medium">Masukkan ID & Password Master Superadmin</p>
+        <h1 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">Verifikasi Akses Superadmin</h1>
+        <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Masukkan ID & Password Master Superadmin</p>
       </div>
 
       {/* Error Alert */}
       {error && (
-        <div className="p-3.5 rounded-xl bg-red-950/30 border border-red-500/40 text-red-300 text-xs font-semibold flex items-start gap-2.5 animate-in fade-in duration-150">
-          <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+        <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-500/40 text-rose-700 dark:text-rose-300 text-xs font-semibold flex items-start gap-2.5 animate-in fade-in duration-150">
+          <AlertCircle className="w-4 h-4 text-rose-500 dark:text-rose-400 shrink-0 mt-0.5" />
           <span>{error}</span>
         </div>
       )}
@@ -78,30 +78,30 @@ export function SuperadminLoginForm({ onSuccess }: SuperadminLoginFormProps) {
       {/* Input Fields */}
       <div className="space-y-3.5">
         <div className="space-y-1.5">
-          <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
-            <User className="w-3.5 h-3.5 text-emerald-400" /> ID Pengguna / Username
+          <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+            <User className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> ID Pengguna / Username
           </label>
           <input
             type="text"
             placeholder="Masukkan username"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all"
+            className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all"
             autoComplete="off"
             required
           />
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
-            <Lock className="w-3.5 h-3.5 text-emerald-400" /> Password
+          <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+            <Lock className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> Password
           </label>
           <input
             type="password"
             placeholder="Masukkan password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all"
+            className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all"
             required
           />
         </div>
@@ -111,11 +111,11 @@ export function SuperadminLoginForm({ onSuccess }: SuperadminLoginFormProps) {
       <button
         type="submit"
         disabled={loading}
-        className="w-full bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-slate-950 font-black py-2.5 px-4 rounded-xl text-xs transition-all shadow-lg shadow-emerald-500/20 active:scale-98 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
+        className="w-full bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-500 dark:hover:bg-emerald-400 active:bg-emerald-700 text-white dark:text-slate-950 font-bold py-2.5 px-4 rounded-xl text-xs transition-all shadow-md active:scale-[0.98] disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
       >
         {loading ? (
           <>
-            <Loader2 className="w-4 h-4 animate-spin text-slate-950" />
+            <Loader2 className="w-4 h-4 animate-spin text-current" />
             <span>Memverifikasi...</span>
           </>
         ) : (
@@ -128,3 +128,4 @@ export function SuperadminLoginForm({ onSuccess }: SuperadminLoginFormProps) {
     </form>
   )
 }
+

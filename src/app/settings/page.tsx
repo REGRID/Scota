@@ -115,13 +115,13 @@ export default function SettingsPage() {
   // 5. Approval Workflow & Security State
   const [oldPassword, setOldPassword] = useState("")
   const [newPassword, setNewPassword] = useState("")
-  const [enableApproval, setEnableApproval] = useState(true)
+  const [enableApproval, setEnableApproval] = useState(false)
   const [approverTarget, setApproverTarget] = useState<"ANY_ADMIN" | "ADMIN" | "MANAGER" | "OWNER" | "SPECIFIC_USER">("ANY_ADMIN")
   const [designatedApprover, setDesignatedApprover] = useState("")
-  const [requireForCreate, setRequireForCreate] = useState(true)
-  const [requireForEdit, setRequireForEdit] = useState(true)
-  const [requireForDelete, setRequireForDelete] = useState(true)
-  const [requireForSettle, setRequireForSettle] = useState(true)
+  const [requireForCreate, setRequireForCreate] = useState(false)
+  const [requireForEdit, setRequireForEdit] = useState(false)
+  const [requireForDelete, setRequireForDelete] = useState(false)
+  const [requireForSettle, setRequireForSettle] = useState(false)
   const [minAmountThreshold, setMinAmountThreshold] = useState("0")
 
   // 6. Business Profile State

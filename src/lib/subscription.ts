@@ -43,13 +43,13 @@ export interface TierConfig {
 }
 
 export const DEFAULT_APPROVAL_WORKFLOW: ApprovalWorkflowConfig = {
-  enableApproval: true,
+  enableApproval: false,
   approvalTargetRole: "ANY_ADMIN",
   approverTarget: "ANY_ADMIN",
-  requireForCreate: true,
-  requireForEdit: true,
-  requireForDelete: true,
-  requireForSettle: true,
+  requireForCreate: false,
+  requireForEdit: false,
+  requireForDelete: false,
+  requireForSettle: false,
   minAmountThreshold: 0,
 }
 

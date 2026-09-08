@@ -3,8 +3,8 @@
 import React, { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { useUser, SignInButton, SignOutButton } from "@clerk/nextjs"
-import { ShieldAlert, ShieldCheck, Lock, Loader2, ArrowLeft, ArrowRight, LogOut } from "lucide-react"
+import { useUser, SignInButton } from "@clerk/nextjs"
+import { ShieldAlert, Lock, Loader2, ArrowLeft, ArrowRight } from "lucide-react"
 import { SuperadminSidebar } from "@/components/superadmin/SuperadminSidebar"
 import { SuperadminTopbar } from "@/components/superadmin/SuperadminTopbar"
 import { SuperadminLoginForm } from "@/components/SuperadminLoginForm"
@@ -117,22 +117,13 @@ export default function SuperadminLayout({
               Akun Google Anda <strong className="text-rose-400 font-bold">({currentEmail})</strong> tidak memiliki izin untuk membuka portal Superadmin.
             </p>
           </div>
-          <div className="pt-2 flex flex-col gap-2.5">
-            <SignOutButton redirectUrl="/superadmin">
-              <button
-                type="button"
-                className="w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs transition-all cursor-pointer flex items-center justify-center gap-2 border border-slate-700"
-              >
-                <LogOut className="w-3.5 h-3.5 text-rose-400" />
-                <span>Ganti Akun Google</span>
-              </button>
-            </SignOutButton>
+          <div className="pt-2">
             <Link
-              href="/"
-              className="inline-flex items-center justify-center gap-1.5 text-xs text-slate-400 hover:text-white py-2 transition-colors"
+              href="/dashboard"
+              className="w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs transition-all cursor-pointer flex items-center justify-center gap-2 border border-slate-700 shadow-sm"
             >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Kembali ke Halaman Utama</span>
+              <ArrowLeft className="w-3.5 h-3.5 text-slate-300" />
+              <span>Kembali ke Dashboard</span>
             </Link>
           </div>
         </div>

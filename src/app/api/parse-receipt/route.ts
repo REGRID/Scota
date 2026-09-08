@@ -460,52 +460,16 @@ Keluarkan HANYA JSON:
     let savedReceiptId: string | undefined = undefined
 
     if (isDemoMode && activeTenantId) {
-      // 1. Simpan nota ke database tenant demo secara otomatis
       try {
-        const insertReceiptRes = await queryPg<{ id: string }>(
-          `INSERT INTO receipts ("tenantId", "merchantName", date, "imageUrl", subtotal, "discountAmount", "taxAmount", "totalAmount", "paymentMethod", "paymentStatus", "createdAt", "updatedAt")
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'Cash', 'Lunas', NOW(), NOW())
-           RETURNING id`,
-          [
-            activeTenantId,
-            parsedJson.merchantName,
-            parsedJson.date,
-            imageBase64 || null,
-            parsedJson.subtotal,
-            parsedJson.discountAmount,
-            parsedJson.taxAmount,
-            parsedJson.totalAmount,
-          ]
-        )
-        savedReceiptId = insertReceiptRes.rows?.[0]?.id
-
-        if (savedReceiptId && parsedJson.items.length > 0) {
-          for (const item of parsedJson.items) {
-            await queryPg(
-              `INSERT INTO receipt_items ("receiptId", name, category, "subCategory", price, quantity, "createdAt")
-               VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
-              [
-                savedReceiptId,
-                item.name,
-                item.category,
-                item.subCategory || "Umum",
-                item.price,
-                item.quantity || 1,
-              ]
-            )
-          }
-        }
-
-        // 2. Tambah hitungan demoScanCount pada tenant demo
+        // Tambah hitungan demoScanCount pada tenant demo
         await queryPg(
           `UPDATE tenants SET "demoScanCount" = "demoScanCount" + 1, "updatedAt" = NOW() WHERE id = $1`,
           [activeTenantId]
         )
 
         await incrementRateLimit(cleanIp)
-        invalidateReceiptsListCache()
       } catch (dbErr) {
-        console.error("Gagal menyimpan struk ke database tenant demo:", dbErr)
+        console.error("Gagal memperbarui kuota demo:", dbErr)
       }
 
       remainingQuota = Math.max(0, DEMO_SCAN_LIMIT - (currentDemoScans + 1))

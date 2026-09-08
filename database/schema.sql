@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS tenants (
     "demoEmail" TEXT,
     "demoScanCount" INTEGER NOT NULL DEFAULT 0,
     "expiresAt" TIMESTAMPTZ,
+    "schemaMigrated" BOOLEAN NOT NULL DEFAULT false,
     "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now(),
     "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -32,7 +33,20 @@ ALTER TABLE tenants ADD COLUMN IF NOT EXISTS "isDemo" BOOLEAN NOT NULL DEFAULT f
 ALTER TABLE tenants ADD COLUMN IF NOT EXISTS "demoGoogleId" TEXT;
 ALTER TABLE tenants ADD COLUMN IF NOT EXISTS "demoEmail" TEXT;
 ALTER TABLE tenants ADD COLUMN IF NOT EXISTS "demoScanCount" INTEGER NOT NULL DEFAULT 0;
-ALTER TABLE tenants ADD COLUMN IF NOT EXISTS "expiresAt" TIMESTAMPTZ;
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS "schemaMigrated" BOOLEAN NOT NULL DEFAULT false;
+
+-- Table: tenant_migration_log (Multi-Tenant Schema Migration History & Audit Trail)
+CREATE TABLE IF NOT EXISTS tenant_migration_log (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    "tenantId" UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    "startedAt" TIMESTAMPTZ NOT NULL,
+    "completedAt" TIMESTAMPTZ,
+    "rowCounts" JSONB,
+    status TEXT NOT NULL DEFAULT 'in_progress',
+    "errorMessage" TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_tenant_migration_log_tenant ON tenant_migration_log("tenantId", "startedAt" DESC);
 
 
 -- Default Tenant Seed

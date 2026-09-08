@@ -7,6 +7,7 @@ import { sendWebPushNotification } from "@/lib/serverPush"
 import { invalidateApprovalsCache } from "@/app/api/approvals/route"
 import { invalidateNotificationsCache } from "@/app/api/notifications/route"
 import { queryPg, isDatabaseConfigured } from "@/lib/pgDb"
+import { isTenantSchemaMigrated, withTenantSchema } from "@/lib/tenantDb"
 import { getSubscriptionInfo } from "@/lib/subscriptionServer"
 import { DEFAULT_APPROVAL_WORKFLOW } from "@/lib/subscription"
 import { DEFAULT_TENANT_ID } from "@/lib/session"
@@ -54,8 +55,105 @@ export async function GET(req: NextRequest) {
         const categoryTrim = category.trim()
         const rootTrim = rootKeyword.trim()
 
-        const params: any[] = [targetTenantId]
-        const conditions: string[] = [`r."tenantId" = $1`]
+        // Feature Flag Check: Phase 2 Pilot
+        const isMigrated = await isTenantSchemaMigrated(targetTenantId)
+
+        if (isMigrated) {
+          // Path A: Schema-per-tenant isolated query (search_path set to tenant_<id>)
+          receipts = await withTenantSchema(targetTenantId, async (client) => {
+            const params: any[] = []
+            const conditions: string[] = ["1=1"]
+
+            if (isKasirOrStaff) {
+              conditions.push(`(
+                r."createdByRole" IN ('KASIR', 'KARYAWAN', 'STAFF', 'STAF')
+                OR (
+                  r."createdByRole" IS NULL AND (
+                    r."paymentMethod" ILIKE '%Talangan Karyawan%'
+                    OR r.note ILIKE '%(karyawan)%'
+                    OR r.note ILIKE '%(kasir)%'
+                    OR r.note ILIKE '%[diunggah oleh:%'
+                    OR r."staffName" ILIKE ANY(ARRAY['%kasir%', '%staf%', '%staff%', '%reza%', '%ummu%', '%cheisa%', '%novi%', '%titis%'])
+                  )
+                )
+              )`)
+            }
+
+            if (searchTrim) {
+              params.push(`%${searchTrim}%`)
+              const p = `$${params.length}`
+              conditions.push(`(
+                r."merchantName" ILIKE ${p} OR
+                r.note ILIKE ${p} OR
+                r."paymentMethod" ILIKE ${p} OR
+                EXISTS (
+                  SELECT 1 FROM receipt_items si
+                  WHERE si."receiptId" = r.id
+                    AND (si.name ILIKE ${p} OR si.category ILIKE ${p} OR si."subCategory" ILIKE ${p})
+                )
+              )`)
+            }
+
+            if (categoryTrim) {
+              params.push(`%${categoryTrim}%`)
+              const catP = `$${params.length}`
+              params.push(`%${rootTrim}%`)
+              const rootP = `$${params.length}`
+              conditions.push(`EXISTS (
+                SELECT 1 FROM receipt_items ci
+                WHERE ci."receiptId" = r.id
+                  AND (ci.category ILIKE ${catP} OR ci."subCategory" ILIKE ${catP} OR ci.category ILIKE ${rootP})
+              )`)
+            }
+
+            const whereClause = conditions.join(" AND ")
+            const limitClause = limit ? `LIMIT ${limit}` : ""
+
+            const pgRes = await client.query(
+              `SELECT 
+                r.id, 
+                r."merchantName", 
+                r.date, 
+                r."imageUrl",
+                r.subtotal,
+                r."discountAmount",
+                r."taxAmount",
+                r."totalAmount",
+                r."paymentMethod",
+                r."paymentStatus",
+                r.note,
+                r."staffName",
+                r."createdByRole",
+                r."createdByUsername",
+                r."createdAt", 
+                r."updatedAt",
+                COALESCE(
+                  json_agg(
+                    json_build_object(
+                      'id', i.id,
+                      'name', i.name,
+                      'category', i.category,
+                      'subCategory', i."subCategory",
+                      'price', i.price,
+                      'quantity', i.quantity
+                    )
+                  ) FILTER (WHERE i.id IS NOT NULL),
+                  '[]'::json
+                ) as items
+              FROM receipts r
+              LEFT JOIN receipt_items i ON i."receiptId" = r.id
+              WHERE ${whereClause}
+              GROUP BY r.id
+              ORDER BY r."createdAt" DESC
+              ${limitClause}`,
+              params
+            )
+            return pgRes.rows || []
+          })
+        } else {
+          // Path B: Legacy shared-table query with WHERE tenantId = $1
+          const params: any[] = [targetTenantId]
+          const conditions: string[] = [`r."tenantId" = $1`]
 
         // Role Kasir & Staff Scope: Hanya dapat melihat nota buatan Kasir / Staf
         if (isKasirOrStaff) {
@@ -144,7 +242,8 @@ export async function GET(req: NextRequest) {
           params
         )
         receipts = pgRes.rows || []
-      } catch (pgErr) {
+      }
+    } catch (pgErr) {
         console.warn("PostgreSQL receipts query notice:", pgErr)
       }
     }

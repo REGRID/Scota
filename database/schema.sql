@@ -136,8 +136,18 @@ CREATE TABLE IF NOT EXISTS custom_categories (
     "tenantId" UUID REFERENCES tenants(id) DEFAULT '00000000-0000-0000-0000-000000000001',
     name TEXT NOT NULL,
     "parentId" TEXT,
+    color TEXT DEFAULT '#10b981',
+    icon TEXT DEFAULT 'Tag',
+    "monthlyBudget" DOUBLE PRECISION DEFAULT 0,
+    "isSystem" BOOLEAN NOT NULL DEFAULT false,
     "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Idempotent column migrations for existing custom_categories table
+ALTER TABLE custom_categories ADD COLUMN IF NOT EXISTS color TEXT DEFAULT '#10b981';
+ALTER TABLE custom_categories ADD COLUMN IF NOT EXISTS icon TEXT DEFAULT 'Tag';
+ALTER TABLE custom_categories ADD COLUMN IF NOT EXISTS "monthlyBudget" DOUBLE PRECISION DEFAULT 0;
+ALTER TABLE custom_categories ADD COLUMN IF NOT EXISTS "isSystem" BOOLEAN NOT NULL DEFAULT false;
 
 -- 7. Table: pending_approvals
 CREATE TABLE IF NOT EXISTS pending_approvals (
@@ -206,6 +216,22 @@ CREATE TABLE IF NOT EXISTS subscriptions (
     "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now(),
     "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Idempotent column migrations for existing subscriptions table
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'trial';
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS tier TEXT NOT NULL DEFAULT 'trial';
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS "validUntil" TIMESTAMPTZ NOT NULL DEFAULT (now() + interval '14 days');
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS "monthlyScanLimit" INTEGER NOT NULL DEFAULT 30;
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS "usedScansThisMonth" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS "activeLicenseKey" TEXT;
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS "studioName" TEXT NOT NULL DEFAULT 'Scota Business';
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS tagline TEXT DEFAULT 'Digitalisasi Struk & Pengeluaran Usaha';
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS address TEXT DEFAULT 'Jl. Bisnis No. 1, Jakarta';
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS phone TEXT DEFAULT '6285215973776';
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS "logoUrl" TEXT;
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS "invoiceFooter" TEXT DEFAULT 'Terima kasih atas kerja sama Anda dengan usaha kami.';
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS "taxNumber" TEXT;
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS "approvalWorkflow" TEXT;
 
 -- Default Subscription Row for Default Tenant
 INSERT INTO subscriptions ("tenantId", tier, status, "studioName", "monthlyScanLimit", "usedScansThisMonth", "validUntil")

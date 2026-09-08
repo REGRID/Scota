@@ -43,6 +43,22 @@ const TABLES_TO_RECONCILE = [
   'notifications',
 ];
 
+async function getMatchingColumns(client, schemaName, tableName) {
+  const res = await client.query(`
+    SELECT c1.column_name
+    FROM information_schema.columns c1
+    JOIN information_schema.columns c2 
+      ON c1.column_name = c2.column_name
+     AND c1.data_type = c2.data_type
+    WHERE c1.table_schema = 'public' 
+      AND c1.table_name = $1
+      AND c2.table_schema = $2 
+      AND c2.table_name = $1
+    ORDER BY c1.ordinal_position
+  `, [tableName, schemaName]);
+  return res.rows.map(r => `"${r.column_name}"`);
+}
+
 async function reconcileTenantMigration(tenantId) {
   if (!tenantId) {
     console.error('Usage: node scripts/reconcile-tenant-migration.js <tenantId>');
@@ -69,6 +85,9 @@ async function reconcileTenantMigration(tenantId) {
   const client = await pool.connect();
 
   try {
+    // Set tenant session context for RLS compliance
+    await client.query(`SELECT set_config('app.current_tenant_id', $1, false)`, [tenantId]);
+
     let totalMissing = 0;
     const findings = {};
 
@@ -104,22 +123,22 @@ async function reconcileTenantMigration(tenantId) {
       if (missingRows.length > 0) {
         totalMissing += missingRows.length;
         findings[table] = missingRows.length;
-        console.log(`⚠️ FOUND ${missingRows.length} MISSING ROWS! Reconciling...`);
-
         // Reconcile and copy the missing rows
         if (table === 'receipt_items') {
           await client.query(`
             INSERT INTO "${schemaName}".receipt_items (id, "tenantId", "receiptId", name, qty, "unitPrice", "totalPrice", category, "createdAt")
-            SELECT ri.id, r."tenantId", ri."receiptId", ri.name, ri.qty, ri.price, (ri.price * ri.qty), ri.category, ri."createdAt"
+            SELECT ri.id, r."tenantId", ri."receiptId", ri.name, COALESCE(ri.quantity, 1), COALESCE(ri.price, 0), (COALESCE(ri.price, 0) * COALESCE(ri.quantity, 1)), COALESCE(ri.category, 'Lain-lain'), ri."createdAt"
             FROM public.receipt_items ri
             JOIN public.receipts r ON ri."receiptId" = r.id
             WHERE r."tenantId" = $1
             ON CONFLICT (id) DO NOTHING
           `, [tenantId]);
         } else {
+          const matchingCols = await getMatchingColumns(client, schemaName, table);
+          const colsStr = matchingCols.join(', ');
           await client.query(`
-            INSERT INTO "${schemaName}"."${table}"
-            SELECT * FROM public."${table}"
+            INSERT INTO "${schemaName}"."${table}" (${colsStr})
+            SELECT ${colsStr} FROM public."${table}"
             WHERE "tenantId" = $1
             ON CONFLICT (id) DO NOTHING
           `, [tenantId]);

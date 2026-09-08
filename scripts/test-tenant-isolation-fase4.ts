@@ -64,6 +64,12 @@ async function runTests() {
       try {
         console.log("Setting up test tenant and sample shared public data...")
         
+        // Clean previous test data
+        await client.query(`DELETE FROM public.receipts WHERE "tenantId" = $1`, [testTenantId])
+        await client.query(`DELETE FROM public.custom_categories WHERE "tenantId" = $1`, [testTenantId])
+        await client.query(`DELETE FROM public.tenant_migration_log WHERE "tenantId" = $1`, [testTenantId])
+        await client.query(`DROP SCHEMA IF EXISTS "${schemaName}" CASCADE`)
+
         // 1. Seed tenant in public.tenants
         await client.query(`
           INSERT INTO public.tenants (id, "businessName", status, "schemaMigrated")
@@ -84,7 +90,7 @@ async function runTests() {
           INSERT INTO public.custom_categories (id, "tenantId", name, color, icon)
           VALUES 
             ('99999999-3333-0000-0000-000000000003', $1, 'Bahan Baku Uji', '#10b981', 'Package')
-          ON CONFLICT (name) DO NOTHING
+          ON CONFLICT (id) DO NOTHING
         `, [testTenantId])
       } finally {
         client.release()
@@ -133,7 +139,7 @@ async function runTests() {
       const client2 = await pool.connect()
       try {
         await client2.query(`SET search_path TO "${schemaName}", public`)
-        await client2.query(`SET app.current_tenant_id = $1`, [testTenantId])
+        await client2.query(`SELECT set_config('app.current_tenant_id', $1, false)`, [testTenantId])
         const countRes = await client2.query(`SELECT count(*) as c FROM receipts`)
         if (parseInt(countRes.rows[0].c, 10) !== 2) {
           throw new Error(`Duplicate rows created! Expected 2, got ${countRes.rows[0].c}`)
@@ -167,7 +173,7 @@ async function runTests() {
 
         // Verify the late receipt is now in the isolated schema
         await client3.query(`SET search_path TO "${schemaName}", public`)
-        await client3.query(`SET app.current_tenant_id = $1`, [testTenantId])
+        await client3.query(`SELECT set_config('app.current_tenant_id', $1, false)`, [testTenantId])
         const finalCount = await client3.query(`SELECT count(*) as c FROM receipts`)
         if (parseInt(finalCount.rows[0].c, 10) !== 3) {
           throw new Error(`Reconciled schema should have 3 rows, got ${finalCount.rows[0].c}`)

@@ -130,6 +130,7 @@ CREATE INDEX IF NOT EXISTS idx_tenant_notif_read ON notifications("isRead", "cre
 
 -- 1. receipts RLS
 ALTER TABLE receipts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE receipts FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS tenant_isolation ON receipts;
 CREATE POLICY tenant_isolation ON receipts
   FOR ALL
@@ -144,6 +145,7 @@ CREATE POLICY tenant_isolation ON receipts
 
 -- 2. receipt_items RLS
 ALTER TABLE receipt_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE receipt_items FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS tenant_isolation ON receipt_items;
 CREATE POLICY tenant_isolation ON receipt_items
   FOR ALL
@@ -158,6 +160,7 @@ CREATE POLICY tenant_isolation ON receipt_items
 
 -- 3. custom_categories RLS
 ALTER TABLE custom_categories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE custom_categories FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS tenant_isolation ON custom_categories;
 CREATE POLICY tenant_isolation ON custom_categories
   FOR ALL
@@ -172,6 +175,7 @@ CREATE POLICY tenant_isolation ON custom_categories
 
 -- 4. pending_approvals RLS
 ALTER TABLE pending_approvals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pending_approvals FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS tenant_isolation ON pending_approvals;
 CREATE POLICY tenant_isolation ON pending_approvals
   FOR ALL
@@ -186,6 +190,7 @@ CREATE POLICY tenant_isolation ON pending_approvals
 
 -- 5. push_subscriptions RLS
 ALTER TABLE push_subscriptions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE push_subscriptions FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS tenant_isolation ON push_subscriptions;
 CREATE POLICY tenant_isolation ON push_subscriptions
   FOR ALL
@@ -200,6 +205,7 @@ CREATE POLICY tenant_isolation ON push_subscriptions
 
 -- 6. notifications RLS
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notifications FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS tenant_isolation ON notifications;
 CREATE POLICY tenant_isolation ON notifications
   FOR ALL

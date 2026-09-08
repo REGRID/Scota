@@ -51,7 +51,7 @@ export async function withTenantSchema<T>(
   try {
     // 1. Set isolation context on the dedicated client
     await client.query(`SET search_path TO "${schemaName}", public`)
-    await client.query(`SET app.current_tenant_id = $1`, [tenantId])
+    await client.query(`SELECT set_config('app.current_tenant_id', $1, false)`, [tenantId])
 
     // 2. Execute tenant operation
     return await callback(client)

@@ -109,7 +109,7 @@ async function runTests() {
         const schema = getTenantSchemaName(tenantId)
         try {
           await client.query(`SET search_path TO "${schema}", public`)
-          await client.query(`SET app.current_tenant_id = $1`, [tenantId])
+          await client.query(`SELECT set_config('app.current_tenant_id', $1, false)`, [tenantId])
           return await callback(client)
         } finally {
           try {

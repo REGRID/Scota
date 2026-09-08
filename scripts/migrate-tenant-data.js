@@ -42,6 +42,22 @@ const TABLES_IN_ORDER = [
   'notifications',
 ];
 
+async function getMatchingColumns(client, schemaName, tableName) {
+  const res = await client.query(`
+    SELECT c1.column_name
+    FROM information_schema.columns c1
+    JOIN information_schema.columns c2 
+      ON c1.column_name = c2.column_name
+     AND c1.data_type = c2.data_type
+    WHERE c1.table_schema = 'public' 
+      AND c1.table_name = $1
+      AND c2.table_schema = $2 
+      AND c2.table_name = $1
+    ORDER BY c1.ordinal_position
+  `, [tableName, schemaName]);
+  return res.rows.map(r => `"${r.column_name}"`);
+}
+
 async function migrateTenantData(tenantId, deltaDelayMs = 2000) {
   if (!tenantId) {
     console.error('Usage: node scripts/migrate-tenant-data.js <tenantId> [deltaDelayMs]');
@@ -84,6 +100,9 @@ async function migrateTenantData(tenantId, deltaDelayMs = 2000) {
     );
     logId = logRes.rows[0]?.id;
 
+    // Set tenant session context for RLS compliance
+    await client.query(`SELECT set_config('app.current_tenant_id', $1, false)`, [tenantId]);
+
     // 3. Initial Sequential Copy (Foreign-key safe order)
     console.log('[Step 3/6] Copying existing rows from public tables (Idempotent ON CONFLICT DO NOTHING)...');
     for (const table of TABLES_IN_ORDER) {
@@ -93,17 +112,18 @@ async function migrateTenantData(tenantId, deltaDelayMs = 2000) {
         // receipt_items joins with receipts to verify tenantId
         await client.query(`
           INSERT INTO "${schemaName}".receipt_items (id, "tenantId", "receiptId", name, qty, "unitPrice", "totalPrice", category, "createdAt")
-          SELECT ri.id, r."tenantId", ri."receiptId", ri.name, ri.qty, ri.price, (ri.price * ri.qty), ri.category, ri."createdAt"
+          SELECT ri.id, r."tenantId", ri."receiptId", ri.name, COALESCE(ri.quantity, 1), COALESCE(ri.price, 0), (COALESCE(ri.price, 0) * COALESCE(ri.quantity, 1)), COALESCE(ri.category, 'Lain-lain'), ri."createdAt"
           FROM public.receipt_items ri
           JOIN public.receipts r ON ri."receiptId" = r.id
           WHERE r."tenantId" = $1
           ON CONFLICT (id) DO NOTHING
         `, [tenantId]);
       } else {
-        // Standard copy for tables with tenantId column
+        const matchingCols = await getMatchingColumns(client, schemaName, table);
+        const colsStr = matchingCols.join(', ');
         await client.query(`
-          INSERT INTO "${schemaName}"."${table}"
-          SELECT * FROM public."${table}"
+          INSERT INTO "${schemaName}"."${table}" (${colsStr})
+          SELECT ${colsStr} FROM public."${table}"
           WHERE "tenantId" = $1
           ON CONFLICT (id) DO NOTHING
         `, [tenantId]);
@@ -120,17 +140,24 @@ async function migrateTenantData(tenantId, deltaDelayMs = 2000) {
         if (table === 'receipt_items') {
           await client.query(`
             INSERT INTO "${schemaName}".receipt_items (id, "tenantId", "receiptId", name, qty, "unitPrice", "totalPrice", category, "createdAt")
-            SELECT ri.id, r."tenantId", ri."receiptId", ri.name, ri.qty, ri.price, (ri.price * ri.qty), ri.category, ri."createdAt"
+            SELECT ri.id, r."tenantId", ri."receiptId", ri.name, COALESCE(ri.quantity, 1), COALESCE(ri.price, 0), (COALESCE(ri.price, 0) * COALESCE(ri.quantity, 1)), COALESCE(ri.category, 'Lain-lain'), ri."createdAt"
             FROM public.receipt_items ri
             JOIN public.receipts r ON ri."receiptId" = r.id
             WHERE r."tenantId" = $1 AND (ri."createdAt" >= $2)
             ON CONFLICT (id) DO NOTHING
           `, [tenantId, startedAt.toISOString()]);
         } else {
+          const matchingCols = await getMatchingColumns(client, schemaName, table);
+          const colsStr = matchingCols.join(', ');
+          const hasUpdatedAt = matchingCols.includes('"updatedAt"');
+          const timeFilter = hasUpdatedAt
+            ? '("createdAt" >= $2 OR "updatedAt" >= $2)'
+            : '"createdAt" >= $2';
+
           await client.query(`
-            INSERT INTO "${schemaName}"."${table}"
-            SELECT * FROM public."${table}"
-            WHERE "tenantId" = $1 AND ("createdAt" >= $2 OR "updatedAt" >= $2)
+            INSERT INTO "${schemaName}"."${table}" (${colsStr})
+            SELECT ${colsStr} FROM public."${table}"
+            WHERE "tenantId" = $1 AND ${timeFilter}
             ON CONFLICT (id) DO NOTHING
           `, [tenantId, startedAt.toISOString()]);
         }

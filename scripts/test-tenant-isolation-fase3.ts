@@ -76,7 +76,7 @@ async function runTests() {
 
         // Seed 1 receipt in Schema A (owned by Tenant A) and 1 in Schema B (owned by Tenant B)
         await setupClient.query(`SET search_path TO "${schemaA}", public`)
-        await setupClient.query(`SET app.current_tenant_id = $1`, [tenantA])
+        await setupClient.query(`SELECT set_config('app.current_tenant_id', $1, false)`, [tenantA])
         await setupClient.query(
           `INSERT INTO receipts (id, "tenantId", "merchantName", date, "totalAmount")
            VALUES ('11111111-1111-1111-1111-111111111111', $1, 'Merchant Alpha', '2026-09-08', 150000)
@@ -85,7 +85,7 @@ async function runTests() {
         )
 
         await setupClient.query(`SET search_path TO "${schemaB}", public`)
-        await setupClient.query(`SET app.current_tenant_id = $1`, [tenantB])
+        await setupClient.query(`SELECT set_config('app.current_tenant_id', $1, false)`, [tenantB])
         await setupClient.query(
           `INSERT INTO receipts (id, "tenantId", "merchantName", date, "totalAmount")
            VALUES ('22222222-2222-2222-2222-222222222222', $1, 'Merchant Beta', '2026-09-08', 250000)
@@ -105,7 +105,7 @@ async function runTests() {
       const clientA = await pool.connect()
       try {
         await clientA.query(`SET search_path TO "${schemaB}", public`)
-        await clientA.query(`SET app.current_tenant_id = $1`, [tenantA])
+        await clientA.query(`SELECT set_config('app.current_tenant_id', $1, false)`, [tenantA])
 
         const res = await clientA.query(`SELECT * FROM receipts`)
         if (res.rows.length !== 0) {

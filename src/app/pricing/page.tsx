@@ -102,7 +102,7 @@ export default function PricingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-3">
             <img src="/scota-logo-dark.png" alt="Scota" className="h-8 sm:h-9 w-auto object-contain dark:block hidden" />
-            <img src="/scota-logo-detailed-dark.png" alt="Scota" className="h-8 sm:h-9 w-auto object-contain dark:hidden block" />
+            <img src="/scota-logo.png" alt="Scota" className="h-8 sm:h-9 w-auto object-contain dark:hidden block" />
           </Link>
 
           <div className="flex items-center gap-2 sm:gap-3">
@@ -243,7 +243,7 @@ export default function PricingPage() {
                   <div className="pt-2 pb-4 border-b border-slate-100 dark:border-slate-800">
                     <div className="flex items-baseline gap-1">
                       <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Rp</span>
-                      <span className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white font-mono tracking-tight">
+                      <span className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">
                         {price.toLocaleString("id-ID")}
                       </span>
                       <span className="text-xs text-slate-500 dark:text-slate-400">
@@ -251,7 +251,7 @@ export default function PricingPage() {
                       </span>
                     </div>
                     {billingCycle === "yearly" && !isFree && (
-                      <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold mt-1 font-mono">
+                      <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold mt-1">
                         Rp {Math.round(price / 12).toLocaleString("id-ID")} / bulan
                       </p>
                     )}

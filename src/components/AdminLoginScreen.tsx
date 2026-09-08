@@ -104,16 +104,9 @@ export function AdminLoginScreen({
         {/* Header Logo */}
         <div className="text-center space-y-1">
           <img
-            src={isDark ? "/scota-logo-detailed-dark.png" : "/scota-logo-detailed-light.png"}
+            src={isDark ? "/scota-logo-dark.png" : "/scota-logo.png"}
             alt="Scota — Cerdas Scan Nota & Pembukuan"
-            className="h-11 sm:h-12 w-auto mx-auto object-contain drop-shadow-xs"
-            onError={(e) => {
-              // Fallback to dark logo if light doesn't exist
-              const target = e.currentTarget
-              if (target.src.includes("light")) {
-                target.src = "/scota-logo-detailed-dark.png"
-              }
-            }}
+            className="h-10 sm:h-11 w-auto mx-auto object-contain drop-shadow-xs"
           />
           <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
             Platform Cerdas Digitalisasi & Rekapitulasi Nota Bisnis

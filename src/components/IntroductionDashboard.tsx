@@ -384,7 +384,7 @@ export function IntroductionDashboard({
                 className="h-8 sm:h-9 w-auto object-contain dark:block hidden"
               />
               <img
-                src="/scota-logo-detailed-dark.png"
+                src="/scota-logo.png"
                 alt="Scota"
                 className="h-8 sm:h-9 w-auto object-contain dark:hidden block"
               />
@@ -1242,8 +1242,8 @@ export function IntroductionDashboard({
                   <div className="space-y-5">
                     <div>
                       <h3 className="text-lg font-bold text-slate-900 dark:text-white">{plan.name}</h3>
-                      <div className="mt-3 flex items-baseline gap-1">
-                        <span className="text-3xl sm:text-4xl font-bold font-mono text-slate-900 dark:text-white">
+                      <div className="mt-3 flex items-baseline gap-1.5">
+                        <span className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white">
                           Rp {price.toLocaleString("id-ID")}
                         </span>
                         <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">

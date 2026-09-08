@@ -322,7 +322,7 @@ export function SubscriptionModal({
                         <div>
                           <h3 className="text-base font-bold text-slate-900 dark:text-white">{plan.name}</h3>
                           <div className="mt-2 flex items-baseline gap-1">
-                            <span className="text-2xl font-bold font-mono text-slate-900 dark:text-white">
+                            <span className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">
                               Rp {price.toLocaleString("id-ID")}
                             </span>
                             <span className="text-xs text-slate-500 dark:text-slate-400">

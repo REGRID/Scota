@@ -187,3 +187,13 @@ html {
     margin: 5mm;
   }
 }
+
+/* Hide Clerk branding & development watermark badges */
+.cl-footer,
+.cl-footerAction,
+.cl-footerPages,
+.cl-internal-phfx6a,
+.cl-internal-1dauvpw,
+.cl-internal-1667r8p {
+  display: none !important;
+}

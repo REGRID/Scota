@@ -44,6 +44,9 @@ export function AdminLoginScreen({
 
   const clerkAppearance = {
     baseTheme: isDark ? dark : undefined,
+    layout: {
+      unsafe_disableDevelopmentModeWarnings: true,
+    },
     variables: {
       colorPrimary: isDark ? "#10b981" : "#059669",
       colorBackground: isDark ? "#0f172a" : "#ffffff",
@@ -57,6 +60,9 @@ export function AdminLoginScreen({
     },
     elements: {
       rootBox: "w-full flex justify-center",
+      footer: "hidden",
+      footerAction: "hidden",
+      footerPages: "hidden",
       card: isDark
         ? "w-full bg-slate-900/95 backdrop-blur-2xl border border-slate-800 shadow-2xl rounded-3xl p-4 sm:p-6"
         : "w-full bg-white backdrop-blur-2xl border border-slate-200 shadow-xl rounded-3xl p-4 sm:p-6",

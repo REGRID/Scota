@@ -40,14 +40,6 @@ export function SuperadminLoginForm({ onSuccess }: SuperadminLoginFormProps) {
         return
       }
 
-      if (data.token) {
-        localStorage.setItem("nota_admin_token", data.token)
-      }
-      if (data.user?.username) {
-        localStorage.setItem("nota_admin_user", data.user.username)
-        localStorage.setItem("nota_admin_role", data.user.role || "SUPERADMIN")
-      }
-
       if (onSuccess) {
         onSuccess()
       } else {

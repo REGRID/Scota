@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react"
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { useUser, SignInButton } from "@clerk/nextjs"
 import { ShieldAlert, ShieldCheck, Lock, Loader2, ArrowLeft, ArrowRight } from "lucide-react"
 import { SuperadminSidebar } from "@/components/superadmin/SuperadminSidebar"
@@ -17,9 +18,15 @@ export default function SuperadminLayout({
 }: {
   children: React.ReactNode
 }) {
+  const pathname = usePathname()
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const { isLoaded, isSignedIn, user } = useUser()
   const [isSuperadminSessionValid, setIsSuperadminSessionValid] = useState<boolean | null>(null)
+
+  // Jika sedang di halaman /superadmin/login, render langsung tanpa layout dashboard
+  if (pathname === "/superadmin/login") {
+    return <>{children}</>
+  }
 
   // Verify internal superadmin JWT session
   const verifyInternalSession = async () => {

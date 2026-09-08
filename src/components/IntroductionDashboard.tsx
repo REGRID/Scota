@@ -508,12 +508,6 @@ export function IntroductionDashboard({
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-4xl mx-auto space-y-5 sm:space-y-6">
-            {/* Eyebrow */}
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-emerald-700 dark:text-emerald-400 text-xs font-bold tracking-wide uppercase shadow-xs">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Scota AI 2.0 • OCR Vision Pembukuan</span>
-            </div>
-
             {/* Main Headline (Max 2 lines) */}
             <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-slate-900 dark:text-white tracking-tight leading-[1.12] text-balance">
               Otomatisasi Pembukuan & Scan Nota untuk Semua Jenis Usaha
@@ -1037,7 +1031,7 @@ export function IntroductionDashboard({
             </div>
 
             {/* CARD 2: NOTA AI SAAS (THE SOLUTION) */}
-            <div className="bg-gradient-to-b from-emerald-50/70 via-white to-white dark:from-slate-900 dark:to-slate-950 border-2 border-emerald-500/50 rounded-3xl p-6 sm:p-8 space-y-6 relative overflow-hidden flex flex-col justify-between shadow-xl dark:shadow-2xl shadow-emerald-500/10">
+            <div className="bg-emerald-50/40 dark:bg-slate-900 border-2 border-emerald-500/50 rounded-3xl p-6 sm:p-8 space-y-6 relative overflow-hidden flex flex-col justify-between shadow-xl dark:shadow-2xl shadow-emerald-500/10">
               <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
 
               <div className="space-y-4 relative">
@@ -1053,13 +1047,13 @@ export function IntroductionDashboard({
                       <span className="text-[11px] text-emerald-700 dark:text-emerald-400 font-bold">Otomatis, Cepat & Aman</span>
                     </div>
                   </div>
-                  <span className="text-[10px] font-bold uppercase px-2.5 py-1 rounded-full bg-emerald-600 dark:bg-emerald-500 text-white dark:text-slate-950 shadow-xs">
+                  <span className="text-[10px] font-bold uppercase px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
                     Solusi Cerdas
                   </span>
                 </div>
 
                 <div className="space-y-3 text-xs">
-                  <div className="flex items-start gap-3 p-3 rounded-2xl bg-white dark:bg-slate-900/90 border border-emerald-200 dark:border-emerald-500/30 shadow-xs">
+                  <div className="flex items-start gap-3 p-3 rounded-2xl bg-white dark:bg-slate-950/70 border border-emerald-500/20 shadow-xs">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
                     <div>
                       <strong className="text-slate-900 dark:text-white block font-bold">Ekstraksi Otomatis Presisi</strong>
@@ -1069,7 +1063,7 @@ export function IntroductionDashboard({
                     </div>
                   </div>
 
-                  <div className="flex items-start gap-3 p-3 rounded-2xl bg-white dark:bg-slate-900/90 border border-emerald-200 dark:border-emerald-500/30 shadow-xs">
+                  <div className="flex items-start gap-3 p-3 rounded-2xl bg-white dark:bg-slate-950/70 border border-emerald-500/20 shadow-xs">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
                     <div>
                       <strong className="text-slate-900 dark:text-white block font-bold">Cloud Aman & Terproteksi</strong>
@@ -1079,7 +1073,7 @@ export function IntroductionDashboard({
                     </div>
                   </div>
 
-                  <div className="flex items-start gap-3 p-3 rounded-2xl bg-white dark:bg-slate-900/90 border border-emerald-200 dark:border-emerald-500/30 shadow-xs">
+                  <div className="flex items-start gap-3 p-3 rounded-2xl bg-white dark:bg-slate-950/70 border border-emerald-500/20 shadow-xs">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
                     <div>
                       <strong className="text-slate-900 dark:text-white block font-bold">Arsip Foto Nota Digital</strong>
@@ -1089,7 +1083,7 @@ export function IntroductionDashboard({
                     </div>
                   </div>
 
-                  <div className="flex items-start gap-3 p-3 rounded-2xl bg-white dark:bg-slate-900/90 border border-emerald-200 dark:border-emerald-500/30 shadow-xs">
+                  <div className="flex items-start gap-3 p-3 rounded-2xl bg-white dark:bg-slate-950/70 border border-emerald-500/20 shadow-xs">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
                     <div>
                       <strong className="text-slate-900 dark:text-white block font-bold">Kategori Otomatis</strong>
@@ -1099,7 +1093,7 @@ export function IntroductionDashboard({
                     </div>
                   </div>
 
-                  <div className="flex items-start gap-3 p-3 rounded-2xl bg-white dark:bg-slate-900/90 border border-emerald-200 dark:border-emerald-500/30 shadow-xs">
+                  <div className="flex items-start gap-3 p-3 rounded-2xl bg-white dark:bg-slate-950/70 border border-emerald-500/20 shadow-xs">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
                     <div>
                       <strong className="text-slate-900 dark:text-white block font-bold">Approval & Laporan Resmi</strong>

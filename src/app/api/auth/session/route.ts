@@ -14,7 +14,10 @@ export async function GET(req: NextRequest) {
       user: {
         username: session.username,
         role: session.role || "ADMIN",
-        staffName: session.staffName || "",
+        staffName: session.staffName || session.fullName || "",
+        fullName: session.fullName || session.name || session.username,
+        tenantId: session.tenantId,
+        businessName: session.businessName || "Bisnis Saya",
       },
     })
   } catch (error) {

@@ -67,13 +67,15 @@ export async function GET(req: NextRequest) {
             if (isKasirOrStaff) {
               conditions.push(`(
                 r."createdByRole" IN ('KASIR', 'KARYAWAN', 'STAFF', 'STAF')
+                OR r."createdByUsername" = '${(session?.username || "").replace(/'/g, "''")}'
                 OR (
                   r."createdByRole" IS NULL AND (
-                    r."paymentMethod" ILIKE '%Talangan Karyawan%'
+                    r."paymentMethod" ILIKE '%Talangan%'
                     OR r.note ILIKE '%(karyawan)%'
                     OR r.note ILIKE '%(kasir)%'
                     OR r.note ILIKE '%[diunggah oleh:%'
-                    OR r."staffName" ILIKE ANY(ARRAY['%kasir%', '%staf%', '%staff%', '%reza%', '%ummu%', '%cheisa%', '%novi%', '%titis%'])
+                    OR r."staffName" ILIKE ANY(ARRAY['%kasir%', '%staf%', '%staff%', '%karyawan%'])
+                    OR r."staffName" = '${(session?.staffName || session?.fullName || "").replace(/'/g, "''")}'
                   )
                 )
               )`)
@@ -159,13 +161,15 @@ export async function GET(req: NextRequest) {
         if (isKasirOrStaff) {
           conditions.push(`(
             r."createdByRole" IN ('KASIR', 'KARYAWAN', 'STAFF', 'STAF')
+            OR r."createdByUsername" = '${(session?.username || "").replace(/'/g, "''")}'
             OR (
               r."createdByRole" IS NULL AND (
-                r."paymentMethod" ILIKE '%Talangan Karyawan%'
+                r."paymentMethod" ILIKE '%Talangan%'
                 OR r.note ILIKE '%(karyawan)%'
                 OR r.note ILIKE '%(kasir)%'
                 OR r.note ILIKE '%[diunggah oleh:%'
-                OR r."staffName" ILIKE ANY(ARRAY['%kasir%', '%staf%', '%staff%', '%reza%', '%ummu%', '%cheisa%', '%novi%', '%titis%'])
+                OR r."staffName" ILIKE ANY(ARRAY['%kasir%', '%staf%', '%staff%', '%karyawan%'])
+                OR r."staffName" = '${(session?.staffName || session?.fullName || "").replace(/'/g, "''")}'
               )
             )
           )`)
@@ -282,13 +286,15 @@ export async function GET(req: NextRequest) {
     })
 
     // Strict Role Kasir & Staff Scoping:
-    // Staf/Kasir HANYA bisa melihat nota yang dibuat oleh sesama Staf/Kasir.
+    // Staf/Kasir HANYA bisa melihat nota yang dibuat oleh sesama Staf/Kasir atau akun mereka sendiri.
     // Tidak bisa melihat nota yang dibuat oleh Manajer, Admin, Owner, atau Superadmin.
     if (isKasirOrStaff) {
-      const knownStaff = ["reza", "ummu", "cheisa", "novi", "titis", "karyawan", "kasir", "staf", "staff"]
+      const currentStaff = (session?.staffName || session?.fullName || "").toLowerCase()
+      const currentUsername = (session?.username || "").toLowerCase()
       normalizedReceipts = normalizedReceipts.filter((r: any) => {
         const creatorRole = (r.createdByRole || "").toUpperCase()
         if (["KASIR", "KARYAWAN", "STAFF", "STAF"].includes(creatorRole)) return true
+        if (r.createdByUsername && r.createdByUsername.toLowerCase() === currentUsername) return true
         if (["ADMIN", "OWNER", "MANAJER", "MANAGER", "SUPERADMIN"].includes(creatorRole)) return false
 
         // Backward-compatibility check for legacy rows without createdByRole
@@ -296,11 +302,14 @@ export async function GET(req: NextRequest) {
         const method = (r.paymentMethod || "").toLowerCase()
         const staff = (r.staffName || "").toLowerCase()
         return (
-          method === "talangan karyawan" ||
+          method.includes("talangan") ||
           noteText.includes("(karyawan)") ||
           noteText.includes("(kasir)") ||
           noteText.includes("diunggah oleh:") ||
-          knownStaff.some((st) => noteText.includes(st) || staff.includes(st))
+          staff.includes("kasir") ||
+          staff.includes("staf") ||
+          staff.includes("staff") ||
+          (currentStaff && (staff.includes(currentStaff) || noteText.includes(currentStaff)))
         )
       })
     }

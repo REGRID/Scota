@@ -140,13 +140,38 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     // Direct Edit if Approval Workflow is Disabled or Excluded for Edit
     if (!workflow.enableApproval || !workflow.requireForEdit) {
-      const compressedImageUrl = imageUrl ? await compressBase64Image(imageUrl) : null
-
       if (isDatabaseConfigured) {
+        // 1. Verify existence and tenant ownership first before touching items
+        const checkRes = await queryPg<{ id: string; imageUrl: string | null }>(
+          isSuperadmin
+            ? `SELECT id, "imageUrl" FROM receipts WHERE id = $1`
+            : `SELECT id, "imageUrl" FROM receipts WHERE id = $1 AND ("tenantId" = $2 OR "tenantId" IS NULL)`,
+          isSuperadmin ? [id] : [id, userTenantId]
+        )
+
+        const existingReceipt = checkRes.rows?.[0]
+        if (!existingReceipt) {
+          return NextResponse.json(
+            { error: "Nota tidak ditemukan atau Anda tidak memiliki hak akses untuk mengubah nota ini." },
+            { status: 404 }
+          )
+        }
+
+        // 2. Preserve existing image if new imageUrl is not provided / omitted
+        let finalImageUrl = existingReceipt.imageUrl
+        if (imageUrl !== undefined) {
+          if (imageUrl && typeof imageUrl === "string" && imageUrl.trim().length > 0) {
+            finalImageUrl = await compressBase64Image(imageUrl)
+          } else if (imageUrl === null || imageUrl === "") {
+            finalImageUrl = null
+          }
+        }
+
+        // 3. Clear existing items and update receipt
         await queryPg(`DELETE FROM receipt_items WHERE "receiptId" = $1`, [id])
 
         const tenantClause = isSuperadmin ? "" : `AND ("tenantId" = $12 OR "tenantId" IS NULL)`
-        const updateParams = [
+        const updateParams: any[] = [
           merchantName || "Nota / Toko",
           date,
           Number(subtotal) || 0,
@@ -156,7 +181,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           paymentMethod || "Cash",
           paymentStatus || "Lunas",
           note || null,
-          compressedImageUrl,
+          finalImageUrl,
           id,
         ]
         if (!isSuperadmin) updateParams.push(userTenantId)

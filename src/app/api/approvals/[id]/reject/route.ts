@@ -76,11 +76,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
 
     const targetTenantId = pendingApproval.tenantId || sessionTenantId
-    const cleanRejectingAdmin = rejectingAdmin.trim().toLowerCase()
+    const normalizeUserStr = (str: string) =>
+      str.replace(/\s*\([^)]*\)\s*/g, "").trim().toLowerCase()
+    const cleanRejectingAdmin = normalizeUserStr(rejectingAdmin)
+    const cleanRequestedBy = normalizeUserStr(pendingApproval.requestedBy || "")
 
     // Dual-Control Enforcement: Prevent Self-Rejection only for destructive items (unless Superadmin)
     const isDestructive = pendingApproval.actionType === "DELETE" || pendingApproval.actionType === "BULK_DELETE" || pendingApproval.actionType === "EDIT"
-    if (userRole !== "SUPERADMIN" && isDestructive && (pendingApproval.requestedBy || "").trim().toLowerCase() === cleanRejectingAdmin) {
+    if (userRole !== "SUPERADMIN" && isDestructive && cleanRequestedBy === cleanRejectingAdmin) {
       return NextResponse.json({
         error: `Akses Ditolak: Permintaan diajukan oleh Anda (${rejectingAdmin}). Verifikasi/penolakan harus dilakukan oleh Admin lain.`,
       }, { status: 403 })

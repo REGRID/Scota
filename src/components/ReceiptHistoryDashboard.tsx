@@ -1062,10 +1062,12 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
     endDate,
     searchQuery,
     selectedCategory,
+    selectedCategories,
     selectedSubCategory,
     isSubCategoryActive,
     subQ,
     selectedStatusFilter,
+    selectedStatuses,
     selectedPersonFilter,
     selectedPaymentMethods,
     sortBy,
@@ -1074,7 +1076,20 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
   // Reset to Page 1 when filters or sort change
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchQuery, dateRangeFilter, startDate, endDate, selectedCategory, selectedSubCategory, selectedStatusFilter, selectedPersonFilter, selectedPaymentMethods, sortBy])
+  }, [
+    searchQuery,
+    dateRangeFilter,
+    startDate,
+    endDate,
+    selectedCategory,
+    selectedCategories,
+    selectedSubCategory,
+    selectedStatusFilter,
+    selectedStatuses,
+    selectedPersonFilter,
+    selectedPaymentMethods,
+    sortBy,
+  ])
 
   // Build lookup map for receipts that have pending approval requests
   const pendingApprovalMap = useMemo(() => {
@@ -1619,7 +1634,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
     }
   }
 
-  // Calculate Total Spend dynamically: If sub-category filter is active, sum items belonging ONLY to that sub-category
+  // Calculate Total Spend dynamically: If category or sub-category filter is active, sum items belonging ONLY to matching categories
   const totalSpend = useMemo(() => {
     return filteredReceipts.reduce((acc, r) => {
       if (isSubCategoryActive) {
@@ -1630,9 +1645,29 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
         })
         return acc + subItems.reduce((subAcc, item) => subAcc + item.price * item.quantity, 0)
       }
+      if (selectedCategories.length > 0) {
+        const matchingItems = r.items.filter((item) => {
+          const cat = (item.category || "").toLowerCase()
+          const sub = (item.subCategory || "").toLowerCase()
+          return selectedCategories.some((selected) => {
+            const catQ = selected.toLowerCase().split("/")[0].trim()
+            return cat.includes(catQ) || sub.includes(catQ)
+          })
+        })
+        return acc + matchingItems.reduce((subAcc, item) => subAcc + item.price * item.quantity, 0)
+      }
+      if (selectedCategory && selectedCategory !== "Semua") {
+        const catQ = selectedCategory.toLowerCase().split("/")[0].trim()
+        const matchingItems = r.items.filter((item) => {
+          const cat = (item.category || "").toLowerCase()
+          const sub = (item.subCategory || "").toLowerCase()
+          return cat.includes(catQ) || sub.includes(catQ)
+        })
+        return acc + matchingItems.reduce((subAcc, item) => subAcc + item.price * item.quantity, 0)
+      }
       return acc + r.totalAmount
     }, 0)
-  }, [filteredReceipts, isSubCategoryActive, subQ])
+  }, [filteredReceipts, isSubCategoryActive, subQ, selectedCategories, selectedCategory])
 
   const totalItemsCount = useMemo(() => {
     return filteredReceipts.reduce((acc, r) => {
@@ -1644,9 +1679,29 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
         })
         return acc + subItems.length
       }
+      if (selectedCategories.length > 0) {
+        const matchingItems = r.items.filter((item) => {
+          const cat = (item.category || "").toLowerCase()
+          const sub = (item.subCategory || "").toLowerCase()
+          return selectedCategories.some((selected) => {
+            const catQ = selected.toLowerCase().split("/")[0].trim()
+            return cat.includes(catQ) || sub.includes(catQ)
+          })
+        })
+        return acc + matchingItems.length
+      }
+      if (selectedCategory && selectedCategory !== "Semua") {
+        const catQ = selectedCategory.toLowerCase().split("/")[0].trim()
+        const matchingItems = r.items.filter((item) => {
+          const cat = (item.category || "").toLowerCase()
+          const sub = (item.subCategory || "").toLowerCase()
+          return cat.includes(catQ) || sub.includes(catQ)
+        })
+        return acc + matchingItems.length
+      }
       return acc + r.items.length
     }, 0)
-  }, [filteredReceipts, isSubCategoryActive, subQ])
+  }, [filteredReceipts, isSubCategoryActive, subQ, selectedCategories, selectedCategory])
 
   // Calculate Dominant Category and Category Chart Data
   const { categoryChartData, dominantCategoryName, maxSpend } = useMemo(() => {

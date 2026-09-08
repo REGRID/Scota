@@ -56,6 +56,7 @@ export interface SessionPayload {
   staffName?: string
   name?: string
   fullName?: string
+  businessName?: string
 }
 
 /**

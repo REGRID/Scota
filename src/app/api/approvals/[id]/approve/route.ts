@@ -83,21 +83,29 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
 
     const actionType = pendingApproval.actionType
-    const cleanApprovingAdmin = approvingAdmin.trim().toLowerCase()
-    const cleanRequestedBy = (pendingApproval.requestedBy || "").trim().toLowerCase()
-
-    // Dual-Control Enforcement: Prevent Self-Approval (Case-Insensitive) unless Superadmin
-    if (userRole !== "SUPERADMIN" && cleanRequestedBy === cleanApprovingAdmin) {
-      return NextResponse.json({
-        error: `Akses Ditolak: Permintaan diajukan oleh Anda (${approvingAdmin}). Verifikasi & persetujuan harus dilakukan oleh Admin lain.`,
-      }, { status: 403 })
-    }
-
     let payload: any = {}
     try {
       payload = JSON.parse(pendingApproval.payload || "{}")
     } catch (pErr) {
       payload = {}
+    }
+
+    const normalizeUserStr = (str: string) =>
+      str.replace(/\s*\([^)]*\)\s*/g, "").trim().toLowerCase()
+
+    const cleanApprovingAdmin = normalizeUserStr(approvingAdmin)
+    const cleanRequestedBy = normalizeUserStr(pendingApproval.requestedBy || "")
+    const payloadCreator = normalizeUserStr(payload.createdByUsername || "")
+
+    // Dual-Control Enforcement: Prevent Self-Approval (Case-Insensitive & Suffix-Insensitive) unless Superadmin
+    if (
+      userRole !== "SUPERADMIN" &&
+      (cleanRequestedBy === cleanApprovingAdmin ||
+        (payloadCreator && payloadCreator === cleanApprovingAdmin))
+    ) {
+      return NextResponse.json({
+        error: `Akses Ditolak: Permintaan diajukan oleh Anda (${approvingAdmin}). Verifikasi & persetujuan harus dilakukan oleh Admin lain.`,
+      }, { status: 403 })
     }
 
     // Invalidate list cache

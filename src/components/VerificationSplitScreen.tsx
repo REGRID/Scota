@@ -887,11 +887,11 @@ export function VerificationSplitScreen({
                       {/* Header Row of Item Card */}
                       <div className="flex items-center justify-between border-b border-slate-200/80 pb-2.5">
                         <div className="flex items-center gap-2">
-                          <span className="w-6 h-6 rounded-lg bg-slate-900 text-white font-mono text-xs font-bold flex items-center justify-center">
+                          <span className="w-6 h-6 rounded-lg bg-slate-900 text-white text-xs font-bold flex items-center justify-center">
                             #{idx + 1}
                           </span>
                           <span className="text-xs font-bold text-slate-700">Subtotal Item:</span>
-                          <span className="text-xs font-extrabold font-mono text-emerald-700 bg-emerald-100/90 px-2.5 py-0.5 rounded-lg border border-emerald-200">
+                          <span className="text-xs font-extrabold text-emerald-700 bg-emerald-100/90 px-2.5 py-0.5 rounded-lg border border-emerald-200">
                             Rp {itemTotal.toLocaleString("id-ID")}
                           </span>
                         </div>
@@ -934,7 +934,7 @@ export function VerificationSplitScreen({
                               handleItemChange(idx, "price", val === "" ? "" : parseFloat(val))
                             }}
                             placeholder="0"
-                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-500 text-xs font-bold text-slate-900 font-mono bg-white"
+                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-500 text-xs font-bold text-slate-900 bg-white"
                           />
                         </div>
 
@@ -951,7 +951,7 @@ export function VerificationSplitScreen({
                               handleItemChange(idx, "quantity", val === "" ? "" : parseInt(val, 10))
                             }}
                             placeholder="1"
-                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-500 text-xs font-bold text-slate-900 font-mono bg-white"
+                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-500 text-xs font-bold text-slate-900 bg-white"
                           />
                         </div>
                       </div>
@@ -1080,7 +1080,7 @@ export function VerificationSplitScreen({
                     type="text"
                     value={`Rp ${itemsSubtotal.toLocaleString("id-ID")}`}
                     readOnly
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 bg-slate-100/90 font-mono"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 bg-slate-100/90"
                   />
                 </div>
 
@@ -1121,7 +1121,7 @@ export function VerificationSplitScreen({
                         setDiscountAmount(val === "" ? "" : parseFloat(val))
                       }}
                       placeholder="0"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:border-rose-500 text-xs font-bold text-rose-600 bg-white font-mono"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:border-rose-500 text-xs font-bold text-rose-600 bg-white"
                     />
                   ) : (
                     <div className="relative">
@@ -1135,7 +1135,7 @@ export function VerificationSplitScreen({
                           handleDiscountPercentChange(val === "" ? "" : parseFloat(val))
                         }}
                         placeholder="0"
-                        className="w-full px-3.5 py-2.5 pr-12 rounded-xl border border-slate-300 focus:border-rose-500 text-xs font-bold text-rose-600 bg-white font-mono"
+                        className="w-full px-3.5 py-2.5 pr-12 rounded-xl border border-slate-300 focus:border-rose-500 text-xs font-bold text-rose-600 bg-white"
                       />
                       <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">
                         %
@@ -1157,7 +1157,7 @@ export function VerificationSplitScreen({
                       setTaxAmount(val === "" ? "" : parseFloat(val))
                     }}
                     placeholder="0"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-500 text-xs font-bold text-slate-900 bg-white font-mono"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-500 text-xs font-bold text-slate-900 bg-white"
                   />
                 </div>
               </div>
@@ -1167,7 +1167,7 @@ export function VerificationSplitScreen({
             <div className="p-5 rounded-2xl bg-slate-900 text-white space-y-3 shadow-md">
               <div className="flex items-center justify-between text-sm sm:text-base">
                 <span className="font-bold text-slate-300">Total Netto Akhir Nota</span>
-                <span className="text-xl sm:text-2xl font-black font-mono text-emerald-400">
+                <span className="text-xl sm:text-2xl font-black text-emerald-400">
                   Rp {calculatedTotal.toLocaleString("id-ID")}
                 </span>
               </div>
@@ -1295,7 +1295,7 @@ export function VerificationSplitScreen({
           <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold block">
             {batchInfo ? `Nota ${batchInfo.currentIndex + 1}/${batchInfo.totalCount}` : "Total Netto"}
           </span>
-          <p className="text-sm sm:text-base font-black font-mono text-emerald-700">
+          <p className="text-sm sm:text-base font-black text-emerald-700">
             Rp {calculatedTotal.toLocaleString("id-ID")}
           </p>
         </div>

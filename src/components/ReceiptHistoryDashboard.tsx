@@ -2032,12 +2032,12 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
             <span>
               {isSubCategoryActive ? `Sub: ${selectedSubCategory}` : "Total Pengeluaran"}
             </span>
-            <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono font-bold text-[11px] border border-emerald-500/20">
+            <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold text-[11px] border border-emerald-500/20">
               IDR
             </span>
           </div>
           <div>
-            <p className="text-2xl sm:text-3xl font-black font-mono text-slate-900 dark:text-white tracking-tight">
+            <p className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
               Rp {totalSpend.toLocaleString("id-ID")}
             </p>
             <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1.5">
@@ -2056,11 +2056,11 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
             </div>
           </div>
           <div>
-            <p className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight font-mono">
+            <p className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
               {filteredReceipts.length} <span className="text-base font-bold text-slate-500 dark:text-slate-400">Struk</span>
             </p>
             <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-1">
-              Rata-rata: <strong className="font-mono text-slate-700 dark:text-slate-200">Rp {averageSpendPerReceipt.toLocaleString("id-ID")}</strong>
+              Rata-rata: <strong className="text-slate-700 dark:text-slate-200">Rp {averageSpendPerReceipt.toLocaleString("id-ID")}</strong>
             </p>
           </div>
         </div>
@@ -2074,7 +2074,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
             </div>
           </div>
           <div>
-            <p className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight font-mono">
+            <p className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
               {totalItemsCount} <span className="text-base font-bold text-slate-500 dark:text-slate-400">Item</span>
             </p>
             <p className="text-xs font-medium text-purple-600 dark:text-purple-400 mt-1">Produk terdata di sistem</p>
@@ -2093,7 +2093,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
             <p className="text-lg sm:text-xl font-black text-slate-900 dark:text-white truncate tracking-tight">
               {dominantCategoryName}
             </p>
-            <p className="text-xs font-mono font-bold text-amber-600 dark:text-amber-400 mt-1">
+            <p className="text-xs font-bold text-amber-600 dark:text-amber-400 mt-1">
               {maxSpend > 0 ? `Rp ${maxSpend.toLocaleString("id-ID")}` : "-"}
             </p>
           </div>
@@ -2943,7 +2943,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                           onChange={() => toggleSelectRow(receipt.id)}
                           className="w-4 h-4 rounded text-emerald-500 focus:ring-emerald-500 border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 cursor-pointer shrink-0"
                         />
-                        <span className="font-mono font-bold text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-800 text-[11px] whitespace-nowrap">
+                        <span className="font-bold text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-800 text-[11px] whitespace-nowrap">
                           {formattedDateStr}
                         </span>
                       </label>
@@ -3003,7 +3003,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                     {/* KOLOM 5: Total Netto (Nominal Paling Menonjol) */}
                     <div className="lg:col-span-2 text-left lg:text-right pr-1 shrink-0">
                       <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 block lg:hidden">Total Netto:</span>
-                      <span className="font-black font-mono text-emerald-600 dark:text-emerald-400 text-sm sm:text-base tracking-tight whitespace-nowrap">
+                      <span className="font-black text-emerald-600 dark:text-emerald-400 text-sm sm:text-base tracking-tight whitespace-nowrap">
                         Rp {Math.round(cardDisplayNetto).toLocaleString("id-ID")}
                       </span>
                     </div>
@@ -3125,7 +3125,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
-              <span className="font-mono font-bold text-slate-800 dark:text-slate-200 px-2">
+              <span className="font-bold text-slate-800 dark:text-slate-200 px-2">
                 Hal {currentPage} / {totalPages || 1}
               </span>
               <button
@@ -3256,7 +3256,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                     <div className="flex items-center gap-1.5">
                       <span className="w-28 text-slate-500 font-normal">No. Registrasi</span>
                       <span>:</span>
-                      <span className="font-bold font-mono">140008801996 - SCOTA PEMBUKUAN</span>
+                      <span className="font-bold">140008801996 - SCOTA PEMBUKUAN</span>
                     </div>
 
                     <div className="flex items-center gap-1.5">
@@ -3310,7 +3310,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                     <div className="flex items-center gap-1.5">
                       <span className="w-28 text-slate-500 font-normal">Total Ringkasan</span>
                       <span>:</span>
-                      <span className="font-bold font-mono text-emerald-700">{statementTableRows.length} Struk — Rp {totalSpend.toLocaleString("id-ID")}</span>
+                      <span className="font-bold text-emerald-700">{statementTableRows.length} Struk — Rp {totalSpend.toLocaleString("id-ID")}</span>
                     </div>
                   </div>
                 </div>
@@ -3342,12 +3342,12 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                       statementTableRows.map((row, idx) => (
                         <tr key={row.id} className={idx % 2 === 1 ? "bg-[#f8fafc]" : "bg-white"}>
                           {/* Tanggal (12%, center) */}
-                          <td style={{ verticalAlign: "top", padding: "4px 6px" }} className="text-center text-slate-800 border-r border-slate-200 font-mono text-[10.5px] whitespace-nowrap">
+                          <td style={{ verticalAlign: "top", padding: "4px 6px" }} className="text-center text-slate-800 border-r border-slate-200 font-semibold text-[10.5px] whitespace-nowrap">
                             {row.date}
                           </td>
 
-                          {/* No. Ref (14%, left, font-mono) */}
-                          <td style={{ verticalAlign: "top", padding: "4px 6px" }} className="text-slate-800 border-r border-slate-200 font-mono text-[10.5px] whitespace-nowrap">
+                          {/* No. Ref (14%, left) */}
+                          <td style={{ verticalAlign: "top", padding: "4px 6px" }} className="text-slate-800 border-r border-slate-200 font-semibold text-[10.5px] whitespace-nowrap">
                             {row.refNo}
                           </td>
 
@@ -3371,12 +3371,12 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                           </td>
 
                           {/* Pengeluaran (10%, right, clean IDR) */}
-                          <td style={{ verticalAlign: "top", padding: "4px 6px" }} className="text-right font-bold text-emerald-700 border-r border-slate-200 font-mono text-[10.5px] whitespace-nowrap">
+                          <td style={{ verticalAlign: "top", padding: "4px 6px" }} className="text-right font-bold text-emerald-700 border-r border-slate-200 text-[10.5px] whitespace-nowrap">
                             Rp {Math.round(row.debit).toLocaleString("id-ID")}
                           </td>
 
                           {/* Saldo (10%, right, clean IDR) */}
-                          <td style={{ verticalAlign: "top", padding: "4px 6px" }} className="text-right font-bold text-slate-900 font-mono text-[10.5px] whitespace-nowrap">
+                          <td style={{ verticalAlign: "top", padding: "4px 6px" }} className="text-right font-bold text-slate-900 text-[10.5px] whitespace-nowrap">
                             Rp {Math.round(row.balance).toLocaleString("id-ID")}
                           </td>
                         </tr>
@@ -3402,7 +3402,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                     (Accumulated Outflow Statement Total)
                   </p>
                 </div>
-                <span className="font-mono text-xl sm:text-2xl font-black text-emerald-400">
+                <span className="text-xl sm:text-2xl font-black text-emerald-400">
                   Rp {Math.round(totalSpend).toLocaleString("id-ID")}
                 </span>
               </div>
@@ -3469,11 +3469,11 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
               </p>
               <p className="flex justify-between">
                 <span>Jumlah Nota Diekspor:</span>
-                <span className="font-bold font-mono text-emerald-700">{filteredReceipts.length} Struk</span>
+                <span className="font-bold text-emerald-700">{filteredReceipts.length} Struk</span>
               </p>
               <p className="flex justify-between border-t border-slate-200 pt-1.5 mt-1.5 font-bold">
                 <span>Total Netto Rekap:</span>
-                <span className="font-mono text-emerald-700">Rp {totalSpend.toLocaleString("id-ID")}</span>
+                <span className="text-emerald-700">Rp {totalSpend.toLocaleString("id-ID")}</span>
               </p>
             </div>
 
@@ -3751,7 +3751,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
               </p>
               <p className="text-slate-600">
                 Tanggal: {deletingReceipt.date} • Total:{" "}
-                <span className="font-bold font-mono text-emerald-700">
+                <span className="font-bold text-emerald-700">
                   Rp {deletingReceipt.totalAmount.toLocaleString("id-ID")}
                 </span>
               </p>
@@ -3852,7 +3852,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                             alt="Original Receipt"
                             className="max-h-[420px] w-auto object-contain rounded-xl shadow-lg group-hover:opacity-90 transition-opacity"
                           />
-                          <div className="absolute top-3 left-3 bg-slate-950/75 border border-slate-700/80 px-2 py-0.5 rounded-md text-[10px] font-mono font-bold text-slate-300 backdrop-blur-xs pointer-events-none">
+                          <div className="absolute top-3 left-3 bg-slate-950/75 border border-slate-700/80 px-2 py-0.5 rounded-md text-[10px] font-bold text-slate-300 backdrop-blur-xs pointer-events-none">
                             {imgSizeKb} KB
                           </div>
                           <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-2xs rounded-2xl">
@@ -3867,7 +3867,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                             <AlertTriangle className="w-6 h-6 text-amber-400" />
                           </div>
                           <div className="space-y-1">
-                            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-400/15 border border-amber-400/30 text-amber-300 text-[11px] font-mono font-bold">
+                            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-400/15 border border-amber-400/30 text-amber-300 text-[11px] font-bold">
                               <span>Ukuran: {imgSizeKb} KB</span>
                             </div>
                             <p className="text-xs font-bold text-slate-200">
@@ -3907,7 +3907,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                               fetch(`/api/receipts/${selectedReceipt.id}?_t=${Date.now()}`, { cache: "no-store" })
                                 .then((res) => (res.ok ? res.json() : null))
                                 .then((data) => {
-                                  if (data && data.imageUrl) {
+                                   if (data && data.imageUrl) {
                                     setSelectedReceipt((prev) => (prev && prev.id === selectedReceipt.id ? { ...prev, imageUrl: data.imageUrl } : prev))
                                     setAllReceipts((prev) => prev.map((r) => (r.id === selectedReceipt.id ? { ...r, imageUrl: data.imageUrl } : r)))
                                   }
@@ -3971,7 +3971,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                         </div>
                       </div>
 
-                      <div className="text-right font-mono">
+                      <div className="text-right">
                         <p className="font-bold text-slate-900">
                           Rp {item.price.toLocaleString("id-ID")}
                         </p>
@@ -3981,7 +3981,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                   ))}
                 </div>
 
-                <div className="p-4 rounded-xl bg-slate-900 text-white space-y-2 font-mono text-xs">
+                <div className="p-4 rounded-xl bg-slate-900 text-white space-y-2 text-xs">
                   <div className="flex items-center justify-between text-slate-300">
                     <span>Subtotal Barang</span>
                     <span>Rp {(selectedReceipt.subtotal || selectedReceipt.items.reduce((a, b) => a + b.price * b.quantity, 0)).toLocaleString("id-ID")}</span>
@@ -4085,7 +4085,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                             {/* Sub Meta: Requested By & Date */}
                             <div className="text-[11px] text-slate-600 flex items-center justify-between">
                               <span>Diajukan oleh: <strong>{log.requestedBy}</strong></span>
-                              <span className="font-mono text-slate-400">
+                              <span className="text-slate-400">
                                 {new Date(log.createdAt).toLocaleDateString("id-ID", {
                                   day: "2-digit",
                                   month: "short",
@@ -4129,7 +4129,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                                   </p>
                                 )}
                                 {payloadObj.totalAmount && payloadObj.totalAmount !== selectedReceipt.totalAmount && (
-                                  <p className="text-slate-600 font-mono">
+                                  <p className="text-slate-600">
                                     <strong>Total Netto:</strong> Rp {selectedReceipt.totalAmount.toLocaleString("id-ID")} ➔ <span className="text-emerald-700 font-bold">Rp {Number(payloadObj.totalAmount).toLocaleString("id-ID")}</span>
                                   </p>
                                 )}
@@ -4239,25 +4239,25 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
             <div className="p-4 bg-slate-50 border-b border-slate-200 grid grid-cols-2 sm:grid-cols-4 gap-3 shrink-0">
               <div className="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-2xs">
                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">TOTAL NOMINAL</span>
-                <span className="text-base font-black font-mono text-emerald-700">
+                <span className="text-base font-black text-emerald-700">
                   Rp {itemBreakdownModal.totalSpend.toLocaleString("id-ID")}
                 </span>
               </div>
               <div className="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-2xs">
                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">TOTAL VOLUME</span>
-                <span className="text-base font-black font-mono text-slate-800">
+                <span className="text-base font-black text-slate-800">
                   {itemBreakdownModal.totalQty} item
                 </span>
               </div>
               <div className="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-2xs">
                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">FREKUENSI NOTA</span>
-                <span className="text-base font-black font-mono text-blue-700">
+                <span className="text-base font-black text-blue-700">
                   {itemBreakdownModal.items.length} kali transaksi
                 </span>
               </div>
               <div className="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-2xs">
                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">RATA-RATA HARGA SATUAN</span>
-                <span className="text-base font-black font-mono text-purple-700">
+                <span className="text-base font-black text-purple-700">
                   Rp {Math.round(itemBreakdownModal.totalSpend / (itemBreakdownModal.totalQty || 1)).toLocaleString("id-ID")}
                 </span>
               </div>
@@ -4290,7 +4290,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                     <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
                       {itemBreakdownModal.items.map((row, idx) => (
                         <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
-                          <td className="p-3 font-mono font-bold text-slate-600 whitespace-nowrap">
+                          <td className="p-3 font-bold text-slate-600 whitespace-nowrap">
                             {row.receiptDate}
                           </td>
                           <td className="p-3 font-bold text-slate-900 whitespace-nowrap">
@@ -4304,13 +4304,13 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                               {row.category} / {row.subCategory}
                             </span>
                           </td>
-                          <td className="p-3 text-center font-bold font-mono">
+                          <td className="p-3 text-center font-bold">
                             {row.quantity}
                           </td>
-                          <td className="p-3 text-right font-mono font-semibold text-slate-600 whitespace-nowrap">
+                          <td className="p-3 text-right font-semibold text-slate-600 whitespace-nowrap">
                             Rp {row.price.toLocaleString("id-ID")}
                           </td>
-                          <td className="p-3 text-right font-mono font-black text-emerald-700 whitespace-nowrap">
+                          <td className="p-3 text-right font-black text-emerald-700 whitespace-nowrap">
                             Rp {row.total.toLocaleString("id-ID")}
                           </td>
                           <td className="p-3 text-center whitespace-nowrap">
@@ -4370,7 +4370,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                 </div>
                 <div>
                   <h3 className="font-extrabold text-base flex items-center gap-2">
-                    Verifikasi Persetujuan Admin <span className="text-emerald-400 text-xs font-mono font-normal">(Dual Control)</span>
+                    Verifikasi Persetujuan Admin <span className="text-emerald-400 text-xs font-normal">(Dual Control)</span>
                   </h3>
                   <p className="text-xs text-slate-400">
                     Empat Mata: Persetujuan Silang Tindakan Sensitif (Hapus, Edit, Pelunasan)
@@ -4485,14 +4485,14 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                                     ({dateDisplay})
                                   </span>
                                 )}
-                                <span className="font-mono text-xs font-black text-emerald-700 shrink-0 ml-auto sm:ml-0">
+                                <span className="text-xs font-black text-emerald-700 shrink-0 ml-auto sm:ml-0">
                                   Rp {amountDisplay.toLocaleString("id-ID")}
                                 </span>
                               </div>
                               <p className="text-[11px] text-slate-500 font-medium pt-0.5 flex items-center gap-1.5">
                                 <span>oleh <strong className="text-slate-700">{reqItem.requestedBy}</strong></span>
                                 <span>•</span>
-                                <span className="font-mono text-[10.5px]">{new Date(reqItem.createdAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}</span>
+                                <span className="text-[10.5px]">{new Date(reqItem.createdAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}</span>
                               </p>
                             </div>
 
@@ -4562,11 +4562,11 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                                   </div>
                                   <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between">
                                     <span className="text-slate-500 font-medium">Tanggal:</span>
-                                    <strong className="text-slate-900 font-mono">{payloadObj.date || "-"}</strong>
+                                    <strong className="text-slate-900">{payloadObj.date || "-"}</strong>
                                   </div>
                                   <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between">
                                     <span className="text-slate-500 font-medium">Total Nominal:</span>
-                                    <strong className="text-emerald-700 font-mono font-black">
+                                    <strong className="text-emerald-700 font-black">
                                       Rp {Number(payloadObj.totalAmount || 0).toLocaleString("id-ID")}
                                     </strong>
                                   </div>
@@ -4605,7 +4605,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                                               <span>Qty: {it.quantity || 1}</span>
                                             </div>
                                           </div>
-                                          <span className="font-mono font-bold text-teal-800 shrink-0">
+                                          <span className="font-bold text-teal-800 shrink-0">
                                             Rp {Number((it.price || 0) * (it.quantity || 1)).toLocaleString("id-ID")}
                                           </span>
                                         </div>
@@ -4669,7 +4669,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                                             <span className="font-extrabold text-slate-900 text-xs truncate group-hover:text-emerald-900">
                                               {r.merchantName || "Nota Tanpa Nama"}
                                             </span>
-                                            <span className="text-[10px] font-mono text-slate-400 shrink-0">
+                                            <span className="text-[10px] text-slate-400 shrink-0">
                                               {r.date}
                                             </span>
                                           </div>
@@ -4680,7 +4680,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                                         </div>
 
                                         <div className="text-right shrink-0 flex items-center gap-2">
-                                          <span className="font-black font-mono text-emerald-700 text-xs">
+                                          <span className="font-black text-emerald-700 text-xs">
                                             Rp {r.totalAmount.toLocaleString("id-ID")}
                                           </span>
                                           <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-emerald-600 transition-colors" />
@@ -4755,7 +4755,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                                           <span className="font-extrabold text-amber-900 flex items-center gap-1 shrink-0">
                                             <Calendar className="w-3.5 h-3.5 text-amber-700" /> Tanggal Transaksi:
                                           </span>
-                                          <div className="flex items-center gap-2 font-mono">
+                                          <div className="flex items-center gap-2">
                                             <span className="px-2 py-0.5 rounded bg-slate-200/80 text-slate-600 line-through font-semibold text-[11px]">
                                               {oldDate || "-"}
                                             </span>
@@ -4791,7 +4791,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                                           <span className="font-extrabold text-amber-900 flex items-center gap-1 shrink-0">
                                             <DollarSign className="w-3.5 h-3.5 text-amber-700" /> Total Nominal:
                                           </span>
-                                          <div className="flex items-center gap-2 font-mono">
+                                          <div className="flex items-center gap-2">
                                             <span className="px-2 py-0.5 rounded bg-slate-200/80 text-slate-600 line-through font-semibold text-[11px]">
                                               Rp {oldTotal.toLocaleString("id-ID")}
                                             </span>
@@ -4978,7 +4978,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                 <div className="flex-1">
                   <h4 className="font-extrabold text-xs text-emerald-950 flex items-center gap-1.5">
                     Ekspor Laporan ke Excel
-                    <span className="text-[10px] bg-emerald-200 text-emerald-800 px-2 py-0.5 rounded-full font-mono">.xlsx</span>
+                    <span className="text-[10px] bg-emerald-200 text-emerald-800 px-2 py-0.5 rounded-full font-bold">.xlsx</span>
                   </h4>
                   <p className="text-[11px] text-emerald-700/90 font-medium leading-relaxed mt-0.5">
                     Unduh spreadsheet Excel lengkap sesuai filter yang aktif.
@@ -5001,7 +5001,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                 <div className="flex-1">
                   <h4 className="font-extrabold text-xs text-blue-950 flex items-center gap-1.5">
                     Download Backup Data
-                    <span className="text-[10px] bg-blue-200 text-blue-800 px-2 py-0.5 rounded-full font-mono">.json</span>
+                    <span className="text-[10px] bg-blue-200 text-blue-800 px-2 py-0.5 rounded-full font-bold">.json</span>
                   </h4>
                   <p className="text-[11px] text-blue-700/90 font-medium leading-relaxed mt-0.5">
                     Unduh cadangan basis data nota lengkap untuk pengamanan.
@@ -5025,7 +5025,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                 <div className="flex-1">
                   <h4 className="font-extrabold text-xs text-amber-950 flex items-center gap-1.5">
                     Upload / Restore Data
-                    <span className="text-[10px] bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full font-mono">.json</span>
+                    <span className="text-[10px] bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full font-bold">.json</span>
                   </h4>
                   <p className="text-[11px] text-amber-700/90 font-medium leading-relaxed mt-0.5">
                     Unggah berkas cadangan JSON untuk memulihkan data nota.
@@ -5082,7 +5082,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                 <span className="text-[11px] font-black text-emerald-800 uppercase tracking-wider block">
                   TOTAL NOMINAL YANG HARUS DILUNASI
                 </span>
-                <span className="text-2xl sm:text-3xl font-black font-mono text-emerald-700 tracking-tight block">
+                <span className="text-2xl sm:text-3xl font-black text-emerald-700 tracking-tight block">
                   Rp {Math.round(settleTargetReceipts.reduce((acc, r) => acc + r.totalAmount, 0)).toLocaleString("id-ID")}
                 </span>
                 <span className="text-xs text-emerald-800 font-bold block">
@@ -5153,7 +5153,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                       <span className="font-bold text-slate-800 truncate max-w-[200px]">
                         {r.merchantName} ({r.date})
                       </span>
-                      <span className="font-extrabold font-mono text-emerald-600">
+                      <span className="font-extrabold text-emerald-600">
                         Rp {Math.round(r.totalAmount).toLocaleString("id-ID")}
                       </span>
                     </div>

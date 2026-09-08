@@ -10,7 +10,7 @@ import { SuperadminTopbar } from "@/components/superadmin/SuperadminTopbar"
 import { SuperadminLoginForm } from "@/components/SuperadminLoginForm"
 
 const ALLOWED_SUPERADMIN_EMAIL = (
-  process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL || "refo.gangga@gmail.com"
+  process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL || "refo.gangga.dev@gmail.com"
 ).toLowerCase().trim()
 
 export default function SuperadminLayout({

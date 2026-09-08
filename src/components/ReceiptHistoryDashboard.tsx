@@ -2080,75 +2080,75 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
       </div>
 
       {/* TOP 4 KPI CARDS ROW */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         {/* Card 1: Total Pengeluaran */}
-        <div className="bg-white dark:bg-slate-900/90 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs dark:shadow-xl space-y-3 hover:border-slate-300 dark:hover:border-slate-700 transition-all text-left">
-          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
-            <span>
+        <div className="bg-white dark:bg-slate-900/90 p-3.5 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs dark:shadow-xl space-y-2 sm:space-y-3 hover:border-slate-300 dark:hover:border-slate-700 transition-all text-left flex flex-col justify-between">
+          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-[10px] sm:text-xs font-bold uppercase tracking-wider">
+            <span className="truncate">
               {isSubCategoryActive ? `Sub: ${selectedSubCategory}` : "Total Pengeluaran"}
             </span>
-            <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold text-[11px] border border-emerald-500/20">
+            <span className="px-1.5 sm:px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold text-[10px] sm:text-[11px] border border-emerald-500/20 shrink-0">
               IDR
             </span>
           </div>
           <div>
-            <p className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+            <p className="text-lg sm:text-2xl lg:text-3xl font-black text-slate-900 dark:text-white tracking-tight truncate">
               Rp {totalSpend.toLocaleString("id-ID")}
             </p>
-            <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1.5">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-              <span>{isSubCategoryActive ? selectedSubCategory : `${filteredReceipts.length} transaksi nota`}</span>
+            <p className="text-[10px] sm:text-xs font-medium text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1.5 truncate">
+              <CheckCircle2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <span className="truncate">{isSubCategoryActive ? selectedSubCategory : `${filteredReceipts.length} transaksi nota`}</span>
             </p>
           </div>
         </div>
 
         {/* Card 2: Jumlah Nota */}
-        <div className="bg-white dark:bg-slate-900/90 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs dark:shadow-xl space-y-3 hover:border-slate-300 dark:hover:border-slate-700 transition-all text-left">
-          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
-            <span>Volume Transaksi</span>
-            <div className="w-7 h-7 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center border border-sky-500/20">
-              <ReceiptIcon className="w-4 h-4" />
+        <div className="bg-white dark:bg-slate-900/90 p-3.5 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs dark:shadow-xl space-y-2 sm:space-y-3 hover:border-slate-300 dark:hover:border-slate-700 transition-all text-left flex flex-col justify-between">
+          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-[10px] sm:text-xs font-bold uppercase tracking-wider">
+            <span className="truncate">Volume Transaksi</span>
+            <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center border border-sky-500/20 shrink-0">
+              <ReceiptIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </div>
           </div>
           <div>
-            <p className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
-              {filteredReceipts.length} <span className="text-base font-bold text-slate-500 dark:text-slate-400">Struk</span>
+            <p className="text-lg sm:text-2xl lg:text-3xl font-black text-slate-900 dark:text-white tracking-tight truncate">
+              {filteredReceipts.length} <span className="text-xs sm:text-base font-bold text-slate-500 dark:text-slate-400">Struk</span>
             </p>
-            <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-1">
+            <p className="text-[10px] sm:text-xs font-medium text-slate-500 dark:text-slate-400 mt-1 truncate">
               Rata-rata: <strong className="text-slate-700 dark:text-slate-200">Rp {averageSpendPerReceipt.toLocaleString("id-ID")}</strong>
             </p>
           </div>
         </div>
 
         {/* Card 3: Total Barang */}
-        <div className="bg-white dark:bg-slate-900/90 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs dark:shadow-xl space-y-3 hover:border-slate-300 dark:hover:border-slate-700 transition-all text-left">
-          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
-            <span>{isSubCategoryActive ? `Item ${selectedSubCategory}` : "Total Barang"}</span>
-            <div className="w-7 h-7 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center border border-purple-500/20">
-              <ShoppingBag className="w-4 h-4" />
+        <div className="bg-white dark:bg-slate-900/90 p-3.5 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs dark:shadow-xl space-y-2 sm:space-y-3 hover:border-slate-300 dark:hover:border-slate-700 transition-all text-left flex flex-col justify-between">
+          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-[10px] sm:text-xs font-bold uppercase tracking-wider">
+            <span className="truncate">{isSubCategoryActive ? `Item ${selectedSubCategory}` : "Total Barang"}</span>
+            <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center border border-purple-500/20 shrink-0">
+              <ShoppingBag className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </div>
           </div>
           <div>
-            <p className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
-              {totalItemsCount} <span className="text-base font-bold text-slate-500 dark:text-slate-400">Item</span>
+            <p className="text-lg sm:text-2xl lg:text-3xl font-black text-slate-900 dark:text-white tracking-tight truncate">
+              {totalItemsCount} <span className="text-xs sm:text-base font-bold text-slate-500 dark:text-slate-400">Item</span>
             </p>
-            <p className="text-xs font-medium text-purple-600 dark:text-purple-400 mt-1">Produk terdata di sistem</p>
+            <p className="text-[10px] sm:text-xs font-medium text-purple-600 dark:text-purple-400 mt-1 truncate">Produk terdata di sistem</p>
           </div>
         </div>
 
         {/* Card 4: Kategori Dominan */}
-        <div className="bg-white dark:bg-slate-900/90 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs dark:shadow-xl space-y-3 hover:border-slate-300 dark:hover:border-slate-700 transition-all text-left">
-          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
-            <span>Beban Terbesar</span>
-            <div className="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center border border-amber-500/20">
-              <TrendingUp className="w-4 h-4" />
+        <div className="bg-white dark:bg-slate-900/90 p-3.5 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs dark:shadow-xl space-y-2 sm:space-y-3 hover:border-slate-300 dark:hover:border-slate-700 transition-all text-left flex flex-col justify-between">
+          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-[10px] sm:text-xs font-bold uppercase tracking-wider">
+            <span className="truncate">Beban Terbesar</span>
+            <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center border border-amber-500/20 shrink-0">
+              <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </div>
           </div>
           <div>
-            <p className="text-lg sm:text-xl font-black text-slate-900 dark:text-white truncate tracking-tight">
+            <p className="text-base sm:text-xl font-black text-slate-900 dark:text-white truncate tracking-tight">
               {dominantCategoryName}
             </p>
-            <p className="text-xs font-bold text-amber-600 dark:text-amber-400 mt-1">
+            <p className="text-[10px] sm:text-xs font-bold text-amber-600 dark:text-amber-400 mt-1 truncate">
               {maxSpend > 0 ? `Rp ${maxSpend.toLocaleString("id-ID")}` : "-"}
             </p>
           </div>
@@ -2182,7 +2182,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
           </div>
 
           {/* Quick Checklist Dropdown Controls */}
-          <div className="flex items-center gap-1.5 flex-wrap sm:flex-nowrap shrink-0">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none shrink-0 w-full lg:w-auto -mx-1 px-1 sm:mx-0 sm:px-0">
             {/* 1. KATEGORI CHECKLIST DROPDOWN (MULTI-SELECT) */}
             <div className="relative">
               <button
@@ -2984,160 +2984,164 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                       : "bg-white dark:bg-slate-900/90 border-slate-200/90 dark:border-slate-800 hover:border-emerald-500/50 hover:bg-slate-50 dark:hover:bg-slate-800 shadow-xs dark:shadow-none"
                   }`}
                 >
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-center text-xs">
-                    {/* KOLOM 1: Checkbox & Tanggal */}
-                    <div className="lg:col-span-2 flex items-center gap-2.5 min-w-0">
-                      <label
-                        className="flex items-center gap-2 p-1 -m-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800/80 active:bg-slate-200 dark:active:bg-slate-700/80 cursor-pointer select-none shrink-0"
-                        onClick={(e) => e.stopPropagation()}
-                        title="Centang untuk memilih nota ini"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => toggleSelectRow(receipt.id)}
-                          className="w-4 h-4 rounded text-emerald-500 focus:ring-emerald-500 border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 cursor-pointer shrink-0"
-                        />
-                        <span className="font-bold text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-800 text-[11px] whitespace-nowrap">
-                          {formattedDateStr}
-                        </span>
-                      </label>
+                  <div className="flex flex-col lg:grid lg:grid-cols-12 gap-2.5 lg:gap-3 items-stretch lg:items-center text-xs">
+                    {/* MOBILE TOP ROW / DESKTOP COLS 1 & 2 */}
+                    <div className="flex items-center justify-between lg:contents min-w-0">
+                      {/* KOLOM 1: Checkbox & Tanggal */}
+                      <div className="lg:col-span-2 flex items-center gap-2 min-w-0">
+                        <label
+                          className="flex items-center gap-2 p-1 -m-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800/80 active:bg-slate-200 dark:active:bg-slate-700/80 cursor-pointer select-none shrink-0"
+                          onClick={(e) => e.stopPropagation()}
+                          title="Centang untuk memilih nota ini"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleSelectRow(receipt.id)}
+                            className="w-4 h-4 rounded text-emerald-500 focus:ring-emerald-500 border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 cursor-pointer shrink-0"
+                          />
+                          <span className="font-bold text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-950 px-2.5 py-0.5 rounded-lg border border-slate-200 dark:border-slate-800 text-[11px] whitespace-nowrap">
+                            {formattedDateStr}
+                          </span>
+                        </label>
+                      </div>
+
+                      {/* KOLOM 2: Identitas Toko & Category Pill & Pending Badge */}
+                      <div className="lg:col-span-2 space-y-0.5 min-w-0 text-right lg:text-left flex flex-col items-end lg:items-start">
+                        <div className="flex items-center gap-1.5 max-w-full">
+                          <Store className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400 shrink-0 hidden lg:block" />
+                          <h4 className="font-black text-slate-900 dark:text-white text-xs sm:text-sm truncate">{receipt.merchantName}</h4>
+                        </div>
+                        <div className="flex items-center gap-1 flex-wrap justify-end lg:justify-start">
+                          <span className="inline-block px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold text-[10px] border border-emerald-500/20 truncate max-w-full">
+                            {categoryPill}
+                          </span>
+                          {isSubCategoryActive && (
+                            <span className="inline-block px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-600 dark:text-purple-400 font-bold text-[10px] border border-purple-500/20 truncate max-w-full">
+                              {selectedSubCategory}
+                            </span>
+                          )}
+                          {pendingReq && (
+                            <span
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setExpandedApprovalId(pendingReq.id)
+                                setShowApprovalModal(true)
+                              }}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500 text-slate-950 font-black text-[9.5px] border border-amber-400 shadow-2xs transition-colors cursor-pointer shrink-0"
+                            >
+                              <ShieldCheck className="w-3 h-3 text-slate-950 animate-pulse" />
+                              {pendingReq.actionType === "DELETE" && "Hapus Pending"}
+                              {pendingReq.actionType === "BULK_DELETE" && "Hapus Massal Pending"}
+                              {pendingReq.actionType === "EDIT" && "Edit Pending"}
+                              {pendingReq.actionType === "SETTLE" && "Pelunasan Pending"}
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     </div>
 
-                    {/* KOLOM 2: Identitas Toko & Category Pill & Pending Badge */}
-                    <div className="lg:col-span-2 space-y-0.5 min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <Store className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400 shrink-0" />
-                        <h4 className="font-black text-slate-900 dark:text-white text-sm truncate">{receipt.merchantName}</h4>
-                      </div>
-                      <div className="flex items-center gap-1 flex-wrap">
-                        <span className="inline-block px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold text-[10px] border border-emerald-500/20 truncate max-w-full">
-                          {categoryPill}
-                        </span>
-                        {isSubCategoryActive && (
-                          <span className="inline-block px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-600 dark:text-purple-400 font-bold text-[10px] border border-purple-500/20 truncate max-w-full">
-                            {selectedSubCategory}
-                          </span>
-                        )}
-                        {pendingReq && (
-                          <span
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setExpandedApprovalId(pendingReq.id)
-                              setShowApprovalModal(true)
-                            }}
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500 text-slate-950 font-black text-[9.5px] border border-amber-400 shadow-2xs transition-colors cursor-pointer shrink-0"
-                          >
-                            <ShieldCheck className="w-3 h-3 text-slate-950 animate-pulse" />
-                            {pendingReq.actionType === "DELETE" && "Hapus Pending"}
-                            {pendingReq.actionType === "BULK_DELETE" && "Hapus Massal Pending"}
-                            {pendingReq.actionType === "EDIT" && "Edit Pending"}
-                            {pendingReq.actionType === "SETTLE" && "Pelunasan Pending"}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* KOLOM 3: Ringkasan Produk (Truncated Single Line) */}
-                    <div className="lg:col-span-3 min-w-0">
+                    {/* KOLOM 3: Ringkasan Produk */}
+                    <div className="lg:col-span-3 min-w-0 py-0.5 lg:py-0">
                       <p
-                        className="text-slate-600 dark:text-slate-400 font-medium truncate text-xs"
+                        className="text-slate-600 dark:text-slate-400 font-medium truncate text-[11px] sm:text-xs"
                         title={productSummaryText}
                       >
                         {productSummaryText}
                       </p>
                     </div>
 
-                    {/* KOLOM 4: Metode Bayar */}
-                    <div className="lg:col-span-1 text-left lg:text-center shrink-0">
+                    {/* KOLOM 4: Metode Bayar (Desktop only, mobile will be placed in footer) */}
+                    <div className="lg:col-span-1 text-left lg:text-center shrink-0 hidden lg:block">
                       <span className="inline-block px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-950 text-slate-700 dark:text-slate-300 font-bold text-[10px] whitespace-nowrap border border-slate-200 dark:border-slate-800">
                         {receipt.paymentMethod || "Cash"}
                       </span>
                     </div>
 
-                    {/* KOLOM 5: Total Netto (Nominal Paling Menonjol) */}
-                    <div className="lg:col-span-2 text-left lg:text-right pr-1 shrink-0">
-                      <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 block lg:hidden">Total Netto:</span>
-                      <span className="font-black text-emerald-600 dark:text-emerald-400 text-sm sm:text-base tracking-tight whitespace-nowrap">
-                        Rp {Math.round(cardDisplayNetto).toLocaleString("id-ID")}
-                      </span>
-                    </div>
+                    {/* MOBILE FOOTER ROW / DESKTOP COLS 5 & 6 */}
+                    <div className="flex items-center justify-between lg:contents pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-100 dark:border-slate-800/80 mt-0.5 lg:mt-0">
+                      {/* KOLOM 5: Total Netto (Nominal Paling Menonjol) */}
+                      <div className="lg:col-span-2 text-left lg:text-right pr-1 shrink-0 flex items-center gap-1.5 lg:block">
+                        <span className="lg:hidden inline-block px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 font-bold text-[10px] border border-slate-200 dark:border-slate-800 mr-1">
+                          {receipt.paymentMethod || "Cash"}
+                        </span>
+                        <span className="font-black text-emerald-600 dark:text-emerald-400 text-sm sm:text-base tracking-tight whitespace-nowrap">
+                          Rp {Math.round(cardDisplayNetto).toLocaleString("id-ID")}
+                        </span>
+                      </div>
 
-                    {/* KOLOM 6: Action Buttons Group */}
-                    <div className="lg:col-span-2 flex items-center justify-end gap-1.5 border-t lg:border-t-0 border-slate-100 dark:border-slate-800 pt-2 lg:pt-0 mt-1 lg:mt-0 shrink-0">
-                      {pendingReq ? (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setExpandedApprovalId(pendingReq.id)
-                            setShowApprovalModal(true)
-                          }}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-[10.5px] transition-all shadow-xs animate-pulse cursor-pointer shrink-0"
-                          title={`Nota ini sedang dalam peninjauan Dual-Control (${pendingReq.actionType}) oleh admin ${pendingReq.requestedBy}. Klik untuk verifikasi.`}
-                        >
-                          <ShieldCheck className="w-3.5 h-3.5 text-slate-950" />
-                          <span>Dalam Peninjauan</span>
-                        </button>
-                      ) : (
-                        <>
-                          {!isReceiptSettled(receipt.paymentStatus) ? (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                triggerSettleFlow(receipt)
-                              }}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-[11px] transition-all shadow-2xs active:scale-95 shrink-0 cursor-pointer"
-                              title="Tandai Nota Sudah Direimburse / Lunasi"
-                            >
-                              <CheckCircle2 className="w-3.5 h-3.5" /> Lunasi
-                            </button>
-                          ) : (
-                            (() => {
-                              const effSt = getEffectivePaymentStatus(receipt)
-                              return (
-                                <span
-                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-bold text-[10px] border shrink-0 ${
-                                    effSt === "Sudah Dilunasi"
-                                      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
-                                      : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
-                                  }`}
-                                >
-                                  <CheckCircle2 className="w-3 h-3 text-emerald-500 dark:text-emerald-400" />
-                                  {effSt}
-                                </span>
-                              )
-                            })()
-                          )}
-
-                          {onEditReceipt && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                onEditReceipt(receipt)
-                              }}
-                              className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-sky-600 dark:text-sky-400 transition-colors shrink-0 cursor-pointer"
-                              title="Edit Data Nota"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </button>
-                          )}
-
+                      {/* KOLOM 6: Action Buttons Group */}
+                      <div className="lg:col-span-2 flex items-center justify-end gap-1.5 shrink-0">
+                        {pendingReq ? (
                           <button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation()
-                              triggerDeleteConfirm(receipt)
+                              setExpandedApprovalId(pendingReq.id)
+                              setShowApprovalModal(true)
                             }}
-                            className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-rose-600 dark:text-rose-400 transition-colors shrink-0 cursor-pointer"
-                            title="Hapus Nota"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-[10.5px] transition-all shadow-xs animate-pulse cursor-pointer shrink-0"
+                            title={`Nota ini sedang dalam peninjauan Dual-Control (${pendingReq.actionType}) oleh admin ${pendingReq.requestedBy}. Klik untuk verifikasi.`}
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <ShieldCheck className="w-3.5 h-3.5 text-slate-950" />
+                            <span>Dalam Peninjauan</span>
                           </button>
-                        </>
-                      )}
+                        ) : (
+                          <>
+                            {!isReceiptSettled(receipt.paymentStatus) ? (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  triggerSettleFlow(receipt)
+                                }}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-[11px] transition-all shadow-2xs active:scale-95 shrink-0 cursor-pointer"
+                                title="Tandai Nota Sudah Direimburse / Lunasi"
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5" /> Lunasi
+                              </button>
+                            ) : (
+                              (() => {
+                                const effSt = getEffectivePaymentStatus(receipt)
+                                return (
+                                  <span
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-bold text-[10px] border shrink-0 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                                  >
+                                    <CheckCircle2 className="w-3 h-3 text-emerald-500 dark:text-emerald-400" />
+                                    {effSt}
+                                  </span>
+                                )
+                              })()
+                            )}
+
+                            {onEditReceipt && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  onEditReceipt(receipt)
+                                }}
+                                className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-sky-600 dark:text-sky-400 transition-colors shrink-0 cursor-pointer"
+                                title="Edit Data Nota"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </button>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                triggerDeleteConfirm(receipt)
+                              }}
+                              className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-rose-600 dark:text-rose-400 transition-colors shrink-0 cursor-pointer"
+                              title="Hapus Nota"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>

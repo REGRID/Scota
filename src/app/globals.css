@@ -8,6 +8,14 @@
 html {
   scroll-behavior: smooth;
   scroll-padding-top: 5rem;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+  position: relative;
 }
 
 @theme inline {

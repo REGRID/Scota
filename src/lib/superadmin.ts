@@ -95,100 +95,167 @@ export interface BillingTransaction {
 export async function getAllTenants(): Promise<TenantSummary[]> {
   const tenantsMap = new Map<string, TenantSummary>()
 
+  // 1. Fetch Real Registered Users from Clerk Backend API (Google OAuth & Email Registrations)
+  const clerkSecret = process.env.CLERK_SECRET_KEY
+  if (clerkSecret) {
+    try {
+      const clerkRes = await fetch("https://api.clerk.com/v1/users?limit=100&order_by=-created_at", {
+        headers: {
+          Authorization: `Bearer ${clerkSecret}`,
+          "Content-Type": "application/json",
+        },
+        cache: "no-store",
+      })
+
+      if (clerkRes.ok) {
+        const clerkUsers = await clerkRes.json()
+        if (Array.isArray(clerkUsers)) {
+          for (const u of clerkUsers) {
+            const primaryEmailObj = u.email_addresses?.find((e: any) => e.id === u.primary_email_address_id) || u.email_addresses?.[0]
+            const email = (primaryEmailObj?.email_address || "").toLowerCase().trim()
+            const firstName = u.first_name || ""
+            const lastName = u.last_name || ""
+            const fullName = `${firstName} ${lastName}`.trim() || u.username || email.split("@")[0] || "Pelanggan Google"
+            const usernameKey = email || (u.username ? u.username.toLowerCase() : `clerk_${u.id.slice(-8)}`)
+            
+            const isSuperadminEmail = email === (process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL || "refo.gangga.dev@gmail.com").toLowerCase().trim()
+            const role = isSuperadminEmail ? "SUPERADMIN" : "OWNER"
+            const tier: SubscriptionTier = isSuperadminEmail ? "enterprise" : "trial"
+            const tierCfg = TIER_CONFIG[tier] || TIER_CONFIG.trial
+
+            const createdAt = u.created_at ? new Date(u.created_at).toISOString() : new Date().toISOString()
+            const validDate = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
+
+            tenantsMap.set(usernameKey, {
+              tenantId: u.id,
+              username: usernameKey,
+              fullName,
+              businessName: `Bisnis ${fullName}`,
+              phone: u.phone_numbers?.[0]?.phone_number || "",
+              role,
+              tier,
+              validUntil: validDate.toISOString(),
+              monthlyScanLimit: isSuperadminEmail ? 99999 : tierCfg.monthlyScanLimit,
+              usedScansThisMonth: 0,
+              createdAt,
+              status: "active",
+              approvalWorkflow: { ...DEFAULT_APPROVAL_WORKFLOW },
+            })
+          }
+        }
+      }
+    } catch (clerkErr) {
+      console.warn("Clerk users fetch notice in superadmin:", clerkErr)
+    }
+  }
+
+  // 2. Fetch PostgreSQL Registered Tenants & Admin Accounts
   if (isDatabaseConfigured) {
     try {
-      let dbAccounts: any[] = []
-      try {
-        const res = await queryPg<any>(
-          `SELECT a.id, a.username, a.role, a."fullName", a."businessName", a.phone, a.email, a.status, a."createdAt", a."approvalWorkflow",
-                  t.id as "resolvedTenantId", 
-                  COALESCE(t."businessName", a."businessName") as "tenantBusinessName",
-                  COALESCE(t.phone, a.phone) as "tenantPhone",
-                  s.tier as "subTier",
-                  s."validUntil" as "subValidUntil",
-                  s."monthlyScanLimit" as "subScanLimit",
-                  s."usedScansThisMonth" as "subUsedScans"
-           FROM admin_accounts a
-           LEFT JOIN tenants t ON a."tenantId" = t.id
-           LEFT JOIN subscriptions s ON a."tenantId" = s."tenantId"
-           ORDER BY a."createdAt" DESC`
-        )
-        dbAccounts = res.rows || []
-      } catch (joinErr) {
-        const fallbackRes = await queryPg<any>(
-          `SELECT a.id, a.username, a.role, a."fullName", a."businessName", a.phone, a.email, a.status, a."createdAt", a."approvalWorkflow",
-                  s.tier as "subTier",
-                  s."validUntil" as "subValidUntil",
-                  s."monthlyScanLimit" as "subScanLimit",
-                  s."usedScansThisMonth" as "subUsedScans"
-           FROM admin_accounts a
-           LEFT JOIN subscriptions s ON a."tenantId" = s."tenantId"
-           ORDER BY a."createdAt" DESC`
-        )
-        dbAccounts = fallbackRes.rows || []
-      }
+      // 2A. Query Registered Tenants (where not demo or demo count is 0)
+      const tenantsRes = await queryPg<any>(
+        `SELECT t.id, t."businessName", t.phone, t.status, t."createdAt", t."isDemo", t."demoEmail",
+                s.tier as "subTier",
+                s."validUntil" as "subValidUntil",
+                s."monthlyScanLimit" as "subScanLimit",
+                s."usedScansThisMonth" as "subUsedScans",
+                s."approvalWorkflow",
+                a.username,
+                a.email,
+                a."fullName",
+                a.role
+         FROM tenants t
+         LEFT JOIN subscriptions s ON t.id = s."tenantId"
+         LEFT JOIN admin_accounts a ON t.id = a."tenantId"
+         WHERE t."isDemo" = false OR t."isDemo" IS NULL
+         ORDER BY t."createdAt" DESC`
+      )
 
-      if (dbAccounts) {
-        for (const acc of dbAccounts) {
-          const cleanUser = (acc.username || "").trim().toLowerCase()
-          if (!cleanUser) continue
-          const tenantId = acc.resolvedTenantId || acc.tenantId || DEFAULT_TENANT_ID
-          const tier = (acc.subTier || "trial") as SubscriptionTier
+      if (tenantsRes.rows) {
+        for (const row of tenantsRes.rows) {
+          const tenantId = row.id
+          const rawUser = row.username || row.email || row.demoEmail || `tenant_${tenantId.slice(0, 8)}`
+          const cleanUser = rawUser.trim().toLowerCase()
+          
+          const tier = (row.subTier || "trial") as SubscriptionTier
           const tierCfg = TIER_CONFIG[tier] || TIER_CONFIG.trial
-          const validDate = new Date(acc.subValidUntil || Date.now() + 14 * 24 * 60 * 60 * 1000)
+          const validDate = new Date(row.subValidUntil || Date.now() + 14 * 24 * 60 * 60 * 1000)
           const isExpired = validDate < new Date()
 
           let workflow: ApprovalWorkflowConfig = { ...DEFAULT_APPROVAL_WORKFLOW }
-          if (acc.approvalWorkflow) {
+          if (row.approvalWorkflow) {
             try {
-              const parsed = typeof acc.approvalWorkflow === "string" ? JSON.parse(acc.approvalWorkflow) : acc.approvalWorkflow
+              const parsed = typeof row.approvalWorkflow === "string" ? JSON.parse(row.approvalWorkflow) : row.approvalWorkflow
               workflow = { ...DEFAULT_APPROVAL_WORKFLOW, ...parsed }
             } catch (e) {}
           }
 
-          tenantsMap.set(cleanUser, {
+          // If already added by Clerk, enrich with PostgreSQL details
+          const existing = tenantsMap.get(cleanUser) || (row.email ? tenantsMap.get(row.email.toLowerCase().trim()) : undefined)
+          const finalKey = existing ? existing.username : cleanUser
+
+          tenantsMap.set(finalKey, {
             tenantId,
-            username: cleanUser,
-            fullName: acc.fullName || cleanUser,
-            businessName: acc.tenantBusinessName || acc.businessName || acc.fullName || "Scota Business",
-            phone: acc.tenantPhone || acc.phone || "",
-            role: acc.role || "ADMIN",
-            tier,
-            validUntil: validDate.toISOString(),
-            monthlyScanLimit: acc.subScanLimit || tierCfg.monthlyScanLimit,
-            usedScansThisMonth: acc.subUsedScans || 0,
-            createdAt: acc.createdAt || new Date().toISOString(),
-            status: acc.status === "suspended" ? "suspended" : (isExpired ? "expired" : (tier === "trial" ? "trial" : "active")),
+            username: finalKey,
+            fullName: row.fullName || existing?.fullName || row.businessName || finalKey,
+            businessName: row.businessName || existing?.businessName || "Scota Business",
+            phone: row.phone || existing?.phone || "",
+            role: row.role || existing?.role || "OWNER",
+            tier: (row.subTier as SubscriptionTier) || existing?.tier || tier,
+            validUntil: row.subValidUntil ? new Date(row.subValidUntil).toISOString() : (existing?.validUntil || validDate.toISOString()),
+            monthlyScanLimit: row.subScanLimit || existing?.monthlyScanLimit || tierCfg.monthlyScanLimit,
+            usedScansThisMonth: row.subUsedScans || existing?.usedScansThisMonth || 0,
+            createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : (existing?.createdAt || new Date().toISOString()),
+            status: row.status === "suspended" ? "suspended" : (isExpired ? "expired" : "active"),
             approvalWorkflow: workflow,
           })
         }
       }
-    } catch (err) {
-      // Graceful fallback
-    }
-  }
 
-  // Fallback default admin jika tenantsMap kosong
-  if (tenantsMap.size === 0) {
-    const defaultUsers = ["admin", "superadmin", "karyawan"]
-    for (const u of defaultUsers) {
-      if (!tenantsMap.has(u)) {
-        tenantsMap.set(u, {
-          tenantId: DEFAULT_TENANT_ID,
-          username: u,
-          fullName: u === "superadmin" ? "Developer / Superadmin" : (u === "admin" ? "Administrator" : "Staff Kasir"),
-          businessName: "Scota Business",
-          phone: "6285215973776",
-          role: u === "superadmin" ? "SUPERADMIN" : (u === "admin" ? "ADMIN" : "KARYAWAN"),
-          tier: u === "superadmin" ? "enterprise" : "trial",
-          validUntil: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
-          monthlyScanLimit: u === "superadmin" ? 99999 : 30,
-          usedScansThisMonth: 0,
-          createdAt: new Date().toISOString(),
-          status: "active",
-          approvalWorkflow: { ...DEFAULT_APPROVAL_WORKFLOW },
-        })
+      // 2B. Query admin_accounts
+      const accRes = await queryPg<any>(
+        `SELECT a.id, a.username, a.role, a."fullName", a."businessName", a.phone, a.email, a.status, a."createdAt", a."approvalWorkflow",
+                a."tenantId",
+                s.tier as "subTier",
+                s."validUntil" as "subValidUntil",
+                s."monthlyScanLimit" as "subScanLimit",
+                s."usedScansThisMonth" as "subUsedScans"
+         FROM admin_accounts a
+         LEFT JOIN subscriptions s ON a."tenantId" = s."tenantId"
+         ORDER BY a."createdAt" DESC`
+      )
+
+      if (accRes.rows) {
+        for (const acc of accRes.rows) {
+          const cleanUser = (acc.username || acc.email || "").trim().toLowerCase()
+          if (!cleanUser) continue
+          
+          if (!tenantsMap.has(cleanUser)) {
+            const tier = (acc.subTier || "starter") as SubscriptionTier
+            const tierCfg = TIER_CONFIG[tier] || TIER_CONFIG.trial
+            const validDate = new Date(acc.subValidUntil || Date.now() + 14 * 24 * 60 * 60 * 1000)
+            const isExpired = validDate < new Date()
+
+            tenantsMap.set(cleanUser, {
+              tenantId: acc.tenantId || DEFAULT_TENANT_ID,
+              username: cleanUser,
+              fullName: acc.fullName || cleanUser,
+              businessName: acc.businessName || "Scota Business",
+              phone: acc.phone || "",
+              role: acc.role || "ADMIN",
+              tier,
+              validUntil: validDate.toISOString(),
+              monthlyScanLimit: acc.subScanLimit || tierCfg.monthlyScanLimit,
+              usedScansThisMonth: acc.subUsedScans || 0,
+              createdAt: acc.createdAt ? new Date(acc.createdAt).toISOString() : new Date().toISOString(),
+              status: acc.status === "suspended" ? "suspended" : (isExpired ? "expired" : "active"),
+              approvalWorkflow: { ...DEFAULT_APPROVAL_WORKFLOW },
+            })
+          }
+        }
       }
+    } catch (err) {
+      console.warn("PostgreSQL tenants fetch notice in superadmin:", err)
     }
   }
 

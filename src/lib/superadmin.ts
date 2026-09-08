@@ -214,12 +214,13 @@ export async function getAllTenants(): Promise<TenantSummary[]> {
 
       // 2B. Query admin_accounts
       const accRes = await queryPg<any>(
-        `SELECT a.id, a.username, a.role, a."fullName", a."businessName", a.phone, a.email, a.status, a."createdAt", a."approvalWorkflow",
+        `SELECT a.id, a.username, a.role, a."fullName", a."businessName", a.phone, a.email, a.status, a."createdAt",
                 a."tenantId",
                 s.tier as "subTier",
                 s."validUntil" as "subValidUntil",
                 s."monthlyScanLimit" as "subScanLimit",
-                s."usedScansThisMonth" as "subUsedScans"
+                s."usedScansThisMonth" as "subUsedScans",
+                s."approvalWorkflow"
          FROM admin_accounts a
          LEFT JOIN subscriptions s ON a."tenantId" = s."tenantId"
          ORDER BY a."createdAt" DESC`
@@ -259,7 +260,17 @@ export async function getAllTenants(): Promise<TenantSummary[]> {
     }
   }
 
-  return Array.from(tenantsMap.values())
+  const masterSuperadminEmail = (process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL || "refo.gangga.dev@gmail.com").toLowerCase().trim()
+  const masterSuperadminUser = (process.env.SUPERADMIN_USERNAME || "superadmin").toLowerCase().trim()
+
+  return Array.from(tenantsMap.values()).filter((t) => {
+    const u = t.username.toLowerCase().trim()
+    const r = (t.role || "").toUpperCase()
+    if (u === masterSuperadminUser || u === "superadmin" || u === "developer") return false
+    if (u === masterSuperadminEmail) return false
+    if (t.tenantId === DEFAULT_TENANT_ID && (u === "superadmin" || r === "SUPERADMIN")) return false
+    return true
+  })
 }
 
 /**

@@ -16,10 +16,13 @@ CREATE TABLE IF NOT EXISTS receipts (
     "taxAmount" DOUBLE PRECISION NOT NULL DEFAULT 0,
     "totalAmount" DOUBLE PRECISION NOT NULL DEFAULT 0,
     "paymentMethod" TEXT DEFAULT 'Cash',
+    "paymentStatus" TEXT NOT NULL DEFAULT 'Lunas',
     category TEXT DEFAULT 'Lain-lain',
     status TEXT NOT NULL DEFAULT 'completed',
+    "staffName" TEXT DEFAULT 'Admin',
     "createdByName" TEXT DEFAULT 'Administrator',
     "createdByRole" TEXT DEFAULT 'ADMIN',
+    "createdByUsername" TEXT,
     "confidenceScore" DOUBLE PRECISION DEFAULT 1.0,
     "processingTimeMs" INTEGER DEFAULT 0,
     "validationErrors" TEXT,
@@ -48,6 +51,7 @@ CREATE TABLE IF NOT EXISTS receipt_items (
     "unitPrice" DOUBLE PRECISION NOT NULL DEFAULT 0,
     "totalPrice" DOUBLE PRECISION NOT NULL DEFAULT 0,
     category TEXT DEFAULT 'Lain-lain',
+    "subCategory" TEXT DEFAULT 'Umum',
     "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

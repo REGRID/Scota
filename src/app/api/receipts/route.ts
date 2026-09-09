@@ -71,9 +71,9 @@ export async function GET(req: NextRequest) {
                 OR (
                   r."createdByRole" IS NULL AND (
                     r."paymentMethod" ILIKE '%Talangan%'
-                    OR r.note ILIKE '%(karyawan)%'
-                    OR r.note ILIKE '%(kasir)%'
-                    OR r.note ILIKE '%[diunggah oleh:%'
+                    OR r.notes ILIKE '%(karyawan)%'
+                    OR r.notes ILIKE '%(kasir)%'
+                    OR r.notes ILIKE '%[diunggah oleh:%'
                     OR r."staffName" ILIKE ANY(ARRAY['%kasir%', '%staf%', '%staff%', '%karyawan%'])
                     OR r."staffName" = '${(session?.staffName || session?.fullName || "").replace(/'/g, "''")}'
                   )
@@ -86,7 +86,7 @@ export async function GET(req: NextRequest) {
               const p = `$${params.length}`
               conditions.push(`(
                 r."merchantName" ILIKE ${p} OR
-                r.note ILIKE ${p} OR
+                r.notes ILIKE ${p} OR
                 r."paymentMethod" ILIKE ${p} OR
                 EXISTS (
                   SELECT 1 FROM receipt_items si
@@ -123,7 +123,8 @@ export async function GET(req: NextRequest) {
                 r."totalAmount",
                 r."paymentMethod",
                 r."paymentStatus",
-                r.note,
+                r.notes,
+                r.notes as note,
                 r."staffName",
                 r."createdByRole",
                 r."createdByUsername",
@@ -136,8 +137,8 @@ export async function GET(req: NextRequest) {
                       'name', i.name,
                       'category', i.category,
                       'subCategory', i."subCategory",
-                      'price', i.price,
-                      'quantity', i.quantity
+                      'price', i."unitPrice",
+                      'quantity', i.qty
                     )
                   ) FILTER (WHERE i.id IS NOT NULL),
                   '[]'::json
@@ -260,14 +261,16 @@ export async function GET(req: NextRequest) {
     let normalizedReceipts = receipts.map((r: any) => {
       const isPersonal =
         r.paymentMethod === "Dana Pribadi Owner" || r.paymentMethod === "Talangan Karyawan"
+      const noteSource = r.note !== undefined ? r.note : r.notes
       const cleanedNote =
-        !isPersonal && r.note
-          ? r.note.replace(/\[Dibayar oleh: [^\]]+\]\s*/g, "").trim() || null
-          : r.note
+        !isPersonal && noteSource
+          ? noteSource.replace(/\[Dibayar oleh: [^\]]+\]\s*/g, "").trim() || null
+          : noteSource
 
       return {
         ...r,
         note: cleanedNote,
+        notes: cleanedNote,
         items: (r.items || []).map((item: any) => {
           const itemCat = item.category || "Lain-lain"
           const itemRoot = itemCat.split("/")[0].trim().toLowerCase()

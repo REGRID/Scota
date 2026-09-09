@@ -111,11 +111,21 @@ async function migrateTenantData(tenantId, deltaDelayMs = 2000) {
       if (table === 'receipt_items') {
         // receipt_items joins with receipts to verify tenantId
         await client.query(`
-          INSERT INTO "${schemaName}".receipt_items (id, "tenantId", "receiptId", name, qty, "unitPrice", "totalPrice", category, "createdAt")
-          SELECT ri.id, r."tenantId", ri."receiptId", ri.name, COALESCE(ri.quantity, 1), COALESCE(ri.price, 0), (COALESCE(ri.price, 0) * COALESCE(ri.quantity, 1)), COALESCE(ri.category, 'Lain-lain'), ri."createdAt"
+          INSERT INTO "${schemaName}".receipt_items (id, "tenantId", "receiptId", name, qty, "unitPrice", "totalPrice", category, "subCategory", "createdAt")
+          SELECT ri.id, r."tenantId", ri."receiptId", ri.name, COALESCE(ri.quantity, 1), COALESCE(ri.price, 0), (COALESCE(ri.price, 0) * COALESCE(ri.quantity, 1)), COALESCE(ri.category, 'Lain-lain'), COALESCE(ri."subCategory", 'Umum'), ri."createdAt"
           FROM public.receipt_items ri
           JOIN public.receipts r ON ri."receiptId" = r.id
           WHERE r."tenantId" = $1
+          ON CONFLICT (id) DO NOTHING
+        `, [tenantId]);
+      } else if (table === 'receipts') {
+        const matchingCols = await getMatchingColumns(client, schemaName, 'receipts');
+        const insertCols = [...matchingCols, '"notes"'].join(', ');
+        const selectCols = [...matchingCols, 'note'].join(', ');
+        await client.query(`
+          INSERT INTO "${schemaName}".receipts (${insertCols})
+          SELECT ${selectCols} FROM public.receipts
+          WHERE "tenantId" = $1
           ON CONFLICT (id) DO NOTHING
         `, [tenantId]);
       } else {
@@ -139,11 +149,26 @@ async function migrateTenantData(tenantId, deltaDelayMs = 2000) {
       for (const table of TABLES_IN_ORDER) {
         if (table === 'receipt_items') {
           await client.query(`
-            INSERT INTO "${schemaName}".receipt_items (id, "tenantId", "receiptId", name, qty, "unitPrice", "totalPrice", category, "createdAt")
-            SELECT ri.id, r."tenantId", ri."receiptId", ri.name, COALESCE(ri.quantity, 1), COALESCE(ri.price, 0), (COALESCE(ri.price, 0) * COALESCE(ri.quantity, 1)), COALESCE(ri.category, 'Lain-lain'), ri."createdAt"
+            INSERT INTO "${schemaName}".receipt_items (id, "tenantId", "receiptId", name, qty, "unitPrice", "totalPrice", category, "subCategory", "createdAt")
+            SELECT ri.id, r."tenantId", ri."receiptId", ri.name, COALESCE(ri.quantity, 1), COALESCE(ri.price, 0), (COALESCE(ri.price, 0) * COALESCE(ri.quantity, 1)), COALESCE(ri.category, 'Lain-lain'), COALESCE(ri."subCategory", 'Umum'), ri."createdAt"
             FROM public.receipt_items ri
             JOIN public.receipts r ON ri."receiptId" = r.id
             WHERE r."tenantId" = $1 AND (ri."createdAt" >= $2)
+            ON CONFLICT (id) DO NOTHING
+          `, [tenantId, startedAt.toISOString()]);
+        } else if (table === 'receipts') {
+          const matchingCols = await getMatchingColumns(client, schemaName, 'receipts');
+          const insertCols = [...matchingCols, '"notes"'].join(', ');
+          const selectCols = [...matchingCols, 'note'].join(', ');
+          const hasUpdatedAt = matchingCols.includes('"updatedAt"');
+          const timeFilter = hasUpdatedAt
+            ? '("createdAt" >= $2 OR "updatedAt" >= $2)'
+            : '"createdAt" >= $2';
+
+          await client.query(`
+            INSERT INTO "${schemaName}".receipts (${insertCols})
+            SELECT ${selectCols} FROM public.receipts
+            WHERE "tenantId" = $1 AND ${timeFilter}
             ON CONFLICT (id) DO NOTHING
           `, [tenantId, startedAt.toISOString()]);
         } else {

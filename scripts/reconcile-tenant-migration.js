@@ -126,11 +126,21 @@ async function reconcileTenantMigration(tenantId) {
         // Reconcile and copy the missing rows
         if (table === 'receipt_items') {
           await client.query(`
-            INSERT INTO "${schemaName}".receipt_items (id, "tenantId", "receiptId", name, qty, "unitPrice", "totalPrice", category, "createdAt")
-            SELECT ri.id, r."tenantId", ri."receiptId", ri.name, COALESCE(ri.quantity, 1), COALESCE(ri.price, 0), (COALESCE(ri.price, 0) * COALESCE(ri.quantity, 1)), COALESCE(ri.category, 'Lain-lain'), ri."createdAt"
+            INSERT INTO "${schemaName}".receipt_items (id, "tenantId", "receiptId", name, qty, "unitPrice", "totalPrice", category, "subCategory", "createdAt")
+            SELECT ri.id, r."tenantId", ri."receiptId", ri.name, COALESCE(ri.quantity, 1), COALESCE(ri.price, 0), (COALESCE(ri.price, 0) * COALESCE(ri.quantity, 1)), COALESCE(ri.category, 'Lain-lain'), COALESCE(ri."subCategory", 'Umum'), ri."createdAt"
             FROM public.receipt_items ri
             JOIN public.receipts r ON ri."receiptId" = r.id
             WHERE r."tenantId" = $1
+            ON CONFLICT (id) DO NOTHING
+          `, [tenantId]);
+        } else if (table === 'receipts') {
+          const matchingCols = await getMatchingColumns(client, schemaName, 'receipts');
+          const insertCols = [...matchingCols, '"notes"'].join(', ');
+          const selectCols = [...matchingCols, 'note'].join(', ');
+          await client.query(`
+            INSERT INTO "${schemaName}".receipts (${insertCols})
+            SELECT ${selectCols} FROM public.receipts
+            WHERE "tenantId" = $1
             ON CONFLICT (id) DO NOTHING
           `, [tenantId]);
         } else {

@@ -15,6 +15,7 @@ import {
   HelpCircle,
   CheckCircle2,
   ArrowLeft,
+  LayoutDashboard,
 } from "lucide-react"
 import { TIER_CONFIG, SubscriptionTier } from "@/lib/subscription"
 import { getSupportWhatsAppNumber } from "@/lib/contactConfig"
@@ -30,21 +31,44 @@ const TIER_DESCRIPTIONS: Record<SubscriptionTier, string> = {
 }
 
 export default function PricingPage() {
-  const { isLoaded, isSignedIn } = useUser()
+  const { isLoaded, isSignedIn, user } = useUser()
   const [cachedUser, setCachedUser] = useState<string | null>(() => {
     if (typeof window !== "undefined") {
       return localStorage.getItem("nota_admin_user")
     }
     return null
   })
+  const [sessionUser, setSessionUser] = useState<string | null>(null)
 
   React.useEffect(() => {
     if (typeof window !== "undefined") {
-      setCachedUser(localStorage.getItem("nota_admin_user"))
+      const stored = localStorage.getItem("nota_admin_user")
+      if (stored) setCachedUser(stored)
     }
+
+    // Unified session check for internal cookie-based logins
+    fetch("/api/auth/session")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.authenticated && data.user) {
+          setSessionUser(data.user.staffName || data.user.fullName || data.user.username)
+        }
+      })
+      .catch(() => {})
   }, [])
 
-  const isUserLoggedIn = Boolean(isLoaded ? isSignedIn : Boolean(cachedUser))
+  const isUserLoggedIn = Boolean(
+    (isLoaded && isSignedIn) ||
+    Boolean(sessionUser) ||
+    Boolean(cachedUser)
+  )
+
+  const activeDisplayName =
+    user?.fullName ||
+    user?.username ||
+    sessionUser ||
+    cachedUser ||
+    "Pengguna"
 
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly")
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0)
@@ -119,50 +143,67 @@ export default function PricingPage() {
             
             <ThemeToggle className="ml-1" />
 
-            <Show when="signed-in">
+            {isUserLoggedIn ? (
               <div className="flex items-center gap-2 sm:gap-3">
                 <Link
                   href="/dashboard"
-                  className="inline-flex items-center gap-1.5 px-4 py-2 sm:px-4 sm:py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-500 dark:hover:bg-emerald-400 text-white dark:text-slate-950 font-bold text-xs sm:text-sm transition-all shadow-sm hover:shadow-md active:scale-[0.98] cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-500 dark:hover:bg-emerald-400 text-white dark:text-slate-950 font-bold text-xs sm:text-sm transition-all shadow-sm hover:shadow-md active:scale-[0.98] cursor-pointer"
                 >
+                  <LayoutDashboard className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   <span>Buka Dashboard</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </Link>
-                <div className="flex items-center pl-0.5">
-                  <UserButton
-                    appearance={{
-                      elements: {
-                        userButtonAvatarBox:
-                          "w-8 h-8 sm:w-9 sm:h-9 border border-emerald-500/50 hover:border-emerald-400 transition-all shadow-xs",
-                        userButtonPopoverCard:
-                          "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white shadow-2xl rounded-2xl",
-                        userPreviewMainIdentifier: "text-slate-900 dark:text-white font-bold text-xs",
-                        userPreviewSecondaryIdentifier: "text-slate-500 dark:text-slate-400 text-[11px]",
-                        userButtonPopoverActionButton:
-                          "text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl",
-                        userButtonPopoverActionButtonIcon: "text-emerald-600 dark:text-emerald-400",
-                        userButtonPopoverFooter: "hidden",
-                      },
-                    }}
-                  />
-                </div>
+                {isSignedIn ? (
+                  <div className="flex items-center pl-0.5">
+                    <UserButton
+                      appearance={{
+                        elements: {
+                          userButtonAvatarBox:
+                            "w-8 h-8 sm:w-9 sm:h-9 border border-emerald-500/50 hover:border-emerald-400 transition-all shadow-xs",
+                          userButtonPopoverCard:
+                            "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white shadow-2xl rounded-2xl",
+                          userPreviewMainIdentifier: "text-slate-900 dark:text-white font-bold text-xs",
+                          userPreviewSecondaryIdentifier: "text-slate-500 dark:text-slate-400 text-[11px]",
+                          userButtonPopoverActionButton:
+                            "text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl",
+                          userButtonPopoverActionButtonIcon: "text-emerald-600 dark:text-emerald-400",
+                          userButtonPopoverFooter: "hidden",
+                        },
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <Link
+                    href="/dashboard"
+                    className="flex items-center gap-1.5 p-1 sm:px-2.5 sm:py-1 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700/80 border border-slate-200/80 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-slate-100 transition-all cursor-pointer shadow-2xs"
+                    title={`Login sebagai ${activeDisplayName}`}
+                  >
+                    <div className="w-6 h-6 rounded-full bg-emerald-500 text-slate-950 flex items-center justify-center font-black text-[11px] uppercase shadow-2xs">
+                      {activeDisplayName[0].toUpperCase()}
+                    </div>
+                    <span className="capitalize hidden md:inline text-xs font-bold max-w-[120px] truncate">
+                      {activeDisplayName}
+                    </span>
+                  </Link>
+                )}
               </div>
-            </Show>
-            <Show when="signed-out">
-              <Link
-                href="/login"
-                className="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:text-slate-950 dark:text-slate-300 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/60 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-all active:scale-[0.98]"
-              >
-                Masuk
-              </Link>
-              <Link
-                href="/register"
-                className="inline-flex items-center gap-2 px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-500 dark:hover:bg-emerald-400 text-white dark:text-slate-950 font-bold text-xs sm:text-sm transition-all shadow-sm hover:shadow-md active:scale-[0.98] cursor-pointer"
-              >
-                <span>Daftar Gratis</span>
-                <ArrowRight className="w-4 h-4" />
-              </Link>
-            </Show>
+            ) : (
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <Link
+                  href="/login"
+                  className="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:text-slate-950 dark:text-slate-300 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/60 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-all active:scale-[0.98]"
+                >
+                  Masuk
+                </Link>
+                <Link
+                  href="/register"
+                  className="inline-flex items-center gap-1.5 sm:gap-2 px-3.5 py-2 sm:px-4.5 sm:py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-500 dark:hover:bg-emerald-400 text-white dark:text-slate-950 font-bold text-xs sm:text-sm transition-all shadow-sm hover:shadow-md active:scale-[0.98] cursor-pointer"
+                >
+                  <span>Daftar Gratis</span>
+                  <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                </Link>
+              </div>
+            )}
           </div>
         </div>
       </nav>
@@ -278,11 +319,11 @@ export default function PricingPage() {
                 <div className="pt-8">
                   {isFree ? (
                     <Link
-                      href="/register"
+                      href={isUserLoggedIn ? "/dashboard" : "/register"}
                       className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-900 dark:text-white font-bold text-xs transition-all shadow-xs active:scale-[0.98] cursor-pointer"
                     >
                       <Zap className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                      <span>Mulai Gratis</span>
+                      <span>{isUserLoggedIn ? "Buka Dashboard" : "Mulai Gratis"}</span>
                     </Link>
                   ) : (
                     <div className="space-y-2">
@@ -420,11 +461,11 @@ export default function PricingPage() {
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
             <Link
-              href="/register"
+              href={isUserLoggedIn ? "/dashboard" : "/register"}
               className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-white text-emerald-900 hover:bg-emerald-50 dark:bg-emerald-500 dark:text-slate-950 dark:hover:bg-emerald-400 font-black text-xs sm:text-sm transition-all shadow-md active:scale-[0.98]"
             >
               <Zap className="w-4 h-4" />
-              <span>Daftar Akun Gratis</span>
+              <span>{isUserLoggedIn ? "Buka Dashboard Sekarang" : "Daftar Akun Gratis"}</span>
             </Link>
             <button
               type="button"

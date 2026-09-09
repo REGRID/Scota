@@ -96,6 +96,13 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    if (rawRole === "ADMIN" && auth.userRole !== "OWNER" && auth.userRole !== "SUPERADMIN") {
+      return NextResponse.json(
+        { error: "Hanya Owner yang dapat memberikan role Admin." },
+        { status: 403 }
+      )
+    }
+
     // Check username collision
     const existing = await queryPg(
       `SELECT id FROM admin_accounts WHERE LOWER(username) = $1`,
@@ -212,6 +219,14 @@ export async function DELETE(req: NextRequest) {
       )
     }
 
+    // Only OWNER (or SUPERADMIN) can delete an ADMIN account
+    if (targetAccount.role.toUpperCase() === "ADMIN" && auth.userRole !== "OWNER" && auth.userRole !== "SUPERADMIN") {
+      return NextResponse.json(
+        { error: "Hanya Owner yang dapat menghapus akun Admin." },
+        { status: 403 }
+      )
+    }
+
     await queryPg(
       `DELETE FROM admin_accounts WHERE id = $1 AND "tenantId" = $2`,
       [targetAccount.id, auth.tenantId]
@@ -229,3 +244,130 @@ export async function DELETE(req: NextRequest) {
     )
   }
 }
+
+export async function PATCH(req: NextRequest) {
+  try {
+    const auth = await requireRole(req, ["OWNER", "ADMIN"])
+    if (!auth.ok) return auth.response
+
+    if (!isDatabaseConfigured) {
+      return NextResponse.json({ error: "Database belum terkonfigurasi" }, { status: 500 })
+    }
+
+    const body = await req.json().catch(() => ({}))
+    const targetId = body.id ? String(body.id).trim() : null
+    const targetUsername = body.username ? String(body.username).trim() : null
+    const rawNewRole = body.newRole || body.role
+
+    if (!targetId && !targetUsername) {
+      return NextResponse.json(
+        { error: "ID atau Username staf yang akan diubah wajib disertakan." },
+        { status: 400 }
+      )
+    }
+
+    if (!rawNewRole || typeof rawNewRole !== "string") {
+      return NextResponse.json(
+        { error: "Role baru (newRole) wajib disertakan." },
+        { status: 400 }
+      )
+    }
+
+    const newRole = rawNewRole.trim().toUpperCase()
+
+    if (!ALLOWED_STAFF_ROLES.includes(newRole)) {
+      return NextResponse.json(
+        { error: `Role tidak valid. Role yang diizinkan untuk staf: ${ALLOWED_STAFF_ROLES.join(", ")}.` },
+        { status: 400 }
+      )
+    }
+
+    // Prevent self-role change if username is directly supplied
+    if (targetUsername && targetUsername.toLowerCase() === auth.username.toLowerCase()) {
+      return NextResponse.json(
+        { error: "Aksi ditolak: Anda tidak dapat mengubah role akun Anda sendiri saat sedang login." },
+        { status: 400 }
+      )
+    }
+
+    // Find target account
+    const findRes = await queryPg<{ id: string; username: string; role: string; tenantId: string }>(
+      targetId
+        ? `SELECT id, username, role, "tenantId" FROM admin_accounts WHERE id = $1 AND "tenantId" = $2`
+        : `SELECT id, username, role, "tenantId" FROM admin_accounts WHERE LOWER(username) = $1 AND "tenantId" = $2`,
+      targetId ? [targetId, auth.tenantId] : [targetUsername!.toLowerCase(), auth.tenantId]
+    )
+
+    const targetAccount = findRes.rows?.[0]
+    if (!targetAccount) {
+      return NextResponse.json(
+        { error: "Akun staf tidak ditemukan di tenant Anda." },
+        { status: 404 }
+      )
+    }
+
+    // Prevent self-role change by id
+    if (targetAccount.username.toLowerCase() === auth.username.toLowerCase()) {
+      return NextResponse.json(
+        { error: "Aksi ditolak: Anda tidak dapat mengubah role akun Anda sendiri saat sedang login." },
+        { status: 400 }
+      )
+    }
+
+    const currentRole = targetAccount.role.toUpperCase()
+
+    // Prevent modifying role of OWNER or SUPERADMIN
+    if (["OWNER", "SUPERADMIN"].includes(currentRole)) {
+      return NextResponse.json(
+        { error: `Aksi ditolak: Role akun '${targetAccount.role}' tidak dapat diubah melalui antarmuka staf.` },
+        { status: 403 }
+      )
+    }
+
+    // Only OWNER (or SUPERADMIN) can promote to ADMIN
+    if (newRole === "ADMIN" && auth.userRole !== "OWNER" && auth.userRole !== "SUPERADMIN") {
+      return NextResponse.json(
+        { error: "Hanya Owner yang dapat memberikan role Admin." },
+        { status: 403 }
+      )
+    }
+
+    // Only OWNER (or SUPERADMIN) can demote an ADMIN
+    if (currentRole === "ADMIN" && newRole !== "ADMIN" && auth.userRole !== "OWNER" && auth.userRole !== "SUPERADMIN") {
+      return NextResponse.json(
+        { error: "Hanya Owner yang dapat mencabut role Admin." },
+        { status: 403 }
+      )
+    }
+
+    const updateRes = await queryPg<{
+      id: string
+      username: string
+      role: string
+      fullName: string | null
+      phone: string | null
+      email: string | null
+      status: string | null
+      createdAt: string
+      updatedAt: string
+    }>(
+      `UPDATE admin_accounts 
+       SET role = $1, "updatedAt" = NOW() 
+       WHERE id = $2 AND "tenantId" = $3 
+       RETURNING id, username, role, "fullName", phone, email, status, "createdAt", "updatedAt"`,
+      [newRole, targetAccount.id, auth.tenantId]
+    )
+
+    return NextResponse.json({
+      message: `Role akun '${targetAccount.username}' berhasil diubah menjadi '${newRole}'.`,
+      account: updateRes.rows[0],
+    })
+  } catch (error: any) {
+    console.error("PATCH /api/settings/staff Error:", error)
+    return NextResponse.json(
+      { error: error.message || "Gagal memperbarui role staf" },
+      { status: 500 }
+    )
+  }
+}
+

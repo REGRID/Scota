@@ -187,12 +187,10 @@ ALTER TABLE admin_accounts ADD COLUMN IF NOT EXISTS "clerkId" TEXT UNIQUE;
 CREATE INDEX IF NOT EXISTS admin_accounts_clerk_idx ON admin_accounts ("clerkId");
 
 
--- Default Seed Accounts (Linked to default tenant)
+-- Default Seed Accounts (Master Superadmin only)
 INSERT INTO admin_accounts (username, password, role, "fullName", "businessName", phone, "tenantId")
 VALUES 
-    ('superadmin', '$2b$12$4ZzB5qjdn1Qp520cFqV3i.n5DwdT6WpORIkzT4iarhRKRLjkl.GTe', 'SUPERADMIN', 'Developer / Superadmin', 'Scota Central Management', '6285215973776', '00000000-0000-0000-0000-000000000001'),
-    ('admin', '$2b$12$6ox9jnEHW.KPZwkeOPj2f.ze8K3prlzSYC3stGdL1uKzLbpuOdOgO', 'ADMIN', 'Administrator', 'Scota Business', '6285215973776', '00000000-0000-0000-0000-000000000001'),
-    ('karyawan', '$2b$12$9D45oONPISU9wTC9xXNSZe0xsakBFUAatLasEQL.3fpYQWE6TP.J6', 'KARYAWAN', 'Staff Kasir', 'Scota Business', '6285215973776', '00000000-0000-0000-0000-000000000001')
+    ('superadmin', '$2b$12$4ZzB5qjdn1Qp520cFqV3i.n5DwdT6WpORIkzT4iarhRKRLjkl.GTe', 'SUPERADMIN', 'Developer / Superadmin', 'Scota Central Management', '6285215973776', NULL)
 ON CONFLICT (username) DO NOTHING;
 
 -- 9. Table: subscriptions (1 baris per tenant)

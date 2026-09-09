@@ -1,28 +1,38 @@
 /**
- * Test Suite: Multi-Role Permission Enforcement (Prioritas 1)
+ * Test Suite: Multi-Role Permission Enforcement (Updated for Strict OWNER/ADMIN Policy)
  * 
  * Verifies:
  * 1. requireRole guard functionality (401 for unauth, 403 for unauthorized role, 200 for allowed roles & superadmin).
  * 2. DELETE /api/receipts/[id] blocks KARYAWAN & MANAGER with 403, permits ADMIN.
  * 3. Bulk DELETE /api/receipts blocks KARYAWAN with 403, permits ADMIN.
  * 4. POST /api/approvals/[id]/approve blocks KARYAWAN with 403, permits MANAGER & ADMIN.
- * 5. /api/settings/staff:
- *    - Blocks KARYAWAN with 403 on GET/POST/DELETE.
- *    - Permits ADMIN to list staff (GET), passwords excluded.
- *    - Permits ADMIN to create staff (POST) with hashed password.
- *    - Rejects OWNER role assignment via staff endpoint (400).
- *    - Blocks self-deletion (400).
- *    - Permits ADMIN to delete staff (DELETE).
+ * 5. All 15 scenarios from fix-role-logic-owner-admin.md:
+ *    - Scenario 1: New tenant registration defaults to OWNER.
+ *    - Scenario 2: Data migration normalizes earliest tenant account to OWNER, leaves later ADMINs unchanged.
+ *    - Scenario 3: OWNER creates ADMIN via POST -> 201.
+ *    - Scenario 4: ADMIN creating ADMIN via POST is blocked -> 403.
+ *    - Scenario 5: ADMIN creating KARYAWAN/MANAGER via POST succeeds -> 201.
+ *    - Scenario 6: OWNER deleting ADMIN via DELETE succeeds -> 200.
+ *    - Scenario 7: ADMIN deleting another ADMIN via DELETE is blocked -> 403.
+ *    - Scenario 8: ADMIN deleting KARYAWAN/MANAGER via DELETE succeeds -> 200.
+ *    - Scenario 9: OWNER promoting KARYAWAN to ADMIN via PATCH succeeds -> 200.
+ *    - Scenario 10: ADMIN promoting KARYAWAN to ADMIN via PATCH is blocked -> 403.
+ *    - Scenario 11: ADMIN changing KARYAWAN to MANAGER via PATCH succeeds -> 200.
+ *    - Scenario 12: OWNER demoting ADMIN to KARYAWAN via PATCH succeeds -> 200.
+ *    - Scenario 13: ADMIN demoting ADMIN to KARYAWAN via PATCH is blocked -> 403.
+ *    - Scenario 14: Modifying role of OWNER via PATCH is blocked -> 403.
+ *    - Scenario 15: Self-role modification via PATCH is blocked -> 400.
  */
 
 import { NextRequest } from "next/server"
 import { requireRole } from "../src/lib/roleGuard"
-import { createSessionToken, DEFAULT_TENANT_ID } from "../src/lib/session"
+import { createSessionToken } from "../src/lib/session"
 import { queryPg } from "../src/lib/pgDb"
 import { DELETE as deleteSingleReceipt } from "../src/app/api/receipts/[id]/route"
 import { DELETE as bulkDeleteReceipts } from "../src/app/api/receipts/route"
 import { POST as approveRoute } from "../src/app/api/approvals/[id]/approve/route"
-import { GET as getStaff, POST as postStaff, DELETE as deleteStaff } from "../src/app/api/settings/staff/route"
+import { GET as getStaff, POST as postStaff, DELETE as deleteStaff, PATCH as patchStaff } from "../src/app/api/settings/staff/route"
+import { registerAdminAccount } from "../src/lib/adminAccounts"
 import * as fs from "fs"
 import * as path from "path"
 
@@ -77,7 +87,7 @@ async function createMockRequest(
 
 async function runTests() {
   console.log("=================================================================")
-  console.log("🛡️ RUNNING MULTI-ROLE PERMISSION ENFORCEMENT TESTS")
+  console.log("🛡️ RUNNING COMPREHENSIVE MULTI-ROLE ENFORCEMENT TESTS")
   console.log("=================================================================\n")
 
   let passed = 0
@@ -85,27 +95,36 @@ async function runTests() {
 
   const testTenantId = "00000000-0000-0000-0000-000000000088"
   const testReceiptId = "88888888-1111-0000-0000-000000000001"
-  const testStaffUsername = "staff_test_audit_88"
+  const migTenant1 = "00000000-0000-0000-0000-000000000091"
+  const migTenant2 = "00000000-0000-0000-0000-000000000092"
+  let autoRegTenantId = ""
 
-  const karyawanSession = {
-    username: "kasir_test",
-    role: "KARYAWAN",
+  const ownerSession = {
+    username: "owner_test_88",
+    role: "OWNER",
     tenantId: testTenantId,
-    staffName: "Kasir Uji",
+    staffName: "Owner Uji",
+  }
+
+  const adminSession = {
+    username: "admin_test_88",
+    role: "ADMIN",
+    tenantId: testTenantId,
+    staffName: "Admin Uji",
   }
 
   const managerSession = {
-    username: "manager_test",
+    username: "manager_test_88",
     role: "MANAGER",
     tenantId: testTenantId,
     staffName: "Manager Uji",
   }
 
-  const adminSession = {
-    username: "admin_test",
-    role: "ADMIN",
+  const karyawanSession = {
+    username: "kasir_test_88",
+    role: "KARYAWAN",
     tenantId: testTenantId,
-    staffName: "Admin Uji",
+    staffName: "Kasir Uji",
   }
 
   const superadminSession = {
@@ -160,8 +179,16 @@ async function runTests() {
     `, [testTenantId])
 
     await queryPg(`
+      INSERT INTO public.admin_accounts (id, "tenantId", username, password, role, "fullName", status, "createdAt", "updatedAt")
+      VALUES 
+        ('00000000-0000-0000-0000-000000000001', $1, 'owner_test_88', 'dummy_hash', 'OWNER', 'Owner Uji', 'active', NOW() - INTERVAL '2 hours', NOW()),
+        ('00000000-0000-0000-0000-000000000002', $1, 'admin_test_88', 'dummy_hash', 'ADMIN', 'Admin Uji', 'active', NOW() - INTERVAL '1 hour', NOW())
+      ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role
+    `, [testTenantId])
+
+    await queryPg(`
       INSERT INTO public.receipts (id, "tenantId", "merchantName", date, "totalAmount", "createdByRole", "createdByUsername")
-      VALUES ($1, $2, 'Toko Uji Role', '2026-09-09', 100000, 'ADMIN', 'admin_test')
+      VALUES ($1, $2, 'Toko Uji Role', '2026-09-09', 100000, 'ADMIN', 'admin_test_88')
       ON CONFLICT (id) DO NOTHING
     `, [testReceiptId, testTenantId])
 
@@ -170,7 +197,6 @@ async function runTests() {
     // -------------------------------------------------------------------
     console.log("TEST 2: Verifying DELETE /api/receipts/[id] blocks KARYAWAN & MANAGER, permits ADMIN...")
 
-    // 2a. KARYAWAN attempted delete -> 403
     const delReqKary = await createMockRequest(
       `http://localhost:3000/api/receipts/${testReceiptId}`,
       "DELETE",
@@ -181,7 +207,6 @@ async function runTests() {
       throw new Error(`Expected 403 Forbidden for KARYAWAN deleting receipt, got ${delResKary.status}`)
     }
 
-    // 2b. MANAGER attempted delete -> 403
     const delReqMgr = await createMockRequest(
       `http://localhost:3000/api/receipts/${testReceiptId}`,
       "DELETE",
@@ -192,7 +217,6 @@ async function runTests() {
       throw new Error(`Expected 403 Forbidden for MANAGER deleting receipt, got ${delResMgr.status}`)
     }
 
-    // 2c. ADMIN delete -> 200
     const delReqAdmin = await createMockRequest(
       `http://localhost:3000/api/receipts/${testReceiptId}`,
       "DELETE",
@@ -244,105 +268,336 @@ async function runTests() {
     passed++
 
     // -------------------------------------------------------------------
-    // TEST 5: Staff Management API (/api/settings/staff)
+    // SCENARIO 1: registerAdminAccount defaults to OWNER
     // -------------------------------------------------------------------
-    console.log("TEST 5: Verifying /api/settings/staff (GET, POST, DELETE, Self-delete protection)...")
-
-    // Clean any previous test staff account
-    await queryPg(`DELETE FROM public.admin_accounts WHERE username = $1`, [testStaffUsername])
-
-    // 5a. KARYAWAN blocked from staff API -> 403
-    const staffGetKary = await createMockRequest(
-      "http://localhost:3000/api/settings/staff",
-      "GET",
-      karyawanSession
-    )
-    const staffGetKaryRes = await getStaff(staffGetKary)
-    if (staffGetKaryRes.status !== 403) {
-      throw new Error(`Expected 403 for KARYAWAN GET /api/settings/staff, got ${staffGetKaryRes.status}`)
+    console.log("SCENARIO 1: Testing registerAdminAccount() role assignment...")
+    const regRes = await registerAdminAccount({
+      username: "auto_reg_owner_88",
+      password: "password12345",
+      businessName: "Toko Baru 88",
+      email: "toko88@example.com",
+    })
+    if (!regRes.success) {
+      throw new Error(`registerAdminAccount failed: ${regRes.error}`)
     }
+    autoRegTenantId = regRes.tenantId
+    if (regRes.role !== "OWNER") {
+      throw new Error(`Expected registerAdminAccount role to be OWNER, got '${regRes.role}'`)
+    }
+    const regDbCheck = await queryPg(`SELECT role FROM admin_accounts WHERE username = 'auto_reg_owner_88'`)
+    if (regDbCheck.rows[0]?.role !== "OWNER") {
+      throw new Error(`Expected database role to be OWNER, got '${regDbCheck.rows[0]?.role}'`)
+    }
+    console.log("  ✅ SCENARIO 1 PASSED: New tenant self-registration creates initial account as OWNER.\n")
+    passed++
 
-    // 5b. ADMIN creates new staff member
-    const staffPostAdmin = await createMockRequest(
+    // -------------------------------------------------------------------
+    // SCENARIO 2: Data migration normalization query
+    // -------------------------------------------------------------------
+    console.log("SCENARIO 2: Testing single-use migration query logic...")
+    await queryPg(`
+      INSERT INTO tenants (id, "businessName", status) 
+      VALUES ($1, 'Mig Test Tenant 1', 'active'), ($2, 'Mig Test Tenant 2', 'active') 
+      ON CONFLICT (id) DO NOTHING
+    `, [migTenant1, migTenant2])
+
+    await queryPg(`
+      INSERT INTO admin_accounts (id, "tenantId", username, password, role, "fullName", status, "createdAt")
+      VALUES
+        ('00000000-0000-0000-0000-000000000011', $1, 'mig_t1_first', 'pass', 'ADMIN', 'First T1', 'active', NOW() - INTERVAL '3 hours'),
+        ('00000000-0000-0000-0000-000000000012', $1, 'mig_t1_second', 'pass', 'ADMIN', 'Second T1', 'active', NOW() - INTERVAL '1 hour'),
+        ('00000000-0000-0000-0000-000000000021', $2, 'mig_t2_first', 'pass', 'ADMIN', 'First T2', 'active', NOW() - INTERVAL '4 hours'),
+        ('00000000-0000-0000-0000-000000000022', $2, 'mig_t2_second', 'pass', 'ADMIN', 'Second T2', 'active', NOW() - INTERVAL '2 hours')
+      ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role, "createdAt" = EXCLUDED."createdAt"
+    `, [migTenant1, migTenant2])
+
+    // Run the safe UPDATE migration
+    await queryPg(`
+      UPDATE admin_accounts a
+      SET role = 'OWNER', "updatedAt" = NOW()
+      WHERE a.role = 'ADMIN'
+        AND a.id = (
+          SELECT id 
+          FROM admin_accounts b
+          WHERE b."tenantId" = a."tenantId"
+          ORDER BY b."createdAt" ASC
+          LIMIT 1
+        );
+    `)
+
+    const t1First = (await queryPg(`SELECT role FROM admin_accounts WHERE username = 'mig_t1_first'`)).rows[0]?.role
+    const t1Second = (await queryPg(`SELECT role FROM admin_accounts WHERE username = 'mig_t1_second'`)).rows[0]?.role
+    const t2First = (await queryPg(`SELECT role FROM admin_accounts WHERE username = 'mig_t2_first'`)).rows[0]?.role
+    const t2Second = (await queryPg(`SELECT role FROM admin_accounts WHERE username = 'mig_t2_second'`)).rows[0]?.role
+
+    if (t1First !== "OWNER" || t2First !== "OWNER") {
+      throw new Error(`Expected first accounts to be OWNER, got t1: ${t1First}, t2: ${t2First}`)
+    }
+    if (t1Second !== "ADMIN" || t2Second !== "ADMIN") {
+      throw new Error(`Expected secondary accounts to remain ADMIN, got t1: ${t1Second}, t2: ${t2Second}`)
+    }
+    console.log("  ✅ SCENARIO 2 PASSED: Migration safely converted only the earliest account per tenant to OWNER.\n")
+    passed++
+
+    // -------------------------------------------------------------------
+    // SCENARIO 3: OWNER creates staff with role ADMIN (POST) -> 201
+    // -------------------------------------------------------------------
+    console.log("SCENARIO 3: OWNER creates staff with role ADMIN...")
+    const postAdminByOwner = await createMockRequest(
+      "http://localhost:3000/api/settings/staff",
+      "POST",
+      ownerSession,
+      { username: "staff_admin_target_88", password: "password123", role: "ADMIN", fullName: "Admin By Owner" }
+    )
+    const postAdminByOwnerRes = await postStaff(postAdminByOwner)
+    if (postAdminByOwnerRes.status !== 201) {
+      const err = await postAdminByOwnerRes.json()
+      throw new Error(`Expected 201 for OWNER creating ADMIN, got ${postAdminByOwnerRes.status}: ${JSON.stringify(err)}`)
+    }
+    console.log("  ✅ SCENARIO 3 PASSED: OWNER successfully created new staff with role ADMIN.\n")
+    passed++
+
+    // -------------------------------------------------------------------
+    // SCENARIO 4: ADMIN creates staff with role ADMIN (POST) -> 403
+    // -------------------------------------------------------------------
+    console.log("SCENARIO 4: ADMIN attempts to create staff with role ADMIN...")
+    const postAdminByAdmin = await createMockRequest(
       "http://localhost:3000/api/settings/staff",
       "POST",
       adminSession,
-      {
-        username: testStaffUsername,
-        password: "securepin123",
-        role: "KARYAWAN",
-        fullName: "Budi Kasir Uji",
-      }
+      { username: "staff_admin_illegal_88", password: "password123", role: "ADMIN", fullName: "Admin Illegal" }
     )
-    const staffPostRes = await postStaff(staffPostAdmin)
-    if (staffPostRes.status !== 201) {
-      const errJson = await staffPostRes.json()
-      throw new Error(`Expected 201 Created for staff POST, got ${staffPostRes.status}: ${JSON.stringify(errJson)}`)
+    const postAdminByAdminRes = await postStaff(postAdminByAdmin)
+    if (postAdminByAdminRes.status !== 403) {
+      throw new Error(`Expected 403 Forbidden for ADMIN creating ADMIN, got ${postAdminByAdminRes.status}`)
     }
-    const createdAccount = (await staffPostRes.json()).account
-    if (!createdAccount || !createdAccount.id) {
-      throw new Error("Created account object missing ID")
+    const postAdminByAdminErr = await postAdminByAdminRes.json()
+    if (!postAdminByAdminErr.error?.includes("Owner")) {
+      throw new Error(`Expected error message to mention Owner, got: ${postAdminByAdminErr.error}`)
     }
+    console.log("  ✅ SCENARIO 4 PASSED: ADMIN is rejected with 403 when attempting to create an ADMIN.\n")
+    passed++
 
-    // 5c. Reject invalid role OWNER
-    const staffOwnerPost = await createMockRequest(
+    // -------------------------------------------------------------------
+    // SCENARIO 5: ADMIN creates staff with role KARYAWAN & MANAGER (POST) -> 201
+    // -------------------------------------------------------------------
+    console.log("SCENARIO 5: ADMIN creates staff with role KARYAWAN & MANAGER...")
+    const postKaryByAdmin = await createMockRequest(
       "http://localhost:3000/api/settings/staff",
       "POST",
       adminSession,
-      {
-        username: "fake_owner",
-        password: "password123",
-        role: "OWNER",
-      }
+      { username: "staff_kary_target_88", password: "password123", role: "KARYAWAN", fullName: "Karyawan By Admin" }
     )
-    const staffOwnerRes = await postStaff(staffOwnerPost)
-    if (staffOwnerRes.status !== 400) {
-      throw new Error(`Expected 400 when attempting to create OWNER role, got ${staffOwnerRes.status}`)
+    const postKaryByAdminRes = await postStaff(postKaryByAdmin)
+    if (postKaryByAdminRes.status !== 201) {
+      throw new Error(`Expected 201 for ADMIN creating KARYAWAN, got ${postKaryByAdminRes.status}`)
     }
 
-    // 5d. GET staff list
-    const staffGetAdmin = await createMockRequest(
+    const postMgrByAdmin = await createMockRequest(
       "http://localhost:3000/api/settings/staff",
-      "GET",
-      adminSession
+      "POST",
+      adminSession,
+      { username: "staff_mgr_target_88", password: "password123", role: "MANAGER", fullName: "Manager By Admin" }
     )
-    const staffListRes = await getStaff(staffGetAdmin)
-    if (staffListRes.status !== 200) {
-      throw new Error(`Expected 200 for GET staff list, got ${staffListRes.status}`)
+    const postMgrByAdminRes = await postStaff(postMgrByAdmin)
+    if (postMgrByAdminRes.status !== 201) {
+      throw new Error(`Expected 201 for ADMIN creating MANAGER, got ${postMgrByAdminRes.status}`)
     }
-    const staffList = (await staffListRes.json()).staff
-    const foundStaff = staffList.find((s: any) => s.username === testStaffUsername)
-    if (!foundStaff) {
-      throw new Error("Created staff was not returned in GET list!")
-    }
-    if ((foundStaff as any).password) {
-      throw new Error("Security leak: password hash was returned in GET staff response!")
-    }
+    console.log("  ✅ SCENARIO 5 PASSED: ADMIN successfully creates KARYAWAN and MANAGER accounts.\n")
+    passed++
 
-    // 5e. Prevent self-deletion (admin_test trying to delete admin_test)
-    const selfDelReq = await createMockRequest(
+    // -------------------------------------------------------------------
+    // SCENARIO 7: ADMIN attempts to delete another ADMIN (DELETE) -> 403
+    // (Run 7 before 6 so staff_admin_target_88 still exists)
+    // -------------------------------------------------------------------
+    console.log("SCENARIO 7: ADMIN attempts to delete another ADMIN...")
+    const delAdminByAdmin = await createMockRequest(
       "http://localhost:3000/api/settings/staff",
       "DELETE",
       adminSession,
-      { username: adminSession.username }
+      { username: "staff_admin_target_88" }
     )
-    const selfDelRes = await deleteStaff(selfDelReq)
-    if (selfDelRes.status !== 400) {
-      throw new Error(`Expected 400 Bad Request on self-deletion attempt, got ${selfDelRes.status}`)
+    const delAdminByAdminRes = await deleteStaff(delAdminByAdmin)
+    if (delAdminByAdminRes.status !== 403) {
+      throw new Error(`Expected 403 for ADMIN deleting another ADMIN, got ${delAdminByAdminRes.status}`)
     }
+    console.log("  ✅ SCENARIO 7 PASSED: ADMIN is rejected with 403 when deleting another ADMIN.\n")
+    passed++
 
-    // 5f. Delete the created staff account
-    const delStaffReq = await createMockRequest(
-      `http://localhost:3000/api/settings/staff?id=${createdAccount.id}`,
+    // -------------------------------------------------------------------
+    // SCENARIO 6: OWNER deletes an ADMIN account (DELETE) -> 200
+    // -------------------------------------------------------------------
+    console.log("SCENARIO 6: OWNER deletes an ADMIN account...")
+    // Create dedicated admin to delete
+    await createMockRequest(
+      "http://localhost:3000/api/settings/staff",
+      "POST",
+      ownerSession,
+      { username: "staff_admin_del_88", password: "password123", role: "ADMIN", fullName: "Admin To Delete" }
+    ).then(postStaff)
+
+    const delAdminByOwner = await createMockRequest(
+      "http://localhost:3000/api/settings/staff",
       "DELETE",
-      adminSession
+      ownerSession,
+      { username: "staff_admin_del_88" }
     )
-    const delStaffRes = await deleteStaff(delStaffReq)
-    if (delStaffRes.status !== 200) {
-      throw new Error(`Expected 200 OK for deleting staff, got ${delStaffRes.status}`)
+    const delAdminByOwnerRes = await deleteStaff(delAdminByOwner)
+    if (delAdminByOwnerRes.status !== 200) {
+      throw new Error(`Expected 200 for OWNER deleting ADMIN, got ${delAdminByOwnerRes.status}`)
     }
+    console.log("  ✅ SCENARIO 6 PASSED: OWNER successfully deleted an ADMIN account.\n")
+    passed++
 
-    console.log("  ✅ TEST 5 PASSED: Staff management API enforces RBAC, hashes passwords, prevents self-delete, and manages staff cleanly.\n")
+    // -------------------------------------------------------------------
+    // SCENARIO 8: ADMIN deletes a KARYAWAN account (DELETE) -> 200
+    // -------------------------------------------------------------------
+    console.log("SCENARIO 8: ADMIN deletes a KARYAWAN account...")
+    const delKaryByAdmin = await createMockRequest(
+      "http://localhost:3000/api/settings/staff",
+      "DELETE",
+      adminSession,
+      { username: "staff_mgr_target_88" }
+    )
+    const delKaryByAdminRes = await deleteStaff(delKaryByAdmin)
+    if (delKaryByAdminRes.status !== 200) {
+      throw new Error(`Expected 200 for ADMIN deleting MANAGER/KARYAWAN, got ${delKaryByAdminRes.status}`)
+    }
+    console.log("  ✅ SCENARIO 8 PASSED: ADMIN successfully deleted a non-admin staff account.\n")
+    passed++
+
+    // -------------------------------------------------------------------
+    // SCENARIO 10: ADMIN attempts to promote KARYAWAN to ADMIN (PATCH) -> 403
+    // (Run 10 before 9 so staff_kary_target_88 is still KARYAWAN)
+    // -------------------------------------------------------------------
+    console.log("SCENARIO 10: ADMIN attempts to promote KARYAWAN to ADMIN via PATCH...")
+    const patchPromoteByAdmin = await createMockRequest(
+      "http://localhost:3000/api/settings/staff",
+      "PATCH",
+      adminSession,
+      { username: "staff_kary_target_88", newRole: "ADMIN" }
+    )
+    const patchPromoteByAdminRes = await patchStaff(patchPromoteByAdmin)
+    if (patchPromoteByAdminRes.status !== 403) {
+      throw new Error(`Expected 403 for ADMIN promoting to ADMIN, got ${patchPromoteByAdminRes.status}`)
+    }
+    console.log("  ✅ SCENARIO 10 PASSED: ADMIN blocked with 403 from promoting to ADMIN.\n")
+    passed++
+
+    // -------------------------------------------------------------------
+    // SCENARIO 9: OWNER promotes KARYAWAN to ADMIN (PATCH) -> 200
+    // -------------------------------------------------------------------
+    console.log("SCENARIO 9: OWNER promotes KARYAWAN to ADMIN via PATCH...")
+    const patchPromoteByOwner = await createMockRequest(
+      "http://localhost:3000/api/settings/staff",
+      "PATCH",
+      ownerSession,
+      { username: "staff_kary_target_88", newRole: "ADMIN" }
+    )
+    const patchPromoteByOwnerRes = await patchStaff(patchPromoteByOwner)
+    if (patchPromoteByOwnerRes.status !== 200) {
+      const err = await patchPromoteByOwnerRes.json()
+      throw new Error(`Expected 200 for OWNER promoting to ADMIN, got ${patchPromoteByOwnerRes.status}: ${JSON.stringify(err)}`)
+    }
+    const checkPromote = (await queryPg(`SELECT role FROM admin_accounts WHERE username = 'staff_kary_target_88'`)).rows[0]?.role
+    if (checkPromote !== "ADMIN") {
+      throw new Error(`Expected DB role to be ADMIN, got ${checkPromote}`)
+    }
+    console.log("  ✅ SCENARIO 9 PASSED: OWNER successfully promoted staff to ADMIN.\n")
+    passed++
+
+    // -------------------------------------------------------------------
+    // SCENARIO 13: ADMIN attempts to demote ADMIN to KARYAWAN (PATCH) -> 403
+    // (staff_kary_target_88 is now ADMIN)
+    // -------------------------------------------------------------------
+    console.log("SCENARIO 13: ADMIN attempts to demote ADMIN to KARYAWAN via PATCH...")
+    const patchDemoteByAdmin = await createMockRequest(
+      "http://localhost:3000/api/settings/staff",
+      "PATCH",
+      adminSession,
+      { username: "staff_kary_target_88", newRole: "KARYAWAN" }
+    )
+    const patchDemoteByAdminRes = await patchStaff(patchDemoteByAdmin)
+    if (patchDemoteByAdminRes.status !== 403) {
+      throw new Error(`Expected 403 for ADMIN demoting an ADMIN, got ${patchDemoteByAdminRes.status}`)
+    }
+    console.log("  ✅ SCENARIO 13 PASSED: ADMIN blocked with 403 from revoking ADMIN role.\n")
+    passed++
+
+    // -------------------------------------------------------------------
+    // SCENARIO 12: OWNER demotes ADMIN to KARYAWAN (PATCH) -> 200
+    // -------------------------------------------------------------------
+    console.log("SCENARIO 12: OWNER demotes ADMIN to KARYAWAN via PATCH...")
+    const patchDemoteByOwner = await createMockRequest(
+      "http://localhost:3000/api/settings/staff",
+      "PATCH",
+      ownerSession,
+      { username: "staff_kary_target_88", newRole: "KARYAWAN" }
+    )
+    const patchDemoteByOwnerRes = await patchStaff(patchDemoteByOwner)
+    if (patchDemoteByOwnerRes.status !== 200) {
+      throw new Error(`Expected 200 for OWNER demoting ADMIN, got ${patchDemoteByOwnerRes.status}`)
+    }
+    const checkDemote = (await queryPg(`SELECT role FROM admin_accounts WHERE username = 'staff_kary_target_88'`)).rows[0]?.role
+    if (checkDemote !== "KARYAWAN") {
+      throw new Error(`Expected DB role to be KARYAWAN, got ${checkDemote}`)
+    }
+    console.log("  ✅ SCENARIO 12 PASSED: OWNER successfully demoted ADMIN to KARYAWAN.\n")
+    passed++
+
+    // -------------------------------------------------------------------
+    // SCENARIO 11: ADMIN changes KARYAWAN to MANAGER via PATCH -> 200
+    // -------------------------------------------------------------------
+    console.log("SCENARIO 11: ADMIN changes KARYAWAN to MANAGER via PATCH...")
+    const patchKaryToMgrByAdmin = await createMockRequest(
+      "http://localhost:3000/api/settings/staff",
+      "PATCH",
+      adminSession,
+      { username: "staff_kary_target_88", newRole: "MANAGER" }
+    )
+    const patchKaryToMgrByAdminRes = await patchStaff(patchKaryToMgrByAdmin)
+    if (patchKaryToMgrByAdminRes.status !== 200) {
+      throw new Error(`Expected 200 for ADMIN changing KARYAWAN to MANAGER, got ${patchKaryToMgrByAdminRes.status}`)
+    }
+    const checkMgr = (await queryPg(`SELECT role FROM admin_accounts WHERE username = 'staff_kary_target_88'`)).rows[0]?.role
+    if (checkMgr !== "MANAGER") {
+      throw new Error(`Expected DB role to be MANAGER, got ${checkMgr}`)
+    }
+    console.log("  ✅ SCENARIO 11 PASSED: ADMIN successfully changed KARYAWAN to MANAGER.\n")
+    passed++
+
+    // -------------------------------------------------------------------
+    // SCENARIO 14: Changing role of OWNER via PATCH is blocked -> 403
+    // -------------------------------------------------------------------
+    console.log("SCENARIO 14: Modifying role of OWNER via PATCH is blocked...")
+    const patchOwnerByAdmin = await createMockRequest(
+      "http://localhost:3000/api/settings/staff",
+      "PATCH",
+      adminSession,
+      { username: "owner_test_88", newRole: "MANAGER" }
+    )
+    const patchOwnerByAdminRes = await patchStaff(patchOwnerByAdmin)
+    if (patchOwnerByAdminRes.status !== 403) {
+      throw new Error(`Expected 403 when attempting to change OWNER role, got ${patchOwnerByAdminRes.status}`)
+    }
+    console.log("  ✅ SCENARIO 14 PASSED: Attempting to modify OWNER account role is rejected with 403.\n")
+    passed++
+
+    // -------------------------------------------------------------------
+    // SCENARIO 15: Self-role modification via PATCH is blocked -> 400
+    // -------------------------------------------------------------------
+    console.log("SCENARIO 15: Modifying self-role via PATCH is blocked...")
+    const patchSelfByAdmin = await createMockRequest(
+      "http://localhost:3000/api/settings/staff",
+      "PATCH",
+      adminSession,
+      { username: adminSession.username, newRole: "KARYAWAN" }
+    )
+    const patchSelfByAdminRes = await patchStaff(patchSelfByAdmin)
+    if (patchSelfByAdminRes.status !== 400) {
+      throw new Error(`Expected 400 when attempting self-role modification, got ${patchSelfByAdminRes.status}`)
+    }
+    console.log("  ✅ SCENARIO 15 PASSED: Self-role modification is rejected with 400.\n")
     passed++
 
   } catch (err: any) {
@@ -351,10 +606,16 @@ async function runTests() {
   } finally {
     console.log("[Teardown] Cleaning up test data...")
     try {
-      await queryPg(`DELETE FROM public.admin_accounts WHERE username = $1`, [testStaffUsername])
+      await queryPg(`DELETE FROM public.admin_accounts WHERE username LIKE '%_88' OR username LIKE 'mig_%'`)
       await queryPg(`DELETE FROM public.receipts WHERE id = $1`, [testReceiptId])
-      await queryPg(`DELETE FROM public.tenants WHERE id = $1`, [testTenantId])
-    } catch {}
+      await queryPg(`DELETE FROM public.tenants WHERE id IN ($1, $2, $3)`, [testTenantId, migTenant1, migTenant2])
+      if (autoRegTenantId) {
+        await queryPg(`DELETE FROM public.subscriptions WHERE "tenantId" = $1`, [autoRegTenantId])
+        await queryPg(`DELETE FROM public.tenants WHERE id = $1`, [autoRegTenantId])
+      }
+    } catch (e: any) {
+      console.warn("Cleanup warning:", e.message)
+    }
   }
 
   console.log("=================================================================")

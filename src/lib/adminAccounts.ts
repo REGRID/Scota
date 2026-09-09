@@ -7,8 +7,7 @@ export function normalizeAdminUsername(input: string): string {
   return (input || "").trim().toLowerCase()
 }
 
-// Fallback hashes untuk akun default jika database PostgreSQL belum terhubung/offline
-// superadmin: "superadmin2026!", admin: "adminnota123", karyawan: "StudioPhoto2026"
+// Fallback hash untuk superadmin master jika database PostgreSQL offline
 const FALLBACK_ADMIN_HASHES: Record<
   string,
   {
@@ -25,22 +24,6 @@ const FALLBACK_ADMIN_HASHES: Record<
     hash: "$2b$12$4ZzB5qjdn1Qp520cFqV3i.n5DwdT6WpORIkzT4iarhRKRLjkl.GTe",
     fullName: "Developer / Superadmin",
     businessName: "Scota Central Management",
-    phone: "6285215973776",
-    tenantId: DEFAULT_TENANT_ID,
-  },
-  admin: {
-    role: "ADMIN",
-    hash: "$2b$12$6ox9jnEHW.KPZwkeOPj2f.ze8K3prlzSYC3stGdL1uKzLbpuOdOgO",
-    fullName: "Administrator",
-    businessName: "Scota Business",
-    phone: "6285215973776",
-    tenantId: DEFAULT_TENANT_ID,
-  },
-  karyawan: {
-    role: "KARYAWAN",
-    hash: "$2b$12$9D45oONPISU9wTC9xXNSZe0xsakBFUAatLasEQL.3fpYQWE6TP.J6",
-    fullName: "Staff Kasir",
-    businessName: "Scota Business",
     phone: "6285215973776",
     tenantId: DEFAULT_TENANT_ID,
   },
@@ -337,7 +320,7 @@ export async function registerAdminAccount(params: {
   try {
     const cleanUser = normalizeAdminUsername(params.username)
     const rawPass = (params.password || "").trim()
-    const role = (params.role || "ADMIN").toUpperCase()
+    const role = (params.role || "OWNER").toUpperCase()
     const cleanGoogleId = (params.googleId || "").trim()
     const forcedTier: SubscriptionTier = "trial"
     const businessName = params.businessName?.trim() || params.fullName?.trim() || "Scota Business"
@@ -446,7 +429,7 @@ export async function registerAdminAccount(params: {
     return {
       success: false,
       username: params.username,
-      role: params.role || "ADMIN",
+      role: params.role || "OWNER",
       tenantId: "",
       error: error.message || "Gagal membuat akun bisnis",
     }

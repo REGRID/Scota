@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react"
 import { SignIn, SignUp } from "@clerk/nextjs"
 import { dark } from "@clerk/themes"
-import { ArrowLeft, ShieldCheck, Zap } from "lucide-react"
+import { ArrowLeft, ShieldCheck, Zap, Sparkles } from "lucide-react"
 import { SubscriptionTier } from "@/lib/subscription"
 import { useTheme, ThemeToggle } from "@/lib/theme"
 
@@ -142,8 +142,16 @@ export function AdminLoginScreen({
                 : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
             }`}
           >
-            Daftar Akun
+            Daftar Toko Baru
           </button>
+        </div>
+
+        {/* Guidance for Invited Staff (Section 7 Design Spec) */}
+        <div className="p-3 bg-emerald-500/10 dark:bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex items-start gap-2.5 text-left">
+          <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+          <div className="text-[11px] leading-relaxed text-slate-600 dark:text-slate-300">
+            <span className="font-semibold text-slate-900 dark:text-white">Staf / Karyawan Toko?</span> Jika Anda diundang oleh pemilik toko, silakan gunakan <strong>Tautan Undangan Khusus</strong> (<code className="text-emerald-700 dark:text-emerald-400 font-mono text-[10px]">/join/[token]</code>) yang dibagikan oleh pemilik toko Anda.
+          </div>
         </div>
 
         {/* Clerk Auth Card */}

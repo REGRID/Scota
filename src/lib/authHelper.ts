@@ -26,7 +26,62 @@ export async function getSession(req: NextRequest): Promise<SessionPayload | nul
     const { userId } = await auth()
     if (!userId) return null
 
-    // Look up linked account in PostgreSQL
+    // 2a. Check Staff Membership in PostgreSQL (Invite/Staff Google Login)
+    const memRes = await queryPg<{
+      role: string
+      tenantId: string
+      businessName: string
+      name: string
+    }>(
+      `SELECT m.role, m."tenantId", t."businessName", u.name
+       FROM memberships m
+       JOIN tenants t ON t.id = m."tenantId"
+       JOIN users u ON u.id = m."userId"
+       WHERE u."clerkId" = $1 AND m.status = 'ACTIVE'
+       LIMIT 1`,
+      [userId]
+    )
+
+    if (memRes.rows?.[0]) {
+      const m = memRes.rows[0]
+      return {
+        username: `staff_${userId.slice(-8)}`,
+        role: m.role as any,
+        tenantId: m.tenantId,
+        staffName: m.name,
+        fullName: m.name,
+        businessName: m.businessName,
+      }
+    }
+
+    // 2b. Check Multi-Branch Owner in PostgreSQL
+    const ownRes = await queryPg<{
+      id: string
+      businessName: string
+      name: string
+    }>(
+      `SELECT t.id, t."businessName", u.name
+       FROM tenants t
+       JOIN users u ON u.id = t."ownerId"
+       WHERE u."clerkId" = $1
+       ORDER BY t."createdAt" ASC
+       LIMIT 1`,
+      [userId]
+    )
+
+    if (ownRes.rows?.[0]) {
+      const o = ownRes.rows[0]
+      return {
+        username: `owner_${userId.slice(-8)}`,
+        role: "OWNER",
+        tenantId: o.id,
+        staffName: o.name,
+        fullName: o.name,
+        businessName: o.businessName,
+      }
+    }
+
+    // 2c. Check legacy admin_accounts in PostgreSQL
     const res = await queryPg<{
       username: string
       role: string

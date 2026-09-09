@@ -355,7 +355,64 @@ CREATE TABLE IF NOT EXISTS public.email_verifications (
     "attempts" INTEGER DEFAULT 0,
     "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS email_verif_email_idx ON public.email_verifications (LOWER(email));
-CREATE INDEX IF NOT EXISTS email_verif_otp_idx ON public.email_verifications ("otpCode");
+-- 18. Multi-Tenant Identity & Staff Invite System (Migration 010)
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS "ownerId" UUID;
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS slug TEXT;
+
+CREATE TABLE IF NOT EXISTS users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    "clerkId" TEXT UNIQUE,
+    "googleId" TEXT UNIQUE,
+    email TEXT UNIQUE NOT NULL,
+    name TEXT NOT NULL,
+    "avatarUrl" TEXT,
+    "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now(),
+    "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_users_clerk ON users("clerkId");
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(LOWER(email));
+
+CREATE TABLE IF NOT EXISTS memberships (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    "tenantId" UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    "userId" UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role TEXT NOT NULL DEFAULT 'KARYAWAN',
+    status TEXT NOT NULL DEFAULT 'ACTIVE',
+    "joinedAt" TIMESTAMPTZ NOT NULL DEFAULT now(),
+    "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT uq_memberships_user UNIQUE ("userId")
+);
+
+CREATE INDEX IF NOT EXISTS idx_memberships_tenant ON memberships("tenantId");
+CREATE INDEX IF NOT EXISTS idx_memberships_user ON memberships("userId");
+
+CREATE TABLE IF NOT EXISTS invite_links (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    "tenantId" UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    role TEXT NOT NULL DEFAULT 'KARYAWAN',
+    token TEXT UNIQUE NOT NULL,
+    "createdBy" UUID REFERENCES users(id) ON DELETE SET NULL,
+    "maxUses" INTEGER,
+    "usedCount" INTEGER NOT NULL DEFAULT 0,
+    "expiresAt" TIMESTAMPTZ,
+    status TEXT NOT NULL DEFAULT 'ACTIVE',
+    "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now(),
+    "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_invite_links_token ON invite_links(token);
+CREATE INDEX IF NOT EXISTS idx_invite_links_tenant ON invite_links("tenantId");
+
+CREATE TABLE IF NOT EXISTS invite_usages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    "inviteLinkId" UUID NOT NULL REFERENCES invite_links(id) ON DELETE CASCADE,
+    "userId" UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    "usedAt" TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_invite_usages_link ON invite_usages("inviteLinkId");
+CREATE INDEX IF NOT EXISTS idx_invite_usages_user ON invite_usages("userId");
+
 
 

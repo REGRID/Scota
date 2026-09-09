@@ -188,10 +188,10 @@ export async function DELETE(req: NextRequest) {
     }
 
     // Find target account
-    const findRes = await queryPg<{ id: string; username: string; role: string; tenantId: string }>(
+    const findRes = await queryPg<{ id: string; username: string; role: string; tenantId: string; email: string | null; clerkId: string | null }>(
       targetId
-        ? `SELECT id, username, role, "tenantId" FROM admin_accounts WHERE id = $1 AND "tenantId" = $2`
-        : `SELECT id, username, role, "tenantId" FROM admin_accounts WHERE LOWER(username) = $1 AND "tenantId" = $2`,
+        ? `SELECT id, username, role, "tenantId", email, "clerkId" FROM admin_accounts WHERE id = $1 AND "tenantId" = $2`
+        : `SELECT id, username, role, "tenantId", email, "clerkId" FROM admin_accounts WHERE LOWER(username) = $1 AND "tenantId" = $2`,
       targetId ? [targetId, auth.tenantId] : [targetUsername!.toLowerCase(), auth.tenantId]
     )
 
@@ -227,10 +227,25 @@ export async function DELETE(req: NextRequest) {
       )
     }
 
+    // 1. Delete from legacy admin_accounts
     await queryPg(
       `DELETE FROM admin_accounts WHERE id = $1 AND "tenantId" = $2`,
       [targetAccount.id, auth.tenantId]
     )
+
+    // 2. Also delete from memberships table to free the staff user for future invites (Section 4.D)
+    if (targetAccount.email || targetAccount.clerkId) {
+      await queryPg(
+        `DELETE FROM memberships 
+         WHERE "tenantId" = $1 
+         AND "userId" IN (
+           SELECT id FROM users 
+           WHERE (email = $2 AND $2 IS NOT NULL) 
+              OR ("clerkId" = $3 AND $3 IS NOT NULL)
+         )`,
+        [auth.tenantId, targetAccount.email, targetAccount.clerkId]
+      )
+    }
 
     return NextResponse.json({
       message: `Akun staf '${targetAccount.username}' berhasil dihapus.`,
@@ -291,10 +306,10 @@ export async function PATCH(req: NextRequest) {
     }
 
     // Find target account
-    const findRes = await queryPg<{ id: string; username: string; role: string; tenantId: string }>(
+    const findRes = await queryPg<{ id: string; username: string; role: string; tenantId: string; email: string | null; clerkId: string | null }>(
       targetId
-        ? `SELECT id, username, role, "tenantId" FROM admin_accounts WHERE id = $1 AND "tenantId" = $2`
-        : `SELECT id, username, role, "tenantId" FROM admin_accounts WHERE LOWER(username) = $1 AND "tenantId" = $2`,
+        ? `SELECT id, username, role, "tenantId", email, "clerkId" FROM admin_accounts WHERE id = $1 AND "tenantId" = $2`
+        : `SELECT id, username, role, "tenantId", email, "clerkId" FROM admin_accounts WHERE LOWER(username) = $1 AND "tenantId" = $2`,
       targetId ? [targetId, auth.tenantId] : [targetUsername!.toLowerCase(), auth.tenantId]
     )
 
@@ -340,6 +355,7 @@ export async function PATCH(req: NextRequest) {
       )
     }
 
+    // 1. Update in admin_accounts
     const updateRes = await queryPg<{
       id: string
       username: string
@@ -357,6 +373,21 @@ export async function PATCH(req: NextRequest) {
        RETURNING id, username, role, "fullName", phone, email, status, "createdAt", "updatedAt"`,
       [newRole, targetAccount.id, auth.tenantId]
     )
+
+    // 2. Also update in memberships table
+    if (targetAccount.email || targetAccount.clerkId) {
+      await queryPg(
+        `UPDATE memberships 
+         SET role = $1, "updatedAt" = NOW()
+         WHERE "tenantId" = $2 
+         AND "userId" IN (
+           SELECT id FROM users 
+           WHERE (email = $3 AND $3 IS NOT NULL) 
+              OR ("clerkId" = $4 AND $4 IS NOT NULL)
+         )`,
+        [newRole, auth.tenantId, targetAccount.email, targetAccount.clerkId]
+      )
+    }
 
     return NextResponse.json({
       message: `Role akun '${targetAccount.username}' berhasil diubah menjadi '${newRole}'.`,

@@ -25,10 +25,10 @@ export async function provisionTenantForClerkUser(clerkId: string): Promise<Sess
       }
     }
 
-    // Fast-path check
+    // 1. Fast-path check in admin_accounts
     const existing = await queryPg<{ username: string; role: string; tenantId: string; fullName: string }>(
-      `SELECT username, role, "tenantId", "fullName" FROM admin_accounts WHERE "clerkId" = $1`,
-      [clerkId]
+      `SELECT username, role, "tenantId", "fullName" FROM admin_accounts WHERE "clerkId" = $1 OR (email = $2 AND $2 != '')`,
+      [clerkId, email]
     )
 
     if (existing.rows?.[0]) {
@@ -42,17 +42,81 @@ export async function provisionTenantForClerkUser(clerkId: string): Promise<Sess
       }
     }
 
-    // Provision new Tenant entity
+    // 2. Check if user is already an active staff member in memberships (Prinsip #6)
+    const staffMember = await queryPg<{
+      role: string
+      tenantId: string
+      businessName: string
+    }>(
+      `SELECT m.role, m."tenantId", t."businessName"
+       FROM memberships m
+       JOIN users u ON u.id = m."userId"
+       JOIN tenants t ON t.id = m."tenantId"
+       WHERE (u."clerkId" = $1 OR (u.email = $2 AND $2 != ''))
+       LIMIT 1`,
+      [clerkId, email]
+    )
+
+    if (staffMember.rows?.[0]) {
+      const sm = staffMember.rows[0]
+      return {
+        username,
+        role: sm.role as any,
+        tenantId: sm.tenantId,
+        staffName: fullName,
+        fullName,
+        businessName: sm.businessName,
+      }
+    }
+
+    // 3. Check if user already owns a tenant
+    const existingOwnerTenant = await queryPg<{
+      id: string
+      businessName: string
+    }>(
+      `SELECT t.id, t."businessName"
+       FROM tenants t
+       JOIN users u ON u.id = t."ownerId"
+       WHERE (u."clerkId" = $1 OR (u.email = $2 AND $2 != ''))
+       ORDER BY t."createdAt" ASC
+       LIMIT 1`,
+      [clerkId, email]
+    )
+
+    if (existingOwnerTenant.rows?.[0]) {
+      const ot = existingOwnerTenant.rows[0]
+      return {
+        username,
+        role: "OWNER" as any,
+        tenantId: ot.id,
+        staffName: fullName,
+        fullName,
+        businessName: ot.businessName,
+      }
+    }
+
+    // Provision new Tenant entity only for brand new owners
     const businessTitle = `Bisnis ${fullName}`
     let tenantId = ""
 
     await withTransactionPg(async (client) => {
-      // 1. Create Tenant in tenants table
-      const tenantRes = await client.query(
-        `INSERT INTO tenants ("businessName", status, "createdAt", "updatedAt")
-         VALUES ($1, 'active', NOW(), NOW())
+      // 1. Upsert into users table (Global User Identity)
+      const userRes = await client.query(
+        `INSERT INTO users ("clerkId", email, name, "createdAt", "updatedAt")
+         VALUES ($1, $2, $3, NOW(), NOW())
+         ON CONFLICT ("clerkId") DO UPDATE 
+         SET name = EXCLUDED.name, email = EXCLUDED.email, "updatedAt" = NOW()
          RETURNING id`,
-        [businessTitle]
+        [clerkId, email || `${username}@scota.local`, fullName]
+      )
+      const ownerUserId = userRes.rows[0].id
+
+      // 2. Create Tenant in tenants table with ownerId
+      const tenantRes = await client.query(
+        `INSERT INTO tenants ("businessName", "ownerId", status, "createdAt", "updatedAt")
+         VALUES ($1, $2, 'active', NOW(), NOW())
+         RETURNING id`,
+        [businessTitle, ownerUserId]
       )
 
       if (!tenantRes.rows?.[0]?.id) {
@@ -60,7 +124,7 @@ export async function provisionTenantForClerkUser(clerkId: string): Promise<Sess
       }
       tenantId = tenantRes.rows[0].id
 
-      // 2. Provision Admin Account linked to Clerk ID
+      // 3. Provision Admin Account linked to Clerk ID (SSOT & legacy compat)
       await client.query(
         `INSERT INTO admin_accounts (username, "clerkId", email, "fullName", role, "tenantId", "createdAt", "updatedAt")
          VALUES ($1, $2, $3, $4, 'OWNER', $5, NOW(), NOW())
@@ -68,7 +132,7 @@ export async function provisionTenantForClerkUser(clerkId: string): Promise<Sess
         [username, clerkId, email, fullName, tenantId]
       )
 
-      // 3. Seed initial 14-day trial subscription for new tenant (SSOT)
+      // 4. Seed initial 14-day trial subscription for new tenant (SSOT)
       await client.query(
         `INSERT INTO subscriptions ("tenantId", tier, status, "validUntil", "monthlyScanLimit", "createdAt", "updatedAt")
          VALUES ($1, 'trial', 'trial', NOW() + INTERVAL '14 days', 30, NOW(), NOW())

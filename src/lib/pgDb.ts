@@ -70,10 +70,10 @@ export function getPgPool(): Pool | null {
   return globalPool
 }
 
-export async function queryPg<T = any>(text: string, params?: any[]): Promise<{ rows: T[] }> {
+export async function queryPg<T = any>(text: string, params?: any[]): Promise<{ rows: T[]; rowCount?: number | null }> {
   const pool = getPgPool()
   if (!pool) {
-    return { rows: [] }
+    return { rows: [], rowCount: 0 }
   }
   return pool.query(text, params)
 }

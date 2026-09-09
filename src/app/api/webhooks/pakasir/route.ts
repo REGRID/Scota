@@ -20,6 +20,15 @@ export async function POST(req: NextRequest) {
 
     const config = getPakasirConfig()
 
+    // Fail-closed #1: tanpa API key, webhook TIDAK BISA memverifikasi apa pun -- tolak total.
+    if (!config.apiKey) {
+      console.error("[Pakasir Webhook] KRITIS: PAKASIR_API_KEY belum diset -- webhook ditolak demi keamanan.")
+      return NextResponse.json(
+        { error: "Konfigurasi verifikasi pembayaran tidak lengkap di server." },
+        { status: 503 } // 503 agar payment gateway melakukan retry otomatis
+      )
+    }
+
     // 1. Find transaction in billing_transactions
     const trxRes = await queryPg<{
       id: string
@@ -53,27 +62,38 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    // 3. Double-check verification with Pakasir Transaction Detail API
-    let isStatusVerified = payload.status === "completed"
+    // Fail-closed #2 & #3: verifikasi WAJIB berhasil secara eksplisit dari Pakasir API.
+    // Tidak pernah percaya atau menginisialisasi dari payload.status.
+    let isStatusVerified = false
 
-    if (config.apiKey) {
-      try {
-        const verifyRes = await getPakasirTransactionDetail(payload.order_id, Number(trx.amount))
-        if (verifyRes.success && verifyRes.transaction) {
-          isStatusVerified = verifyRes.transaction.status === "completed"
-        } else {
-          console.warn("[Pakasir Webhook] Gateway transactiondetail check failed, falling back to payload status.")
-        }
-      } catch (verifyErr) {
-        console.warn("[Pakasir Webhook] Could not reach verification API:", verifyErr)
+    try {
+      const verifyRes = await getPakasirTransactionDetail(payload.order_id, Number(trx.amount))
+
+      if (!verifyRes.success || !verifyRes.transaction) {
+        console.error(
+          `[Pakasir Webhook] Verifikasi GAGAL untuk order ${payload.order_id}: ${verifyRes.error || "respons tidak valid"}. Webhook ditolak, TIDAK mengaktifkan apa pun.`
+        )
+        return NextResponse.json(
+          { error: "Verifikasi transaksi ke Pakasir gagal. Silakan coba lagi." },
+          { status: 502 } // 502 upstream Pakasir gagal konfirmasi
+        )
       }
+
+      isStatusVerified = verifyRes.transaction.status === "completed"
+    } catch (verifyErr) {
+      // Network error / timeout ke Pakasir -- tolak dengan 502 agar Pakasir retry
+      console.error(`[Pakasir Webhook] Tidak bisa menghubungi API verifikasi Pakasir:`, verifyErr)
+      return NextResponse.json(
+        { error: "Tidak dapat memverifikasi transaksi saat ini. Silakan coba lagi." },
+        { status: 502 }
+      )
     }
 
     if (!isStatusVerified) {
-      console.log(`[Pakasir Webhook] Transaction status is '${payload.status}', skipping activation.`)
+      console.log(`[Pakasir Webhook] Status transaksi terverifikasi BUKAN 'completed' untuk order ${payload.order_id}.`)
       return NextResponse.json({
         success: true,
-        message: `Status transaksi '${payload.status}', belum lunas.`,
+        message: "Status transaksi belum lunas.",
       })
     }
 

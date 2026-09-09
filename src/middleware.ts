@@ -20,6 +20,7 @@ const isPublicRoute = createRouteMatcher([
   "/api/parse-receipt",
   "/api/auth/(.*)",
   "/api/webhooks/clerk(.*)",
+  "/api/webhooks/pakasir(.*)",
   "/api/subscription(.*)",
 ])
 

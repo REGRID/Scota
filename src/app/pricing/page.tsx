@@ -19,6 +19,8 @@ import {
 import { TIER_CONFIG, SubscriptionTier } from "@/lib/subscription"
 import { getSupportWhatsAppNumber } from "@/lib/contactConfig"
 import { ThemeToggle } from "@/lib/theme"
+import { PakasirCheckoutModal } from "@/components/PakasirCheckoutModal"
+import { CreditCard, QrCode } from "lucide-react"
 
 const TIER_DESCRIPTIONS: Record<SubscriptionTier, string> = {
   trial: "Coba seluruh fitur unggulan Scota tanpa biaya selama 14 hari.",
@@ -46,6 +48,7 @@ export default function PricingPage() {
 
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly")
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0)
+  const [checkoutModal, setCheckoutModal] = useState<{ isOpen: boolean; tier: SubscriptionTier } | null>(null)
 
   const handleOrderWhatsApp = (tierKey: SubscriptionTier) => {
     const plan = TIER_CONFIG[tierKey]
@@ -282,18 +285,29 @@ export default function PricingPage() {
                       <span>Mulai Gratis</span>
                     </Link>
                   ) : (
-                    <button
-                      type="button"
-                      onClick={() => handleOrderWhatsApp(tierKey)}
-                      className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-xs transition-all shadow-xs active:scale-[0.98] cursor-pointer ${
-                        isPopular
-                          ? "bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-500 dark:hover:bg-emerald-400 text-white dark:text-slate-950 font-black shadow-emerald-500/20"
-                          : "bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30"
-                      }`}
-                    >
-                      <MessageCircle className="w-4 h-4" />
-                      <span>Pesan via WhatsApp</span>
-                    </button>
+                    <div className="space-y-2">
+                      <button
+                        type="button"
+                        onClick={() => setCheckoutModal({ isOpen: true, tier: tierKey })}
+                        className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-xs transition-all shadow-xs active:scale-[0.98] cursor-pointer ${
+                          isPopular
+                            ? "bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-500 dark:hover:bg-emerald-400 text-white dark:text-slate-950 font-black shadow-emerald-500/20"
+                            : "bg-emerald-600 hover:bg-emerald-500 text-white font-bold"
+                        }`}
+                      >
+                        <QrCode className="w-4 h-4" />
+                        <span>Langganan Sekarang</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleOrderWhatsApp(tierKey)}
+                        className="w-full flex items-center justify-center gap-1.5 py-1.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                      >
+                        <MessageCircle className="w-3.5 h-3.5" />
+                        <span>atau pesan via WhatsApp</span>
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -456,6 +470,15 @@ export default function PricingPage() {
           </div>
         </div>
       </footer>
+
+      {checkoutModal && (
+        <PakasirCheckoutModal
+          isOpen={checkoutModal.isOpen}
+          tier={checkoutModal.tier}
+          billingCycle={billingCycle}
+          onClose={() => setCheckoutModal(null)}
+        />
+      )}
     </div>
   )
 }

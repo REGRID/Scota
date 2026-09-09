@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { queryPg, isDatabaseConfigured } from "@/lib/pgDb"
+import { isTenantSchemaMigrated, withTenantSchema } from "@/lib/tenantDb"
 import { getSession } from "@/lib/authHelper"
+import { DEFAULT_TENANT_ID } from "@/lib/session"
 import * as XLSX from "xlsx"
 
 export async function GET(req: NextRequest) {
@@ -36,61 +38,103 @@ export async function GET(req: NextRequest) {
     const rootKeyword = category ? category.split("/")[0].trim() : ""
     const rawRole = (session?.role || "ADMIN").toUpperCase()
     const isKasirOrStaff = ["KASIR", "KARYAWAN", "STAFF", "STAF"].includes(rawRole)
+    const userTenantId = session.tenantId || DEFAULT_TENANT_ID
 
     let receipts: any[] = []
 
     if (isDatabaseConfigured) {
       try {
-        const pgRes = await queryPg(
-          `SELECT 
-            r.id, 
-            r."merchantName", 
-            r.date, 
-            r.subtotal,
-            r."discountAmount",
-            r."taxAmount",
-            r."totalAmount",
-            r."paymentMethod",
-            r."paymentStatus",
-            r.note,
-            r."staffName",
-            r."createdByRole",
-            r."createdByUsername",
-            r."createdAt", 
-            r."updatedAt",
-            COALESCE(
-              json_agg(
-                json_build_object(
-                  'id', i.id,
-                  'name', i.name,
-                  'category', i.category,
-                  'subCategory', i."subCategory",
-                  'price', i.price,
-                  'quantity', i.quantity,
-                  'createdAt', i."createdAt"
-                )
-              ) FILTER (WHERE i.id IS NOT NULL),
-              '[]'::json
-            ) as items
-          FROM receipts r
-          LEFT JOIN receipt_items i ON i."receiptId" = r.id
-          WHERE r."tenantId" = $1
-            ${isKasirOrStaff ? `AND (
-              r."createdByRole" IN ('KASIR', 'KARYAWAN', 'STAFF', 'STAF')
-              OR (
-                r."createdByRole" IS NULL AND (
-                  r."paymentMethod" ILIKE '%Talangan Karyawan%'
-                  OR r.note ILIKE '%(karyawan)%'
-                  OR r.note ILIKE '%(kasir)%'
-                  OR r.note ILIKE '%[diunggah oleh:%'
-                )
-              )
-            )` : ''}
-          GROUP BY r.id
-          ORDER BY r.date ${sortDirection}, r."createdAt" ${sortDirection}`,
-          [session.tenantId]
-        )
-        receipts = pgRes.rows || []
+        const isMigrated = await isTenantSchemaMigrated(userTenantId)
+        if (isMigrated) {
+          receipts = await withTenantSchema(userTenantId, async (client) => {
+            const pgRes: any = await client.query(
+              `SELECT 
+                r.id, 
+                r."merchantName", 
+                r.date, 
+                r.subtotal,
+                r."discountAmount",
+                r."taxAmount",
+                r."totalAmount",
+                r."paymentMethod",
+                r."paymentStatus",
+                r.notes as note,
+                r."staffName",
+                r."createdByRole",
+                r."createdByUsername",
+                r."createdAt", 
+                r."updatedAt",
+                COALESCE(
+                  json_agg(
+                    json_build_object(
+                      'id', i.id,
+                      'name', i.name,
+                      'category', i.category,
+                      'subCategory', i."subCategory",
+                      'price', i."unitPrice",
+                      'quantity', i.qty,
+                      'createdAt', i."createdAt"
+                    )
+                  ) FILTER (WHERE i.id IS NOT NULL),
+                  '[]'::json
+                ) as items
+              FROM receipts r
+              LEFT JOIN receipt_items i ON i."receiptId" = r.id
+              WHERE 1=1
+                ${isKasirOrStaff ? `AND (
+                  r."createdByRole" IN ('KASIR', 'KARYAWAN', 'STAFF', 'STAF')
+                  OR r."createdByUsername" = '${(session?.username || "").replace(/'/g, "''")}'
+                )` : ''}
+              GROUP BY r.id
+              ORDER BY r.date ${sortDirection}, r."createdAt" ${sortDirection}`
+            )
+            return pgRes.rows || []
+          })
+        } else {
+          const pgRes = await queryPg(
+            `SELECT 
+              r.id, 
+              r."merchantName", 
+              r.date, 
+              r.subtotal,
+              r."discountAmount",
+              r."taxAmount",
+              r."totalAmount",
+              r."paymentMethod",
+              r."paymentStatus",
+              r.note,
+              r."staffName",
+              r."createdByRole",
+              r."createdByUsername",
+              r."createdAt", 
+              r."updatedAt",
+              COALESCE(
+                json_agg(
+                  json_build_object(
+                    'id', i.id,
+                    'name', i.name,
+                    'category', i.category,
+                    'subCategory', i."subCategory",
+                    'price', i.price,
+                    'quantity', i.quantity,
+                    'createdAt', i."createdAt"
+                  )
+                ) FILTER (WHERE i.id IS NOT NULL),
+                '[]'::json
+              ) as items
+            FROM receipts r
+            LEFT JOIN receipt_items i ON i."receiptId" = r.id
+            WHERE r."tenantId" = $1
+              ${isKasirOrStaff ? `AND (
+                r."createdByRole" IN ('KASIR', 'KARYAWAN', 'STAFF', 'STAF')
+                OR r."createdByUsername" = '${(session?.username || "").replace(/'/g, "''")}'
+              )` : ''}
+            GROUP BY r.id
+            ORDER BY r.date ${sortDirection}, r."createdAt" ${sortDirection}`,
+            [userTenantId]
+          )
+          receipts = pgRes.rows || []
+        }
       } catch (err) {
         console.warn("Export query error:", err)
       }
@@ -105,7 +149,9 @@ export async function GET(req: NextRequest) {
       // 0. Role Scope for Kasir/Staff
       if (isKasirOrStaff) {
         const creatorRole = (r.createdByRole || "").toUpperCase()
-        if (["ADMIN", "OWNER", "MANAJER", "MANAGER", "SUPERADMIN"].includes(creatorRole)) return false
+        const isStaffCreator = ["KASIR", "KARYAWAN", "STAFF", "STAF"].includes(creatorRole)
+        const isOwn = r.createdByUsername && r.createdByUsername === session?.username
+        if (!isStaffCreator && !isOwn) return false
       }
       // 1. Date Range
       if (dateRange === "today" && r.date !== todayStr) return false

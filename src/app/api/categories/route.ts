@@ -3,6 +3,7 @@ import { queryPg, isDatabaseConfigured } from "@/lib/pgDb"
 import { getOrSeedCategories, invalidateCategoriesCache } from "@/lib/categories"
 import { getSession } from "@/lib/authHelper"
 import { DEFAULT_TENANT_ID } from "@/lib/session"
+import { isTenantSchemaMigrated, withTenantSchema } from "@/lib/tenantDb"
 
 export async function GET(req: NextRequest) {
   try {
@@ -55,6 +56,84 @@ export async function POST(req: NextRequest) {
     if (!isDatabaseConfigured) {
       const hierarchy = await getOrSeedCategories(tenantId)
       return NextResponse.json({ id: `cat-${Date.now()}`, name: cleanName, parentId: parentId || null, hierarchy })
+    }
+
+    const isMigrated = await isTenantSchemaMigrated(tenantId)
+
+    if (isMigrated) {
+      const result = await withTenantSchema(tenantId, async (client) => {
+        let resolvedParentId: string | null = null
+
+        if (parentId && typeof parentId === "string" && parentId.trim()) {
+          const targetParentStr = parentId.trim()
+
+          // 1. Try finding parent by ID
+          const parentByIdRes: any = await client.query(
+            `SELECT id FROM custom_categories WHERE id = $1 LIMIT 1`,
+            [targetParentStr]
+          )
+
+          if (parentByIdRes.rows?.[0]) {
+            resolvedParentId = parentByIdRes.rows[0].id
+          } else {
+            // 2. Try finding parent by Name
+            const parentByNameRes: any = await client.query(
+              `SELECT id FROM custom_categories WHERE LOWER(name) = LOWER($1) AND "parentId" IS NULL LIMIT 1`,
+              [targetParentStr]
+            )
+
+            if (parentByNameRes.rows?.[0]) {
+              resolvedParentId = parentByNameRes.rows[0].id
+            } else {
+              // 3. Create parent category for this tenant
+              const createdParentRes: any = await client.query(
+                `INSERT INTO custom_categories ("tenantId", name, "parentId", "createdAt") 
+                 VALUES ($1, $2, NULL, NOW()) 
+                 RETURNING id`,
+                [tenantId, targetParentStr]
+              )
+              resolvedParentId = createdParentRes.rows?.[0]?.id || null
+            }
+          }
+        }
+
+        // Check if duplicate exists within tenant scope
+        let existingRes: any
+        if (resolvedParentId) {
+          existingRes = await client.query(
+            `SELECT id, name FROM custom_categories 
+             WHERE LOWER(name) = LOWER($1) AND "parentId" = $2 
+             LIMIT 1`,
+            [cleanName, resolvedParentId]
+          )
+        } else {
+          existingRes = await client.query(
+            `SELECT id, name FROM custom_categories 
+             WHERE LOWER(name) = LOWER($1) AND "parentId" IS NULL 
+             LIMIT 1`,
+            [cleanName]
+          )
+        }
+
+        if (existingRes.rows?.[0]) {
+          return { existing: existingRes.rows[0], status: 200 }
+        }
+
+        const createRes = await client.query(
+          `INSERT INTO custom_categories ("tenantId", name, "parentId", "createdAt") 
+           VALUES ($1, $2, $3, NOW()) 
+           RETURNING *`,
+          [tenantId, cleanName, resolvedParentId]
+        )
+        return { created: createRes.rows?.[0], status: 201 }
+      })
+
+      invalidateCategoriesCache(tenantId)
+      const updatedHierarchy = await getOrSeedCategories(tenantId)
+      if (result.existing) {
+        return NextResponse.json({ ...result.existing, hierarchy: updatedHierarchy }, { status: 200 })
+      }
+      return NextResponse.json({ ...result.created, hierarchy: updatedHierarchy }, { status: 201 })
     }
 
     let resolvedParentId: string | null = null

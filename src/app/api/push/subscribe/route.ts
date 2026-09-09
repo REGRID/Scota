@@ -3,6 +3,7 @@ import { queryPg, isDatabaseConfigured } from "@/lib/pgDb"
 import { VAPID_PUBLIC_KEY } from "@/lib/serverPush"
 import { getSession } from "@/lib/authHelper"
 import { DEFAULT_TENANT_ID } from "@/lib/session"
+import { isTenantSchemaMigrated, withTenantSchema } from "@/lib/tenantDb"
 
 // GET: Returns VAPID Public Key for client-side subscription
 export async function GET() {
@@ -37,13 +38,26 @@ export async function POST(req: NextRequest) {
     }
 
     if (isDatabaseConfigured) {
-      await queryPg(
-        `INSERT INTO push_subscriptions ("tenantId", endpoint, p256dh, auth, username, role, "createdAt", "updatedAt")
-         VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
-         ON CONFLICT (endpoint)
-         DO UPDATE SET "tenantId" = EXCLUDED."tenantId", p256dh = EXCLUDED.p256dh, auth = EXCLUDED.auth, username = EXCLUDED.username, role = EXCLUDED.role, "updatedAt" = NOW()`,
-        [tenantId, endpoint, p256dh, auth, (session?.username || username || "all").toLowerCase(), (session?.role || role || "ALL").toUpperCase()]
-      )
+      const isMigrated = await isTenantSchemaMigrated(tenantId)
+      if (isMigrated) {
+        await withTenantSchema(tenantId, async (client) => {
+          return client.query(
+            `INSERT INTO push_subscriptions ("tenantId", endpoint, p256dh, auth, username, role, "createdAt", "updatedAt")
+             VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+             ON CONFLICT (endpoint)
+             DO UPDATE SET "tenantId" = EXCLUDED."tenantId", p256dh = EXCLUDED.p256dh, auth = EXCLUDED.auth, username = EXCLUDED.username, role = EXCLUDED.role, "updatedAt" = NOW()`,
+            [tenantId, endpoint, p256dh, auth, (session?.username || username || "all").toLowerCase(), (session?.role || role || "ALL").toUpperCase()]
+          )
+        })
+      } else {
+        await queryPg(
+          `INSERT INTO push_subscriptions ("tenantId", endpoint, p256dh, auth, username, role, "createdAt", "updatedAt")
+           VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+           ON CONFLICT (endpoint)
+           DO UPDATE SET "tenantId" = EXCLUDED."tenantId", p256dh = EXCLUDED.p256dh, auth = EXCLUDED.auth, username = EXCLUDED.username, role = EXCLUDED.role, "updatedAt" = NOW()`,
+          [tenantId, endpoint, p256dh, auth, (session?.username || username || "all").toLowerCase(), (session?.role || role || "ALL").toUpperCase()]
+        )
+      }
     }
 
     return NextResponse.json({ success: true })

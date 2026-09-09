@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { queryPg, isDatabaseConfigured } from "@/lib/pgDb"
+import { isTenantSchemaMigrated, withTenantSchema } from "@/lib/tenantDb"
 import { getSession } from "@/lib/authHelper"
 import { sendWebPushNotification } from "@/lib/serverPush"
 import { invalidateNotificationsCache } from "@/app/api/notifications/route"
@@ -98,9 +99,75 @@ export async function GET(req: NextRequest) {
       query += ` WHERE ` + conditions.join(" AND ")
     }
 
-    query += ` ORDER BY a."createdAt" DESC LIMIT 50`
+    let approvals: any[] = []
+    const isMigrated = await isTenantSchemaMigrated(userTenantId)
 
-    const { rows: approvals } = await queryPg(query, params)
+    if (isMigrated && !isSuperadmin) {
+      approvals = await withTenantSchema(userTenantId, async (client) => {
+        let tenantQuery = `
+          SELECT 
+            a.id, 
+            a."tenantId",
+            a."receiptId", 
+            a."actionType", 
+            a."requestedBy", 
+            a."approvedBy", 
+            a.status, 
+            a."rejectionReason", 
+            a.payload, 
+            a."createdAt", 
+            a."updatedAt",
+            CASE WHEN r.id IS NOT NULL THEN
+              json_build_object(
+                'id', r.id,
+                'merchantName', r."merchantName",
+                'date', r.date,
+                'totalAmount', r."totalAmount",
+                'paymentMethod', r."paymentMethod",
+                'paymentStatus', r."paymentStatus",
+                'note', r.notes,
+                'items', COALESCE(
+                  (
+                    SELECT json_agg(
+                      json_build_object(
+                        'id', i.id,
+                        'name', i.name,
+                        'category', i.category,
+                        'subCategory', i."subCategory",
+                        'price', i."unitPrice",
+                        'quantity', i.qty
+                      )
+                    ) FROM receipt_items i WHERE i."receiptId" = r.id
+                  ),
+                  '[]'::json
+                )
+              )
+            ELSE NULL END as receipt
+          FROM pending_approvals a
+          LEFT JOIN receipts r ON r.id = a."receiptId"
+        `
+        const tParams: any[] = []
+        const tConditions: string[] = []
+
+        if (status !== "ALL") {
+          tParams.push(status)
+          tConditions.push(`a.status = $${tParams.length}`)
+        }
+
+        if (tConditions.length > 0) {
+          tenantQuery += ` WHERE ` + tConditions.join(" AND ")
+        }
+
+        tenantQuery += ` ORDER BY a."createdAt" DESC LIMIT 50`
+
+        const res: any = await client.query(tenantQuery, tParams)
+        return res.rows || []
+      })
+    } else {
+      const { rows } = await queryPg(query, params)
+      approvals = rows || []
+    }
+
     let result = approvals || []
 
     if (receiptId) {
@@ -158,14 +225,29 @@ export async function POST(req: NextRequest) {
     }
 
     if (isDatabaseConfigured) {
-      const res = await queryPg<{ id: string; receiptId: string; actionType: string; requestedBy: string; status: string; createdAt: string }>(
-        `INSERT INTO pending_approvals ("tenantId", "receiptId", "actionType", "requestedBy", status, payload, "createdAt", "updatedAt")
-         VALUES ($1, $2, $3, $4, 'PENDING', $5, NOW(), NOW())
-         RETURNING id, "receiptId", "actionType", "requestedBy", status, "createdAt"`,
-        [userTenantId, receiptId || null, actionType, adminUser, typeof payload === "string" ? payload : JSON.stringify(payload)]
-      )
-      if (res.rows?.[0]) {
-        newApproval = res.rows[0]
+      const isMigrated = await isTenantSchemaMigrated(userTenantId)
+      if (isMigrated) {
+        const res: any = await withTenantSchema(userTenantId, async (client) => {
+          return client.query(
+            `INSERT INTO pending_approvals ("tenantId", "receiptId", "actionType", "requestedBy", status, payload, "createdAt", "updatedAt")
+             VALUES ($1, $2, $3, $4, 'PENDING', $5, NOW(), NOW())
+             RETURNING id, "receiptId", "actionType", "requestedBy", status, "createdAt"`,
+            [userTenantId, receiptId || null, actionType, adminUser, typeof payload === "string" ? payload : JSON.stringify(payload)]
+          )
+        })
+        if (res.rows?.[0]) {
+          newApproval = res.rows[0]
+        }
+      } else {
+        const res = await queryPg<{ id: string; receiptId: string; actionType: string; requestedBy: string; status: string; createdAt: string }>(
+          `INSERT INTO pending_approvals ("tenantId", "receiptId", "actionType", "requestedBy", status, payload, "createdAt", "updatedAt")
+           VALUES ($1, $2, $3, $4, 'PENDING', $5, NOW(), NOW())
+           RETURNING id, "receiptId", "actionType", "requestedBy", status, "createdAt"`,
+          [userTenantId, receiptId || null, actionType, adminUser, typeof payload === "string" ? payload : JSON.stringify(payload)]
+        )
+        if (res.rows?.[0]) {
+          newApproval = res.rows[0]
+        }
       }
     }
 
@@ -175,14 +257,26 @@ export async function POST(req: NextRequest) {
       const notifMsg = `Admin ${adminUser} mengajukan permintaan verifikasi ${actionType}.`
 
       if (isDatabaseConfigured && newApproval.id) {
-        await queryPg(
-          `INSERT INTO notifications ("tenantId", recipient, sender, type, title, message, "approvalId", "isRead", "createdAt")
-           VALUES ($1, 'all', $2, 'REQUEST', $3, $4, $5::uuid, false, NOW())`,
-          [userTenantId, adminUser, notifTitle, notifMsg, newApproval.id.startsWith("appr-") ? null : newApproval.id]
-        ).catch(() => {})
+        const isMigrated = await isTenantSchemaMigrated(userTenantId)
+        if (isMigrated) {
+          await withTenantSchema(userTenantId, async (client) => {
+            return client.query(
+              `INSERT INTO notifications ("tenantId", recipient, sender, type, title, message, "approvalId", "isRead", "createdAt")
+               VALUES ($1, 'all', $2, 'REQUEST', $3, $4, $5::uuid, false, NOW())`,
+              [userTenantId, adminUser, notifTitle, notifMsg, newApproval.id.startsWith("appr-") ? null : newApproval.id]
+            )
+          }).catch(() => {})
+        } else {
+          await queryPg(
+            `INSERT INTO notifications ("tenantId", recipient, sender, type, title, message, "approvalId", "isRead", "createdAt")
+             VALUES ($1, 'all', $2, 'REQUEST', $3, $4, $5::uuid, false, NOW())`,
+            [userTenantId, adminUser, notifTitle, notifMsg, newApproval.id.startsWith("appr-") ? null : newApproval.id]
+          ).catch(() => {})
+        }
       }
 
       sendWebPushNotification({
+        tenantId: userTenantId,
         title: notifTitle,
         message: notifMsg,
         url: "/",

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { recordVerifiedReceiptLearning } from "@/lib/selfLearningEngine"
 import { getSession } from "@/lib/authHelper"
+import { requireRole } from "@/lib/roleGuard"
 import { getOrSeedCategories } from "@/lib/categories"
 import { compressBase64Image } from "@/lib/imageCompressor"
 import { sendWebPushNotification } from "@/lib/serverPush"
@@ -68,16 +69,6 @@ export async function GET(req: NextRequest) {
               conditions.push(`(
                 r."createdByRole" IN ('KASIR', 'KARYAWAN', 'STAFF', 'STAF')
                 OR r."createdByUsername" = '${(session?.username || "").replace(/'/g, "''")}'
-                OR (
-                  r."createdByRole" IS NULL AND (
-                    r."paymentMethod" ILIKE '%Talangan%'
-                    OR r.notes ILIKE '%(karyawan)%'
-                    OR r.notes ILIKE '%(kasir)%'
-                    OR r.notes ILIKE '%[diunggah oleh:%'
-                    OR r."staffName" ILIKE ANY(ARRAY['%kasir%', '%staf%', '%staff%', '%karyawan%'])
-                    OR r."staffName" = '${(session?.staffName || session?.fullName || "").replace(/'/g, "''")}'
-                  )
-                )
               )`)
             }
 
@@ -163,16 +154,6 @@ export async function GET(req: NextRequest) {
           conditions.push(`(
             r."createdByRole" IN ('KASIR', 'KARYAWAN', 'STAFF', 'STAF')
             OR r."createdByUsername" = '${(session?.username || "").replace(/'/g, "''")}'
-            OR (
-              r."createdByRole" IS NULL AND (
-                r."paymentMethod" ILIKE '%Talangan%'
-                OR r.note ILIKE '%(karyawan)%'
-                OR r.note ILIKE '%(kasir)%'
-                OR r.note ILIKE '%[diunggah oleh:%'
-                OR r."staffName" ILIKE ANY(ARRAY['%kasir%', '%staf%', '%staff%', '%karyawan%'])
-                OR r."staffName" = '${(session?.staffName || session?.fullName || "").replace(/'/g, "''")}'
-              )
-            )
           )`)
         }
 
@@ -439,6 +420,7 @@ export async function POST(req: NextRequest) {
     const userTenantId = session.tenantId || DEFAULT_TENANT_ID
     const subInfo = await getSubscriptionInfo(userTenantId).catch(() => null)
     const workflow = subInfo?.approvalWorkflow || DEFAULT_APPROVAL_WORKFLOW
+    const isMigrated = isDatabaseConfigured ? await isTenantSchemaMigrated(userTenantId) : false
 
     const requiresApproval =
       !isDemoUser &&
@@ -451,44 +433,91 @@ export async function POST(req: NextRequest) {
       let createdReceipt: any = null
 
       if (isDatabaseConfigured) {
-        const insertRes = await queryPg<{ id: string }>(
-          `INSERT INTO receipts ("tenantId", "merchantName", date, "imageUrl", subtotal, "discountAmount", "taxAmount", "totalAmount", "paymentMethod", "paymentStatus", note, "staffName", "createdByRole", "createdByUsername", "createdAt", "updatedAt")
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())
-           RETURNING id, "merchantName", date, "totalAmount", "paymentMethod", "paymentStatus", "createdByRole", "createdByUsername", "createdAt"`,
-          [
-            userTenantId,
-            payloadObj.merchantName,
-            payloadObj.date,
-            payloadObj.imageUrl,
-            payloadObj.subtotal,
-            payloadObj.discountAmount,
-            payloadObj.taxAmount,
-            payloadObj.totalAmount,
-            payloadObj.paymentMethod,
-            payloadObj.paymentStatus,
-            payloadObj.note,
-            payloadObj.staffName,
-            payloadObj.createdByRole,
-            payloadObj.createdByUsername,
-          ]
-        )
-        createdReceipt = insertRes.rows?.[0]
-
-        if (createdReceipt?.id) {
-          for (const item of payloadObj.items) {
-            await queryPg(
-              `INSERT INTO receipt_items ("receiptId", name, category, "subCategory", price, quantity, "createdAt")
-               VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+        if (isMigrated) {
+          await withTenantSchema(userTenantId, async (client) => {
+            const insertRes: any = await client.query(
+              `INSERT INTO receipts ("tenantId", "merchantName", date, "imageUrl", subtotal, "discountAmount", "taxAmount", "totalAmount", "paymentMethod", "paymentStatus", notes, "staffName", "createdByRole", "createdByUsername", "createdAt", "updatedAt")
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())
+               RETURNING id, "merchantName", date, "totalAmount", "paymentMethod", "paymentStatus", "createdByRole", "createdByUsername", "createdAt"`,
               [
-                createdReceipt.id,
-                item.name,
-                item.category,
-                item.subCategory,
-                item.price,
-                item.quantity,
+                userTenantId,
+                payloadObj.merchantName,
+                payloadObj.date,
+                payloadObj.imageUrl,
+                payloadObj.subtotal,
+                payloadObj.discountAmount,
+                payloadObj.taxAmount,
+                payloadObj.totalAmount,
+                payloadObj.paymentMethod,
+                payloadObj.paymentStatus,
+                payloadObj.note,
+                payloadObj.staffName,
+                payloadObj.createdByRole,
+                payloadObj.createdByUsername,
               ]
             )
+            createdReceipt = insertRes.rows?.[0]
+
+            if (createdReceipt?.id) {
+              for (const item of payloadObj.items) {
+                await client.query(
+                  `INSERT INTO receipt_items ("tenantId", "receiptId", name, qty, "unitPrice", "totalPrice", category, "subCategory", "createdAt")
+                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())`,
+                  [
+                    userTenantId,
+                    createdReceipt.id,
+                    item.name,
+                    item.quantity,
+                    item.price,
+                    (item.price * item.quantity),
+                    item.category,
+                    item.subCategory,
+                  ]
+                )
+              }
+            }
+          })
+        } else {
+          const insertRes = await queryPg<{ id: string }>(
+            `INSERT INTO receipts ("tenantId", "merchantName", date, "imageUrl", subtotal, "discountAmount", "taxAmount", "totalAmount", "paymentMethod", "paymentStatus", note, "staffName", "createdByRole", "createdByUsername", "createdAt", "updatedAt")
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())
+             RETURNING id, "merchantName", date, "totalAmount", "paymentMethod", "paymentStatus", "createdByRole", "createdByUsername", "createdAt"`,
+            [
+              userTenantId,
+              payloadObj.merchantName,
+              payloadObj.date,
+              payloadObj.imageUrl,
+              payloadObj.subtotal,
+              payloadObj.discountAmount,
+              payloadObj.taxAmount,
+              payloadObj.totalAmount,
+              payloadObj.paymentMethod,
+              payloadObj.paymentStatus,
+              payloadObj.note,
+              payloadObj.staffName,
+              payloadObj.createdByRole,
+              payloadObj.createdByUsername,
+            ]
+          )
+          createdReceipt = insertRes.rows?.[0]
+
+          if (createdReceipt?.id) {
+            for (const item of payloadObj.items) {
+              await queryPg(
+                `INSERT INTO receipt_items ("receiptId", name, category, "subCategory", price, quantity, "createdAt")
+                 VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+                [
+                  createdReceipt.id,
+                  item.name,
+                  item.category,
+                  item.subCategory,
+                  item.price,
+                  item.quantity,
+                ]
+              )
+            }
           }
+        }
 
           // Background auto-learning into dictionaries
           try {
@@ -528,7 +557,6 @@ export async function POST(req: NextRequest) {
             console.warn("Direct publish background learning notice:", dictErr)
           }
         }
-      }
 
       return NextResponse.json({
         directPublished: true,
@@ -547,14 +575,28 @@ export async function POST(req: NextRequest) {
     }
 
     if (isDatabaseConfigured) {
-      const apprRes = await queryPg<{ id: string; actionType: string; requestedBy: string; status: string; createdAt: string }>(
-        `INSERT INTO pending_approvals ("tenantId", "receiptId", "actionType", "requestedBy", status, payload, "createdAt", "updatedAt")
-         VALUES ($1, NULL, 'CREATE', $2, 'PENDING', $3, NOW(), NOW())
-         RETURNING id, "actionType", "requestedBy", status, "createdAt"`,
-        [userTenantId, uploaderName, JSON.stringify(payloadObj)]
-      )
-      if (apprRes.rows?.[0]) {
-        newApproval = apprRes.rows[0]
+      if (isMigrated) {
+        const apprRes: any = await withTenantSchema(userTenantId, async (client) => {
+          return client.query(
+            `INSERT INTO pending_approvals ("tenantId", "receiptId", "actionType", "requestedBy", status, payload, "createdAt", "updatedAt")
+             VALUES ($1, NULL, 'CREATE', $2, 'PENDING', $3, NOW(), NOW())
+             RETURNING id, "actionType", "requestedBy", status, "createdAt"`,
+            [userTenantId, uploaderName, JSON.stringify(payloadObj)]
+          )
+        })
+        if (apprRes.rows?.[0]) {
+          newApproval = apprRes.rows[0]
+        }
+      } else {
+        const apprRes = await queryPg<{ id: string; actionType: string; requestedBy: string; status: string; createdAt: string }>(
+          `INSERT INTO pending_approvals ("tenantId", "receiptId", "actionType", "requestedBy", status, payload, "createdAt", "updatedAt")
+           VALUES ($1, NULL, 'CREATE', $2, 'PENDING', $3, NOW(), NOW())
+           RETURNING id, "actionType", "requestedBy", status, "createdAt"`,
+          [userTenantId, uploaderName, JSON.stringify(payloadObj)]
+        )
+        if (apprRes.rows?.[0]) {
+          newApproval = apprRes.rows[0]
+        }
       }
     }
 
@@ -571,14 +613,25 @@ export async function POST(req: NextRequest) {
       const recipientRole = (targetMode === "KARYAWAN" ? "KARYAWAN" : targetMode === "ALL" ? "ALL" : "ADMIN") as "ADMIN" | "ALL" | "KARYAWAN"
 
       if (isDatabaseConfigured && newApproval.id) {
-        await queryPg(
-          `INSERT INTO notifications ("tenantId", recipient, sender, type, title, message, "approvalId", "isRead", "createdAt")
-           VALUES ($1, $2, $3, 'REQUEST', $4, $5, $6::uuid, false, NOW())`,
-          [userTenantId, designatedRecipient, uploaderName, notifTitle, notifMessage, newApproval.id.startsWith("appr-") ? null : newApproval.id]
-        ).catch(() => {})
+        if (isMigrated) {
+          await withTenantSchema(userTenantId, async (client) => {
+            return client.query(
+              `INSERT INTO notifications ("tenantId", recipient, sender, type, title, message, "approvalId", "isRead", "createdAt")
+               VALUES ($1, $2, $3, 'REQUEST', $4, $5, $6::uuid, false, NOW())`,
+              [userTenantId, designatedRecipient, uploaderName, notifTitle, notifMessage, newApproval.id.startsWith("appr-") ? null : newApproval.id]
+            )
+          }).catch(() => {})
+        } else {
+          await queryPg(
+            `INSERT INTO notifications ("tenantId", recipient, sender, type, title, message, "approvalId", "isRead", "createdAt")
+             VALUES ($1, $2, $3, 'REQUEST', $4, $5, $6::uuid, false, NOW())`,
+            [userTenantId, designatedRecipient, uploaderName, notifTitle, notifMessage, newApproval.id.startsWith("appr-") ? null : newApproval.id]
+          ).catch(() => {})
+        }
       }
 
       sendWebPushNotification({
+        tenantId: userTenantId,
         title: notifTitle,
         message: notifMessage,
         url: "/",
@@ -603,13 +656,11 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
-    const session = await getSession(req)
-    if (!session || !session.username) {
-      return NextResponse.json({ error: "Sesi tidak valid atau belum login. Silakan login terlebih dahulu." }, { status: 401 })
-    }
+    const auth = await requireRole(req, ["OWNER", "ADMIN"])
+    if (!auth.ok) return auth.response
 
-    const adminUser = session.username
-    const userTenantId = session.tenantId || DEFAULT_TENANT_ID
+    const adminUser = auth.username
+    const userTenantId = auth.tenantId
     const { ids } = await req.json()
     if (!ids || !Array.isArray(ids) || ids.length === 0) {
       return NextResponse.json({ error: "ID nota yang akan dihapus tidak valid" }, { status: 400 })
@@ -621,14 +672,24 @@ export async function DELETE(req: NextRequest) {
 
     const subInfo = await getSubscriptionInfo(userTenantId).catch(() => null)
     const workflow = subInfo?.approvalWorkflow || DEFAULT_APPROVAL_WORKFLOW
+    const isMigrated = isDatabaseConfigured ? await isTenantSchemaMigrated(userTenantId) : false
 
     // Direct delete if approval is not required for delete
     if (!workflow.enableApproval || !workflow.requireForDelete) {
       if (isDatabaseConfigured) {
-        await queryPg(
-          `DELETE FROM receipts WHERE id = ANY($1::uuid[]) AND "tenantId" = $2`,
-          [ids, userTenantId]
-        )
+        if (isMigrated) {
+          await withTenantSchema(userTenantId, async (client) => {
+            await client.query(
+              `DELETE FROM receipts WHERE id = ANY($1::uuid[])`,
+              [ids]
+            )
+          })
+        } else {
+          await queryPg(
+            `DELETE FROM receipts WHERE id = ANY($1::uuid[]) AND "tenantId" = $2`,
+            [ids, userTenantId]
+          )
+        }
       }
       return NextResponse.json({
         directPublished: true,
@@ -645,14 +706,28 @@ export async function DELETE(req: NextRequest) {
     }
 
     if (isDatabaseConfigured) {
-      const apprRes = await queryPg<{ id: string; actionType: string; requestedBy: string; status: string; createdAt: string }>(
-        `INSERT INTO pending_approvals ("tenantId", "actionType", "requestedBy", status, payload, "createdAt", "updatedAt")
-         VALUES ($1, 'BULK_DELETE', $2, 'PENDING', $3, NOW(), NOW())
-         RETURNING id, "actionType", "requestedBy", status, "createdAt"`,
-        [userTenantId, adminUser, JSON.stringify({ ids })]
-      )
-      if (apprRes.rows?.[0]) {
-        approval = apprRes.rows[0]
+      if (isMigrated) {
+        const apprRes: any = await withTenantSchema(userTenantId, async (client) => {
+          return client.query(
+            `INSERT INTO pending_approvals ("tenantId", "actionType", "requestedBy", status, payload, "createdAt", "updatedAt")
+             VALUES ($1, 'BULK_DELETE', $2, 'PENDING', $3, NOW(), NOW())
+             RETURNING id, "actionType", "requestedBy", status, "createdAt"`,
+            [userTenantId, adminUser, JSON.stringify({ ids })]
+          )
+        })
+        if (apprRes.rows?.[0]) {
+          approval = apprRes.rows[0]
+        }
+      } else {
+        const apprRes = await queryPg<{ id: string; actionType: string; requestedBy: string; status: string; createdAt: string }>(
+          `INSERT INTO pending_approvals ("tenantId", "actionType", "requestedBy", status, payload, "createdAt", "updatedAt")
+           VALUES ($1, 'BULK_DELETE', $2, 'PENDING', $3, NOW(), NOW())
+           RETURNING id, "actionType", "requestedBy", status, "createdAt"`,
+          [userTenantId, adminUser, JSON.stringify({ ids })]
+        )
+        if (apprRes.rows?.[0]) {
+          approval = apprRes.rows[0]
+        }
       }
     }
 
@@ -662,14 +737,25 @@ export async function DELETE(req: NextRequest) {
       const notifMsg = `Pengguna ${adminUser} mengajukan penghapusan massal untuk ${ids.length} nota.`
 
       if (isDatabaseConfigured && approval.id) {
-        await queryPg(
-          `INSERT INTO notifications ("tenantId", recipient, sender, type, title, message, "approvalId", "isRead", "createdAt")
-           VALUES ($1, 'all', $2, 'REQUEST', $3, $4, $5::uuid, false, NOW())`,
-          [userTenantId, adminUser, notifTitle, notifMsg, approval.id.startsWith("appr-") ? null : approval.id]
-        ).catch(() => {})
+        if (isMigrated) {
+          await withTenantSchema(userTenantId, async (client) => {
+            return client.query(
+              `INSERT INTO notifications ("tenantId", recipient, sender, type, title, message, "approvalId", "isRead", "createdAt")
+               VALUES ($1, 'all', $2, 'REQUEST', $3, $4, $5::uuid, false, NOW())`,
+              [userTenantId, adminUser, notifTitle, notifMsg, approval.id.startsWith("appr-") ? null : approval.id]
+            )
+          }).catch(() => {})
+        } else {
+          await queryPg(
+            `INSERT INTO notifications ("tenantId", recipient, sender, type, title, message, "approvalId", "isRead", "createdAt")
+             VALUES ($1, 'all', $2, 'REQUEST', $3, $4, $5::uuid, false, NOW())`,
+            [userTenantId, adminUser, notifTitle, notifMsg, approval.id.startsWith("appr-") ? null : approval.id]
+          ).catch(() => {})
+        }
       }
 
       sendWebPushNotification({
+        tenantId: userTenantId,
         title: notifTitle,
         message: notifMsg,
         url: "/",
@@ -714,16 +800,28 @@ export async function PATCH(req: NextRequest) {
 
     const subInfo = await getSubscriptionInfo(userTenantId).catch(() => null)
     const workflow = subInfo?.approvalWorkflow || DEFAULT_APPROVAL_WORKFLOW
+    const isMigrated = isDatabaseConfigured ? await isTenantSchemaMigrated(userTenantId) : false
 
     // Direct settle if approval is not required for settle
     if (!workflow.enableApproval || !workflow.requireForSettle) {
       if (isDatabaseConfigured) {
-        await queryPg(
-          `UPDATE receipts 
-           SET "paymentStatus" = $1, "updatedAt" = NOW() 
-           WHERE id = ANY($2::uuid[]) AND "tenantId" = $3`,
-          [statusToSet, ids, userTenantId]
-        )
+        if (isMigrated) {
+          await withTenantSchema(userTenantId, async (client) => {
+            await client.query(
+              `UPDATE receipts 
+               SET "paymentStatus" = $1, "updatedAt" = NOW() 
+               WHERE id = ANY($2::uuid[])`,
+              [statusToSet, ids]
+            )
+          })
+        } else {
+          await queryPg(
+            `UPDATE receipts 
+             SET "paymentStatus" = $1, "updatedAt" = NOW() 
+             WHERE id = ANY($2::uuid[]) AND "tenantId" = $3`,
+            [statusToSet, ids, userTenantId]
+          )
+        }
       }
       return NextResponse.json({
         directPublished: true,
@@ -748,14 +846,28 @@ export async function PATCH(req: NextRequest) {
     }
 
     if (isDatabaseConfigured) {
-      const apprRes = await queryPg<{ id: string; actionType: string; requestedBy: string; status: string; createdAt: string }>(
-        `INSERT INTO pending_approvals ("tenantId", "actionType", "requestedBy", status, payload, "createdAt", "updatedAt")
-         VALUES ($1, 'BULK_SETTLE', $2, 'PENDING', $3, NOW(), NOW())
-         RETURNING id, "actionType", "requestedBy", status, "createdAt"`,
-        [userTenantId, adminUser, JSON.stringify(payloadObj)]
-      )
-      if (apprRes.rows?.[0]) {
-        approval = apprRes.rows[0]
+      if (isMigrated) {
+        const apprRes: any = await withTenantSchema(userTenantId, async (client) => {
+          return client.query(
+            `INSERT INTO pending_approvals ("tenantId", "actionType", "requestedBy", status, payload, "createdAt", "updatedAt")
+             VALUES ($1, 'BULK_SETTLE', $2, 'PENDING', $3, NOW(), NOW())
+             RETURNING id, "actionType", "requestedBy", status, "createdAt"`,
+            [userTenantId, adminUser, JSON.stringify(payloadObj)]
+          )
+        })
+        if (apprRes.rows?.[0]) {
+          approval = apprRes.rows[0]
+        }
+      } else {
+        const apprRes = await queryPg<{ id: string; actionType: string; requestedBy: string; status: string; createdAt: string }>(
+          `INSERT INTO pending_approvals ("tenantId", "actionType", "requestedBy", status, payload, "createdAt", "updatedAt")
+           VALUES ($1, 'BULK_SETTLE', $2, 'PENDING', $3, NOW(), NOW())
+           RETURNING id, "actionType", "requestedBy", status, "createdAt"`,
+          [userTenantId, adminUser, JSON.stringify(payloadObj)]
+        )
+        if (apprRes.rows?.[0]) {
+          approval = apprRes.rows[0]
+        }
       }
     }
 
@@ -765,14 +877,25 @@ export async function PATCH(req: NextRequest) {
       const notifMsg = `Pengguna ${adminUser} mengajukan pelunasan untuk ${ids.length} nota${personName ? ` (${personName})` : ''} sebesar Rp ${(Number(totalAmount) || 0).toLocaleString("id-ID")}.`
 
       if (isDatabaseConfigured && approval.id) {
-        await queryPg(
-          `INSERT INTO notifications ("tenantId", recipient, sender, type, title, message, "approvalId", "isRead", "createdAt")
-           VALUES ($1, 'all', $2, 'REQUEST', $3, $4, $5::uuid, false, NOW())`,
-          [userTenantId, adminUser, notifTitle, notifMsg, approval.id.startsWith("appr-") ? null : approval.id]
-        ).catch(() => {})
+        if (isMigrated) {
+          await withTenantSchema(userTenantId, async (client) => {
+            return client.query(
+              `INSERT INTO notifications ("tenantId", recipient, sender, type, title, message, "approvalId", "isRead", "createdAt")
+               VALUES ($1, 'all', $2, 'REQUEST', $3, $4, $5::uuid, false, NOW())`,
+              [userTenantId, adminUser, notifTitle, notifMsg, approval.id.startsWith("appr-") ? null : approval.id]
+            )
+          }).catch(() => {})
+        } else {
+          await queryPg(
+            `INSERT INTO notifications ("tenantId", recipient, sender, type, title, message, "approvalId", "isRead", "createdAt")
+             VALUES ($1, 'all', $2, 'REQUEST', $3, $4, $5::uuid, false, NOW())`,
+            [userTenantId, adminUser, notifTitle, notifMsg, approval.id.startsWith("appr-") ? null : approval.id]
+          ).catch(() => {})
+        }
       }
 
       sendWebPushNotification({
+        tenantId: userTenantId,
         title: notifTitle,
         message: notifMsg,
         url: "/",

@@ -15,20 +15,64 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(searchParams.get("limit") || "100")
     const search = (searchParams.get("search") || "").trim()
 
-    let query = `SELECT * FROM receipts`
+    // Enable Superadmin bypass for PostgreSQL Row-Level Security (RLS)
+    await queryPg(`SELECT set_config('app.is_superadmin', 'true', false)`)
+
+    // Find all active isolated tenant schemas
+    const { rows: schemas } = await queryPg<{ schema_name: string }>(
+      `SELECT schema_name 
+       FROM information_schema.schemata 
+       WHERE schema_name LIKE 'tenant_%'`
+    )
+
+    const validSchemas = (schemas || [])
+      .map(s => s.schema_name)
+      .filter(name => /^tenant_[a-f0-9_]+$/.test(name))
+
+    const selectPublic = `
+      SELECT id, "tenantId", "merchantName", date, "imageUrl", subtotal, 
+             "discountAmount", "taxAmount", "totalAmount", "paymentMethod", 
+             "paymentStatus", note, "createdAt", "updatedAt"
+      FROM public.receipts
+    `
+
+    const selectTenantSchemas = validSchemas.map(schemaName => `
+      SELECT id, "tenantId", "merchantName", date, "imageUrl", subtotal, 
+             "discountAmount", "taxAmount", "totalAmount", "paymentMethod", 
+             "paymentStatus", notes as note, "createdAt", "updatedAt"
+      FROM "${schemaName}".receipts
+    `)
+
+    const unionQuery = [selectPublic, ...selectTenantSchemas].join(" UNION ALL ")
+
     const params: any[] = []
+    let whereClause = ""
 
     if (search) {
-      query += ` WHERE "merchantName" ILIKE $1`
+      whereClause = ` WHERE "merchantName" ILIKE $1`
       params.push(`%${search}%`)
+      params.push(limit)
+    } else {
+      params.push(limit)
     }
 
-    query += ` ORDER BY "createdAt" DESC LIMIT ${limit}`
+    const limitParamIndex = params.length
 
-    const { rows: receipts } = await queryPg(query, params)
+    const finalQuery = `
+      WITH unified_receipts AS (
+        ${unionQuery}
+      )
+      SELECT * FROM unified_receipts
+      ${whereClause}
+      ORDER BY "createdAt" DESC 
+      LIMIT $${limitParamIndex}
+    `
+
+    const { rows: receipts } = await queryPg(finalQuery, params)
 
     return NextResponse.json({ success: true, receipts: receipts || [] })
   } catch (error: any) {
+    console.error("[Superadmin Receipts Error]:", error)
     return NextResponse.json({ success: true, receipts: [] })
   }
 }

@@ -43,6 +43,8 @@ export interface SendPushOptions {
 /**
  * Broadcasts a Web Push notification to all matching subscriptions (even when browser/app is closed on mobile).
  */
+import { isTenantSchemaMigrated, withTenantSchema } from "@/lib/tenantDb"
+
 export async function sendWebPushNotification(options: SendPushOptions) {
   if (!isDatabaseConfigured) {
     return { success: true, sentCount: 0 }
@@ -51,27 +53,52 @@ export async function sendWebPushNotification(options: SendPushOptions) {
   try {
     const { tenantId, title, message, url = "/", recipientRole = "ALL", excludeUsername, tag } = options
 
-    let query = `SELECT id, endpoint, p256dh, auth, username, role FROM push_subscriptions WHERE 1=1`
-    const params: any[] = []
-
-    if (tenantId) {
-      params.push(tenantId)
-      query += ` AND ("tenantId" = $${params.length} OR "tenantId" IS NULL)`
-    }
-
-    if (recipientRole !== "ALL") {
-      params.push(recipientRole)
-      query += ` AND (role = $${params.length} OR role = 'ALL')`
-    }
-
-    const { rows: subscriptions } = await queryPg<{
+    let subscriptions: {
       id: string
       endpoint: string
       p256dh: string
       auth: string
       username: string
       role: string
-    }>(query, params)
+    }[] = []
+
+    const isMigrated = tenantId ? await isTenantSchemaMigrated(tenantId) : false
+
+    if (tenantId && isMigrated) {
+      subscriptions = await withTenantSchema(tenantId, async (client) => {
+        let tQuery = `SELECT id, endpoint, p256dh, auth, username, role FROM push_subscriptions WHERE 1=1`
+        const tParams: any[] = []
+        if (recipientRole !== "ALL") {
+          tParams.push(recipientRole)
+          tQuery += ` AND (role = $${tParams.length} OR role = 'ALL')`
+        }
+        const res = await client.query(tQuery, tParams)
+        return res.rows || []
+      })
+    } else {
+      let query = `SELECT id, endpoint, p256dh, auth, username, role FROM push_subscriptions WHERE 1=1`
+      const params: any[] = []
+
+      if (tenantId) {
+        params.push(tenantId)
+        query += ` AND ("tenantId" = $${params.length} OR "tenantId" IS NULL)`
+      }
+
+      if (recipientRole !== "ALL") {
+        params.push(recipientRole)
+        query += ` AND (role = $${params.length} OR role = 'ALL')`
+      }
+
+      const res = await queryPg<{
+        id: string
+        endpoint: string
+        p256dh: string
+        auth: string
+        username: string
+        role: string
+      }>(query, params)
+      subscriptions = res.rows || []
+    }
 
     if (!subscriptions || subscriptions.length === 0) {
       return { success: true, sentCount: 0 }
@@ -126,10 +153,16 @@ export async function sendWebPushNotification(options: SendPushOptions) {
 
     // Remove expired subscriptions in the background
     if (staleEndpointIds.length > 0) {
-      await queryPg(
-        `DELETE FROM push_subscriptions WHERE id = ANY($1::uuid[])`,
-        [staleEndpointIds]
-      ).catch(() => {})
+      if (tenantId && isMigrated) {
+        await withTenantSchema(tenantId, async (client) => {
+          await client.query(`DELETE FROM push_subscriptions WHERE id = ANY($1::uuid[])`, [staleEndpointIds])
+        }).catch(() => {})
+      } else {
+        await queryPg(
+          `DELETE FROM push_subscriptions WHERE id = ANY($1::uuid[])`,
+          [staleEndpointIds]
+        ).catch(() => {})
+      }
     }
 
     return { success: true, sentCount, staleRemoved: staleEndpointIds.length }

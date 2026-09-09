@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 import {
   ChevronLeft,
@@ -45,10 +45,12 @@ export interface UserAccount {
   id: string
   name: string
   username: string
-  pin: string
-  role: "ADMIN" | "MANAJER" | "KASIR" | "AUDITOR"
-  status: "active" | "inactive"
+  pin?: string
+  role: "OWNER" | "ADMIN" | "MANAGER" | "KARYAWAN" | string
+  status: "active" | "inactive" | string
   createdAt: string
+  phone?: string | null
+  email?: string | null
 }
 
 export default function SettingsPage() {
@@ -60,41 +62,15 @@ export default function SettingsPage() {
   const [currentUser, setCurrentUser] = useState<string>("admin")
 
   // 1. User & Role Management State
-  const [accounts, setAccounts] = useState<UserAccount[]>([
-    {
-      id: "1",
-      name: "Admin Utama",
-      username: "admin",
-      pin: "••••••",
-      role: "ADMIN",
-      status: "active",
-      createdAt: "2026-08-01",
-    },
-    {
-      id: "2",
-      name: "Budi Santoso (Supervisor)",
-      username: "manajer_budi",
-      pin: "5678",
-      role: "MANAJER",
-      status: "active",
-      createdAt: "2026-08-20",
-    },
-    {
-      id: "3",
-      name: "Siti Rahma (Kasir 1)",
-      username: "kasir1",
-      pin: "1234",
-      role: "KASIR",
-      status: "active",
-      createdAt: "2026-08-15",
-    },
-  ])
+  const [accounts, setAccounts] = useState<UserAccount[]>([])
+  const [loadingAccounts, setLoadingAccounts] = useState(false)
+  const [submittingAccount, setSubmittingAccount] = useState(false)
 
   // New Account Form State
   const [newName, setNewName] = useState("")
   const [newUsername, setNewUsername] = useState("")
   const [newPin, setNewPin] = useState("")
-  const [newRole, setNewRole] = useState<"ADMIN" | "MANAJER" | "KASIR" | "AUDITOR">("KASIR")
+  const [newRole, setNewRole] = useState<"ADMIN" | "MANAGER" | "KARYAWAN">("KARYAWAN")
   const [showAddForm, setShowAddForm] = useState(false)
 
   // 2. Notification Settings State
@@ -179,50 +155,99 @@ export default function SettingsPage() {
     }
   }, [])
 
+  // Fetch staff accounts from database API
+  const fetchAccounts = useCallback(async () => {
+    try {
+      setLoadingAccounts(true)
+      const res = await fetch("/api/settings/staff")
+      if (res.ok) {
+        const data = await res.json()
+        if (Array.isArray(data.staff)) {
+          setAccounts(
+            data.staff.map((s: any) => ({
+              id: s.id,
+              name: s.fullName || s.username,
+              username: s.username,
+              role: (s.role || "KARYAWAN").toUpperCase(),
+              status: s.status || "active",
+              createdAt: s.createdAt ? new Date(s.createdAt).toISOString().split("T")[0] : "-",
+              phone: s.phone,
+              email: s.email,
+            }))
+          )
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load staff accounts:", err)
+    } finally {
+      setLoadingAccounts(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchAccounts()
+  }, [fetchAccounts])
+
   // Handle Add Account
-  const handleAddAccount = (e: React.FormEvent) => {
+  const handleAddAccount = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!newName.trim() || !newUsername.trim() || !newPin.trim()) {
       toast.error("Mohon lengkapi seluruh kolom formulir.")
       return
     }
 
-    const cleanUsername = newUsername.trim().toLowerCase().replace(/\s+/g, "_")
-    if (accounts.some((acc) => acc.username.toLowerCase() === cleanUsername)) {
-      toast.error(`Username "${cleanUsername}" sudah digunakan.`)
-      return
-    }
+    try {
+      setSubmittingAccount(true)
+      const res = await fetch("/api/settings/staff", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fullName: newName.trim(),
+          username: newUsername.trim(),
+          password: newPin.trim(),
+          role: newRole,
+        }),
+      })
 
-    const newAcc: UserAccount = {
-      id: Date.now().toString(),
-      name: newName.trim(),
-      username: cleanUsername,
-      pin: newPin.trim(),
-      role: newRole,
-      status: "active",
-      createdAt: new Date().toISOString().split("T")[0],
-    }
+      const data = await res.json()
+      if (!res.ok) {
+        toast.error(data.error || "Gagal membuat akun staf")
+        return
+      }
 
-    const updated = [...accounts, newAcc]
-    setAccounts(updated)
-    localStorage.setItem("scota_user_accounts", JSON.stringify(updated))
-    setNewName("")
-    setNewUsername("")
-    setNewPin("")
-    setShowAddForm(false)
-    toast.success(`Akun "${newAcc.name}" (${newAcc.role}) berhasil dibuat!`)
+      toast.success(data.message || "Akun staf berhasil dibuat!")
+      setNewName("")
+      setNewUsername("")
+      setNewPin("")
+      setShowAddForm(false)
+      await fetchAccounts()
+    } catch (err: any) {
+      toast.error(err.message || "Terjadi kesalahan sistem")
+    } finally {
+      setSubmittingAccount(false)
+    }
   }
 
   // Handle Delete Account
-  const handleDeleteAccount = (id: string, name: string) => {
-    if (accounts.length <= 1) {
-      toast.error("Minimal harus tersisa 1 akun pengelola.")
+  const handleDeleteAccount = async (id: string, name: string) => {
+    if (!confirm(`Apakah Anda yakin ingin menghapus akun staf "${name}"?`)) {
       return
     }
-    const updated = accounts.filter((a) => a.id !== id)
-    setAccounts(updated)
-    localStorage.setItem("scota_user_accounts", JSON.stringify(updated))
-    toast.success(`Akun "${name}" telah dinonaktifkan / dihapus.`)
+
+    try {
+      const res = await fetch(`/api/settings/staff?id=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        toast.error(data.error || "Gagal menghapus akun staf")
+        return
+      }
+      toast.success(data.message || `Akun "${name}" berhasil dihapus.`)
+      await fetchAccounts()
+    } catch (err: any) {
+      toast.error(err.message || "Terjadi kesalahan saat menghapus staf")
+    }
   }
 
   // Handle Test Notification
@@ -299,10 +324,13 @@ export default function SettingsPage() {
   }
 
   const roleColors: Record<string, string> = {
+    OWNER: "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border-indigo-500/30",
+    SUPERADMIN: "bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/30",
     ADMIN: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30",
+    MANAGER: "bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30",
     MANAJER: "bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30",
+    KARYAWAN: "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30",
     KASIR: "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30",
-    AUDITOR: "bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/30",
   }
 
   return (
@@ -497,10 +525,9 @@ export default function SettingsPage() {
                         onChange={(e: any) => setNewRole(e.target.value)}
                         className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
                       >
-                        <option value="KASIR">Kasir / Staf Toko (Scan & Input Saja)</option>
-                        <option value="MANAJER">Manajer (Audit, Persetujuan & Laporan)</option>
-                        <option value="ADMIN">Admin Utama (Akses Penuh Seluruh Sistem)</option>
-                        <option value="AUDITOR">Auditor Keuangan (Lihat & Ekspor Saja)</option>
+                        <option value="KARYAWAN">Karyawan / Staf Kasir (Scan & Input Saja)</option>
+                        <option value="MANAGER">Manajer (Audit, Persetujuan & Laporan)</option>
+                        <option value="ADMIN">Admin Utama (Akses Penuh Kelola Nota & Staf)</option>
                       </select>
                     </div>
                   </div>
@@ -508,16 +535,18 @@ export default function SettingsPage() {
                   <div className="flex justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
                     <button
                       type="button"
+                      disabled={submittingAccount}
                       onClick={() => setShowAddForm(false)}
-                      className="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 cursor-pointer"
+                      className="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 cursor-pointer disabled:opacity-50"
                     >
                       Batal
                     </button>
                     <button
                       type="submit"
-                      className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black shadow-xs cursor-pointer"
+                      disabled={submittingAccount}
+                      className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black shadow-xs cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
                     >
-                      Simpan Akun
+                      {submittingAccount ? "Menyimpan..." : "Simpan Akun"}
                     </button>
                   </div>
                 </form>
@@ -536,44 +565,58 @@ export default function SettingsPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {accounts.map((acc) => (
-                      <tr key={acc.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                        <td className="p-3 font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                          <div className="w-7 h-7 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 flex items-center justify-center font-black text-xs uppercase">
-                            {acc.name[0]}
-                          </div>
-                          <span>{acc.name}</span>
-                        </td>
-                        <td className="p-3 font-mono text-slate-600 dark:text-slate-400">
-                          @{acc.username}
-                        </td>
-                        <td className="p-3">
-                          <span
-                            className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase border ${
-                              roleColors[acc.role] || "bg-slate-100 text-slate-700 border-slate-300"
-                            }`}
-                          >
-                            {acc.role}
-                          </span>
-                        </td>
-                        <td className="p-3">
-                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                            <span>Aktif</span>
-                          </span>
-                        </td>
-                        <td className="p-3 text-right">
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteAccount(acc.id, acc.name)}
-                            className="p-1 rounded-md text-slate-400 hover:text-rose-500 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
-                            title="Hapus akun staf"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                    {loadingAccounts ? (
+                      <tr>
+                        <td colSpan={5} className="p-8 text-center text-slate-500 dark:text-slate-400">
+                          <span className="inline-block animate-spin mr-2">⏳</span> Memuat daftar staf...
                         </td>
                       </tr>
-                    ))}
+                    ) : accounts.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="p-8 text-center text-slate-500 dark:text-slate-400">
+                          Belum ada akun staf terdaftar. Klik <strong>&quot;Tambah Akun Baru&quot;</strong> untuk mendaftarkan staf.
+                        </td>
+                      </tr>
+                    ) : (
+                      accounts.map((acc) => (
+                        <tr key={acc.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                          <td className="p-3 font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                            <div className="w-7 h-7 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 flex items-center justify-center font-black text-xs uppercase">
+                              {(acc.name || acc.username)[0]}
+                            </div>
+                            <span>{acc.name}</span>
+                          </td>
+                          <td className="p-3 font-mono text-slate-600 dark:text-slate-400">
+                            @{acc.username}
+                          </td>
+                          <td className="p-3">
+                            <span
+                              className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase border ${
+                                roleColors[acc.role] || "bg-slate-100 text-slate-700 border-slate-300"
+                              }`}
+                            >
+                              {acc.role}
+                            </span>
+                          </td>
+                          <td className="p-3">
+                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                              <span>Aktif</span>
+                            </span>
+                          </td>
+                          <td className="p-3 text-right">
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteAccount(acc.id, acc.name)}
+                              className="p-1 rounded-md text-slate-400 hover:text-rose-500 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
+                              title="Hapus akun staf"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>

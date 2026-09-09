@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server"
 import { queryPg, isDatabaseConfigured } from "@/lib/pgDb"
 import { getSession } from "@/lib/authHelper"
+import { requireRole } from "@/lib/roleGuard"
 import { sendWebPushNotification } from "@/lib/serverPush"
 import { invalidateApprovalsCache } from "@/app/api/approvals/route"
 import { invalidateNotificationsCache } from "@/app/api/notifications/route"
 import { getSubscriptionInfo } from "@/lib/subscriptionServer"
 import { DEFAULT_APPROVAL_WORKFLOW } from "@/lib/subscription"
 import { DEFAULT_TENANT_ID } from "@/lib/session"
+import { isTenantSchemaMigrated, withTenantSchema } from "@/lib/tenantDb"
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -17,20 +19,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: "ID permintaan verifikasi tidak valid" }, { status: 400 })
     }
 
-    const session = await getSession(req)
-    if (!session || !session.username) {
-      return NextResponse.json({ error: "Akses Ditolak: Sesi tidak valid atau belum login." }, { status: 401 })
-    }
+    const auth = await requireRole(req, ["OWNER", "ADMIN", "MANAGER"])
+    if (!auth.ok) return auth.response
 
-    const rejectingAdmin = session.username
-    const userRole = session.role
-    const sessionTenantId = session.tenantId || DEFAULT_TENANT_ID
-
-    if (userRole === "KARYAWAN") {
-      return NextResponse.json({
-        error: "Akses Ditolak: Role Karyawan tidak diizinkan menolak/memverifikasi permintaan. Penolakan wajib dilakukan oleh Admin atau Superadmin.",
-      }, { status: 403 })
-    }
+    const rejectingAdmin = auth.username
+    const userRole = auth.userRole
+    const sessionTenantId = auth.tenantId
 
     if (!isDatabaseConfigured) {
       return NextResponse.json({ error: "Database belum terkonfigurasi" }, { status: 500 })
@@ -60,11 +54,22 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const body = await req.json()
     const { reason } = body || {}
 
-    const findRes = await queryPg<any>(
-      `SELECT * FROM pending_approvals WHERE id = $1 LIMIT 1`,
-      [cleanId]
-    )
-    const pendingApproval = findRes.rows?.[0]
+    // Fetch approval request safely
+    let pendingApproval: any = null
+    const isSessionMigrated = await isTenantSchemaMigrated(sessionTenantId)
+    if (isSessionMigrated) {
+      const tenantFindRes = await withTenantSchema(sessionTenantId, async (client) => {
+        return client.query(`SELECT * FROM pending_approvals WHERE id = $1 LIMIT 1`, [cleanId])
+      })
+      pendingApproval = tenantFindRes.rows?.[0]
+    }
+    if (!pendingApproval) {
+      const findRes = await queryPg<any>(
+        `SELECT * FROM pending_approvals WHERE id = $1 LIMIT 1`,
+        [cleanId]
+      )
+      pendingApproval = findRes.rows?.[0]
+    }
 
     if (!pendingApproval) {
       return NextResponse.json({ error: "Permintaan verifikasi tidak ditemukan" }, { status: 404 })
@@ -89,14 +94,29 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       }, { status: 403 })
     }
 
-    const updateRes = await queryPg(
-      `UPDATE pending_approvals 
-       SET status = 'REJECTED', "approvedBy" = $1, "rejectionReason" = $2, "updatedAt" = NOW()
-       WHERE id = $3
-       RETURNING *`,
-      [rejectingAdmin, reason || "Ditolak oleh admin", cleanId]
-    )
-    const updatedApproval = updateRes.rows?.[0]
+    let updatedApproval: any = null
+    const isTargetMigrated = await isTenantSchemaMigrated(targetTenantId)
+    if (isTargetMigrated) {
+      const updateRes = await withTenantSchema(targetTenantId, async (client) => {
+        return client.query(
+          `UPDATE pending_approvals 
+           SET status = 'REJECTED', "approvedBy" = $1, "rejectionReason" = $2, "updatedAt" = NOW()
+           WHERE id = $3
+           RETURNING *`,
+          [rejectingAdmin, reason || "Ditolak oleh admin", cleanId]
+        )
+      })
+      updatedApproval = updateRes.rows?.[0]
+    } else {
+      const updateRes = await queryPg(
+        `UPDATE pending_approvals 
+         SET status = 'REJECTED', "approvedBy" = $1, "rejectionReason" = $2, "updatedAt" = NOW()
+         WHERE id = $3
+         RETURNING *`,
+        [rejectingAdmin, reason || "Ditolak oleh admin", cleanId]
+      )
+      updatedApproval = updateRes.rows?.[0]
+    }
 
     // Invalidate caches immediately
     invalidateApprovalsCache()
@@ -114,11 +134,21 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         ? `Admin ${rejectingAdmin} menolak pengajuan nota baru dari "${payloadObj.merchantName || 'Nota'}". Alasan: ${reason || "Tidak disetujui"}.`
         : `Admin ${rejectingAdmin} menolak permintaan ${pendingApproval.actionType} Anda. Alasan: ${reason || "Tidak disetujui"}.`
 
-      await queryPg(
-        `INSERT INTO notifications ("tenantId", recipient, sender, type, title, message, "approvalId", "isRead", "createdAt")
-         VALUES ($1, 'all', $2, 'REJECT', $3, $4, $5::uuid, false, NOW())`,
-        [targetTenantId, rejectingAdmin, notifTitle, notifMsg, cleanId]
-      ).catch(() => {})
+      if (isTargetMigrated) {
+        await withTenantSchema(targetTenantId, async (client) => {
+          return client.query(
+            `INSERT INTO notifications ("tenantId", recipient, sender, type, title, message, "approvalId", "isRead", "createdAt")
+             VALUES ($1, 'all', $2, 'REJECT', $3, $4, $5::uuid, false, NOW())`,
+            [targetTenantId, rejectingAdmin, notifTitle, notifMsg, cleanId]
+          )
+        }).catch(() => {})
+      } else {
+        await queryPg(
+          `INSERT INTO notifications ("tenantId", recipient, sender, type, title, message, "approvalId", "isRead", "createdAt")
+           VALUES ($1, 'all', $2, 'REJECT', $3, $4, $5::uuid, false, NOW())`,
+          [targetTenantId, rejectingAdmin, notifTitle, notifMsg, cleanId]
+        ).catch(() => {})
+      }
 
       sendWebPushNotification({
         tenantId: targetTenantId,

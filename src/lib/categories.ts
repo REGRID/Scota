@@ -1,5 +1,6 @@
 import { queryPg, isDatabaseConfigured } from "@/lib/pgDb"
 import { DEFAULT_TENANT_ID } from "@/lib/session"
+import { isTenantSchemaMigrated, withTenantSchema } from "@/lib/tenantDb"
 
 export interface CategoryHierarchyItem {
   id: string
@@ -87,44 +88,86 @@ export async function getOrSeedCategories(tenantId?: string): Promise<CategoryHi
   }
 
   try {
-    let res = await queryPg<{ id: string; name: string; parentId: string | null }>(
-      `SELECT id, name, "parentId" FROM custom_categories 
-       WHERE "tenantId" = $1 OR "tenantId" IS NULL 
-       ORDER BY "createdAt" ASC`,
-      [effectiveTenantId]
-    )
-    let customCats = res.rows || []
+    let customCats: { id: string; name: string; parentId: string | null }[] = []
+    const isMigrated = await isTenantSchemaMigrated(effectiveTenantId)
 
-    // Auto-seed default categories for this tenant if empty
-    if (customCats.length === 0) {
-      for (const catGroup of DEFAULT_SEED_CATEGORIES) {
-        const parentRes = await queryPg<{ id: string }>(
-          `INSERT INTO custom_categories ("tenantId", name, "parentId", "createdAt") 
-           VALUES ($1, $2, NULL, NOW()) 
-           RETURNING id`,
-          [effectiveTenantId, catGroup.name]
+    if (isMigrated) {
+      customCats = await withTenantSchema(effectiveTenantId, async (client) => {
+        const res: any = await client.query(
+          `SELECT id, name, "parentId" FROM custom_categories 
+           ORDER BY "createdAt" ASC`
         )
-        const parentId = parentRes.rows?.[0]?.id
+        let rows = res.rows || []
 
-        if (parentId) {
-          for (const subName of catGroup.subs) {
-            await queryPg(
+        if (rows.length === 0) {
+          for (const catGroup of DEFAULT_SEED_CATEGORIES) {
+            const parentRes: any = await client.query(
               `INSERT INTO custom_categories ("tenantId", name, "parentId", "createdAt") 
-               VALUES ($1, $2, $3, NOW())`,
-              [effectiveTenantId, subName, parentId]
+               VALUES ($1, $2, NULL, NOW()) 
+               RETURNING id`,
+              [effectiveTenantId, catGroup.name]
             )
-          }
-        }
-      }
+            const parentId = parentRes.rows?.[0]?.id
 
-      // Re-fetch after seeding
-      const refetched = await queryPg<{ id: string; name: string; parentId: string | null }>(
+            if (parentId) {
+              for (const subName of catGroup.subs) {
+                await client.query(
+                  `INSERT INTO custom_categories ("tenantId", name, "parentId", "createdAt") 
+                   VALUES ($1, $2, $3, NOW())`,
+                  [effectiveTenantId, subName, parentId]
+                )
+              }
+            }
+          }
+
+          const refetched: any = await client.query(
+            `SELECT id, name, "parentId" FROM custom_categories 
+             ORDER BY "createdAt" ASC`
+          )
+          rows = refetched.rows || []
+        }
+        return rows
+      })
+    } else {
+      let res = await queryPg<{ id: string; name: string; parentId: string | null }>(
         `SELECT id, name, "parentId" FROM custom_categories 
          WHERE "tenantId" = $1 OR "tenantId" IS NULL 
          ORDER BY "createdAt" ASC`,
         [effectiveTenantId]
       )
-      customCats = refetched.rows || []
+      customCats = res.rows || []
+
+      // Auto-seed default categories for this tenant if empty
+      if (customCats.length === 0) {
+        for (const catGroup of DEFAULT_SEED_CATEGORIES) {
+          const parentRes = await queryPg<{ id: string }>(
+            `INSERT INTO custom_categories ("tenantId", name, "parentId", "createdAt") 
+             VALUES ($1, $2, NULL, NOW()) 
+             RETURNING id`,
+            [effectiveTenantId, catGroup.name]
+          )
+          const parentId = parentRes.rows?.[0]?.id
+
+          if (parentId) {
+            for (const subName of catGroup.subs) {
+              await queryPg(
+                `INSERT INTO custom_categories ("tenantId", name, "parentId", "createdAt") 
+                 VALUES ($1, $2, $3, NOW())`,
+                [effectiveTenantId, subName, parentId]
+              )
+            }
+          }
+        }
+
+        // Re-fetch after seeding
+        const refetched = await queryPg<{ id: string; name: string; parentId: string | null }>(
+          `SELECT id, name, "parentId" FROM custom_categories 
+           WHERE "tenantId" = $1 OR "tenantId" IS NULL 
+           ORDER BY "createdAt" ASC`,
+          [effectiveTenantId]
+        )
+        customCats = refetched.rows || []
+      }
     }
 
     const parents = customCats.filter((c) => !c.parentId)

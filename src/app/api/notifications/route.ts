@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { queryPg, isDatabaseConfigured } from "@/lib/pgDb"
 import { getSession } from "@/lib/authHelper"
 import { DEFAULT_TENANT_ID } from "@/lib/session"
+import { isTenantSchemaMigrated, withTenantSchema } from "@/lib/tenantDb"
 
 // In-memory cache per user/role/tenant
 let notifCache: Map<string, { data: any; timestamp: number }> = new Map()
@@ -36,30 +37,47 @@ export async function GET(req: NextRequest) {
     let notifications: any[] = []
 
     try {
-      let query = `
-        SELECT id, "tenantId", recipient, sender, type, title, message, "approvalId", "isRead", "createdAt"
-        FROM notifications
-      `
-      const params: any[] = []
+      const isMigrated = await isTenantSchemaMigrated(tenantId)
+      if (isMigrated && userRole !== "SUPERADMIN") {
+        notifications = await withTenantSchema(tenantId, async (client) => {
+          let tenantQuery = `
+            SELECT id, "tenantId", recipient, sender, type, title, message, "approvalId", "isRead", "createdAt"
+            FROM notifications
+          `
+          const recipients = (userRole === "ADMIN" || userRole === "SUPERADMIN" || userRole === "MANAGER" || userRole === "OWNER")
+            ? [cleanUser, "admin", "superadmin", "manager", "owner", "all", "*"]
+            : ["karyawan", "all", cleanUser, "*"]
 
-      if (userRole === "ADMIN" || userRole === "SUPERADMIN" || userRole === "MANAGER" || userRole === "OWNER") {
-        query += ` WHERE recipient = ANY($1::text[])`
-        params.push([cleanUser, "admin", "superadmin", "manager", "owner", "all", "*"])
+          tenantQuery += ` WHERE recipient = ANY($1::text[]) ORDER BY "createdAt" DESC LIMIT 30`
+          const res = await client.query(tenantQuery, [recipients])
+          return res.rows || []
+        })
       } else {
-        query += ` WHERE recipient = ANY($1::text[])`
-        params.push(["karyawan", "all", cleanUser, "*"])
+        let query = `
+          SELECT id, "tenantId", recipient, sender, type, title, message, "approvalId", "isRead", "createdAt"
+          FROM notifications
+        `
+        const params: any[] = []
+
+        if (userRole === "ADMIN" || userRole === "SUPERADMIN" || userRole === "MANAGER" || userRole === "OWNER") {
+          query += ` WHERE recipient = ANY($1::text[])`
+          params.push([cleanUser, "admin", "superadmin", "manager", "owner", "all", "*"])
+        } else {
+          query += ` WHERE recipient = ANY($1::text[])`
+          params.push(["karyawan", "all", cleanUser, "*"])
+        }
+
+        // Tenant isolation guard: Non-superadmin users only see their tenant notifications
+        if (userRole !== "SUPERADMIN") {
+          params.push(tenantId)
+          query += ` AND ("tenantId" = $${params.length} OR "tenantId" IS NULL)`
+        }
+
+        query += ` ORDER BY "createdAt" DESC LIMIT 30`
+
+        const { rows } = await queryPg(query, params)
+        notifications = rows || []
       }
-
-      // Tenant isolation guard: Non-superadmin users only see their tenant notifications
-      if (userRole !== "SUPERADMIN") {
-        params.push(tenantId)
-        query += ` AND ("tenantId" = $${params.length} OR "tenantId" IS NULL)`
-      }
-
-      query += ` ORDER BY "createdAt" DESC LIMIT 30`
-
-      const { rows } = await queryPg(query, params)
-      notifications = rows || []
     } catch (dbErr) {
       console.warn("GET Notifications Notice:", dbErr)
     }
@@ -116,40 +134,60 @@ export async function PATCH(req: NextRequest) {
     }
 
     try {
-      if (markAllRead) {
-        if (userRole === "KARYAWAN") {
-          await queryPg(
-            `UPDATE notifications 
-             SET "isRead" = true 
-             WHERE recipient = ANY($1::text[]) 
-             AND ("tenantId" = $2 OR "tenantId" IS NULL)`,
-            [["karyawan", "all", cleanUser, "*"], tenantId]
-          )
-        } else if (userRole === "SUPERADMIN") {
-          await queryPg(
-            `UPDATE notifications SET "isRead" = true WHERE recipient = ANY($1::text[])`,
-            [[cleanUser, "admin", "superadmin", "manager", "owner", "all", "*"]]
-          )
-        } else {
-          await queryPg(
-            `UPDATE notifications 
-             SET "isRead" = true 
-             WHERE recipient = ANY($1::text[]) 
-             AND ("tenantId" = $2 OR "tenantId" IS NULL)`,
-            [[cleanUser, "admin", "superadmin", "manager", "owner", "all", "*"], tenantId]
-          )
-        }
-      } else if (id) {
-        if (userRole === "SUPERADMIN") {
-          await queryPg(
-            `UPDATE notifications SET "isRead" = true WHERE id = $1`,
-            [id]
-          )
-        } else {
-          await queryPg(
-            `UPDATE notifications SET "isRead" = true WHERE id = $1 AND ("tenantId" = $2 OR "tenantId" IS NULL)`,
-            [id, tenantId]
-          )
+      const isMigrated = await isTenantSchemaMigrated(tenantId)
+      if (isMigrated && userRole !== "SUPERADMIN") {
+        await withTenantSchema(tenantId, async (client) => {
+          if (markAllRead) {
+            const recipients = userRole === "KARYAWAN"
+              ? ["karyawan", "all", cleanUser, "*"]
+              : [cleanUser, "admin", "superadmin", "manager", "owner", "all", "*"]
+            await client.query(
+              `UPDATE notifications SET "isRead" = true WHERE recipient = ANY($1::text[])`,
+              [recipients]
+            )
+          } else if (id) {
+            await client.query(
+              `UPDATE notifications SET "isRead" = true WHERE id = $1`,
+              [id]
+            )
+          }
+        })
+      } else {
+        if (markAllRead) {
+          if (userRole === "KARYAWAN") {
+            await queryPg(
+              `UPDATE notifications 
+               SET "isRead" = true 
+               WHERE recipient = ANY($1::text[]) 
+               AND ("tenantId" = $2 OR "tenantId" IS NULL)`,
+              [["karyawan", "all", cleanUser, "*"], tenantId]
+            )
+          } else if (userRole === "SUPERADMIN") {
+            await queryPg(
+              `UPDATE notifications SET "isRead" = true WHERE recipient = ANY($1::text[])`,
+              [[cleanUser, "admin", "superadmin", "manager", "owner", "all", "*"]]
+            )
+          } else {
+            await queryPg(
+              `UPDATE notifications 
+               SET "isRead" = true 
+               WHERE recipient = ANY($1::text[]) 
+               AND ("tenantId" = $2 OR "tenantId" IS NULL)`,
+              [[cleanUser, "admin", "superadmin", "manager", "owner", "all", "*"], tenantId]
+            )
+          }
+        } else if (id) {
+          if (userRole === "SUPERADMIN") {
+            await queryPg(
+              `UPDATE notifications SET "isRead" = true WHERE id = $1`,
+              [id]
+            )
+          } else {
+            await queryPg(
+              `UPDATE notifications SET "isRead" = true WHERE id = $1 AND ("tenantId" = $2 OR "tenantId" IS NULL)`,
+              [id, tenantId]
+            )
+          }
         }
       }
     } catch (err) {

@@ -59,7 +59,8 @@ CREATE TABLE IF NOT EXISTS receipt_items (
 CREATE TABLE IF NOT EXISTS custom_categories (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     "tenantId" UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001',
-    name TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
+    "parentId" TEXT,
     color TEXT DEFAULT '#10b981',
     icon TEXT DEFAULT 'Tag',
     "monthlyBudget" DOUBLE PRECISION DEFAULT 0,
@@ -72,20 +73,11 @@ CREATE TABLE IF NOT EXISTS pending_approvals (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     "tenantId" UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001',
     "receiptId" UUID REFERENCES receipts(id) ON DELETE SET NULL,
-    "targetRole" TEXT NOT NULL DEFAULT 'ADMIN_A',
-    status TEXT NOT NULL DEFAULT 'pending',
-    "requestedBy" TEXT NOT NULL DEFAULT 'Staff Kasir',
-    "requestedRole" TEXT NOT NULL DEFAULT 'KARYAWAN',
-    "merchantName" TEXT NOT NULL,
-    "totalAmount" DOUBLE PRECISION NOT NULL,
-    "receiptDate" TEXT NOT NULL,
-    "category" TEXT NOT NULL DEFAULT 'Lain-lain',
-    "imageUrl" TEXT,
-    "receiptData" JSONB NOT NULL DEFAULT '{}'::jsonb,
+    "actionType" TEXT NOT NULL,
+    "requestedBy" TEXT NOT NULL,
     "approvedBy" TEXT,
-    "approvedAt" TIMESTAMPTZ,
-    "rejectedBy" TEXT,
-    "rejectedAt" TIMESTAMPTZ,
+    status TEXT NOT NULL DEFAULT 'pending',
+    payload TEXT NOT NULL,
     "rejectionReason" TEXT,
     "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now(),
     "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -96,11 +88,10 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     "tenantId" UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001',
     endpoint TEXT NOT NULL UNIQUE,
-    "authKey" TEXT NOT NULL,
-    "p256dhKey" TEXT NOT NULL,
-    "userRole" TEXT DEFAULT 'ADMIN',
-    "username" TEXT DEFAULT 'admin',
-    "userAgent" TEXT,
+    p256dh TEXT NOT NULL,
+    auth TEXT NOT NULL,
+    username TEXT,
+    role TEXT,
     "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now(),
     "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -109,13 +100,13 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
 CREATE TABLE IF NOT EXISTS notifications (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     "tenantId" UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001',
-    type TEXT NOT NULL DEFAULT 'INFO',
+    recipient TEXT NOT NULL,
+    sender TEXT,
+    type TEXT NOT NULL,
     title TEXT NOT NULL,
     message TEXT NOT NULL,
-    "targetRole" TEXT DEFAULT 'ADMIN_A',
-    "targetUsername" TEXT,
+    "approvalId" UUID,
     "isRead" BOOLEAN NOT NULL DEFAULT false,
-    "receiptId" UUID REFERENCES receipts(id) ON DELETE CASCADE,
     "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -124,8 +115,10 @@ CREATE INDEX IF NOT EXISTS idx_tenant_receipts_date ON receipts(date DESC);
 CREATE INDEX IF NOT EXISTS idx_tenant_receipts_status ON receipts(status);
 CREATE INDEX IF NOT EXISTS idx_tenant_receipts_approval ON receipts("approvalStatus");
 CREATE INDEX IF NOT EXISTS idx_tenant_receipt_items_rid ON receipt_items("receiptId");
+CREATE INDEX IF NOT EXISTS idx_tenant_custom_cats_parent ON custom_categories("parentId");
 CREATE INDEX IF NOT EXISTS idx_tenant_pending_status ON pending_approvals(status);
 CREATE INDEX IF NOT EXISTS idx_tenant_notif_read ON notifications("isRead", "createdAt" DESC);
+CREATE INDEX IF NOT EXISTS idx_tenant_notif_recipient ON notifications(recipient);
 
 -- =====================================================================
 -- ROW-LEVEL SECURITY (RLS) POLICIES

@@ -343,6 +343,13 @@ export function MainApp({
     checkSession()
   }, [isClerkLoaded, isClerkSignedIn, clerkUser, initialView, pathname])
 
+  // Auto-redirect from /login or /register to /dashboard when already authenticated
+  useEffect(() => {
+    if ((initialView === "register" || initialView === "login") && isAuthenticated === true) {
+      router.replace("/dashboard")
+    }
+  }, [initialView, isAuthenticated, router])
+
   // Browser Close / Refresh Warning Protection during Scan & Verification
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -741,8 +748,12 @@ export function MainApp({
   // 2. Auth Routes (/register & /login): Render form IMMEDIATELY without waiting for session round-trip
   if (initialView === "register" || initialView === "login") {
     if (isAuthenticated === true) {
-      router.replace("/dashboard")
-      return null
+      return (
+        <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center space-y-3 font-sans">
+          <Loader2 className="w-10 h-10 text-emerald-400 animate-spin" />
+          <p className="text-xs font-semibold text-slate-400">Mengarahkan ke Dashboard...</p>
+        </div>
+      )
     }
     return (
       <AdminLoginScreen

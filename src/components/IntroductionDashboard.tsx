@@ -148,6 +148,7 @@ export function IntroductionDashboard({
   const [lightboxZoom, setLightboxZoom] = useState<number>(1)
   const [lightboxRotate, setLightboxRotate] = useState<number>(0)
   const [activeSection, setActiveSection] = useState<string>("simulasi")
+  const [hasScrolled, setHasScrolled] = useState<boolean>(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const cameraInputRef = useRef<HTMLInputElement | null>(null)
@@ -181,6 +182,7 @@ export function IntroductionDashboard({
     const sectionIds = ["simulasi", "jenis-usaha", "komparasi", "fitur", "harga", "faq"]
 
     const handleScroll = () => {
+      setHasScrolled(window.scrollY > 10)
       const scrollPosition = window.scrollY + 140
 
       for (let i = sectionIds.length - 1; i >= 0; i--) {
@@ -393,8 +395,14 @@ export function IntroductionDashboard({
 
   return (
     <div className="min-h-screen bg-white text-slate-900 dark:bg-[#080d1a] dark:text-slate-100 font-sans selection:bg-emerald-500 selection:text-white transition-colors duration-200">
-      {/* 1. TOP STICKY NAVBAR */}
-      <nav className="sticky top-0 z-50 bg-white/95 dark:bg-[#080d1a]/95 backdrop-blur-xl border-b border-slate-200/80 dark:border-slate-800/80 transition-colors shadow-xs">
+      {/* 1. TOP NAVBAR (Sticky/Fixed - follows smoothly on scroll) */}
+      <header
+        className={`fixed top-0 inset-x-0 z-50 transition-all duration-300 ${
+          hasScrolled
+            ? "bg-white/95 dark:bg-[#080d1a]/95 backdrop-blur-xl border-b border-slate-200/90 dark:border-slate-800/90 shadow-md shadow-slate-900/5 dark:shadow-black/40"
+            : "bg-white/85 dark:bg-[#080d1a]/85 backdrop-blur-md border-b border-slate-200/60 dark:border-slate-800/60 shadow-xs"
+        }`}
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between relative">
           {/* Logo & Brand */}
           <div className="flex items-center gap-2 sm:gap-3 z-10">
@@ -524,7 +532,10 @@ export function IntroductionDashboard({
             </div>
           </div>
         )}
-      </nav>
+      </header>
+
+      {/* Spacer to preserve document layout flow under the fixed header */}
+      <div className="h-16 w-full shrink-0" aria-hidden="true" />
 
       {/* 2. HERO SECTION */}
       <section className="relative overflow-hidden pt-12 pb-16 sm:pt-16 sm:pb-20 border-b border-slate-200/80 dark:border-slate-800/80">

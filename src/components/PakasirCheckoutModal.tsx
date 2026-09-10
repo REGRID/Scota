@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
+import { useAuth } from "@clerk/nextjs"
 import QRCode from "qrcode"
 import {
   X,
@@ -47,11 +48,30 @@ export function PakasirCheckoutModal({
   onSuccess,
 }: PakasirCheckoutModalProps) {
   const router = useRouter()
+  const { getToken } = useAuth()
   const [selectedCategory, setSelectedCategory] = useState<"qris" | "va" | "hosted">("qris")
   const [selectedVa, setSelectedVa] = useState<PakasirPaymentMethod>("bni_va")
   
   const [isLoading, setIsLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+
+  const getAuthHeaders = async (additional: Record<string, string> = {}) => {
+    const headers: Record<string, string> = { "Content-Type": "application/json", ...additional }
+    try {
+      const clerkToken = await getToken()
+      if (clerkToken) {
+        headers["Authorization"] = `Bearer ${clerkToken}`
+        return headers
+      }
+    } catch {}
+    if (typeof window !== "undefined") {
+      const localToken = localStorage.getItem("nota_admin_token")
+      if (localToken) {
+        headers["Authorization"] = `Bearer ${localToken}`
+      }
+    }
+    return headers
+  }
   
   // Payment active state
   const [orderData, setOrderData] = useState<{
@@ -109,7 +129,10 @@ export function PakasirCheckoutModal({
 
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(`/api/payment/status?order_id=${encodeURIComponent(orderData.orderId)}`)
+        const headers = await getAuthHeaders()
+        const res = await fetch(`/api/payment/status?order_id=${encodeURIComponent(orderData.orderId)}`, {
+          headers,
+        })
         const data = await res.json()
         if (data.status === "completed" || data.status === "lunas") {
           setPaymentStatus("completed")
@@ -161,9 +184,10 @@ export function PakasirCheckoutModal({
         : selectedVa
 
     try {
+      const headers = await getAuthHeaders()
       const res = await fetch("/api/payment/create", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           tier,
           billingCycle,

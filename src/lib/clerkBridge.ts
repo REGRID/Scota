@@ -8,12 +8,29 @@ import { DEFAULT_TENANT_ID, SessionPayload } from "@/lib/session"
  */
 export async function provisionTenantForClerkUser(clerkId: string): Promise<SessionPayload | null> {
   try {
-    const user = await currentUser()
+    let user: any = null
+    try {
+      user = await currentUser()
+    } catch {}
+
+    if (!user && process.env.CLERK_SECRET_KEY) {
+      try {
+        const { createClerkClient } = await import("@clerk/backend")
+        const client = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY })
+        user = await client.users.getUser(clerkId)
+      } catch (e) {
+        console.warn("[ClerkBridge] createClerkClient lookup failed:", e)
+      }
+    }
+
     if (!user) return null
 
-    const email = user.emailAddresses?.[0]?.emailAddress || ""
-    const fullName = `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.username || "Pengguna Baru"
-    const username = `clerk_${clerkId.replace(/[^a-zA-Z0-9]/g, "").slice(-10)}`
+    const email =
+      user.emailAddresses?.find((e: any) => e.emailAddress?.includes("dev"))?.emailAddress ||
+      user.emailAddresses?.[0]?.emailAddress ||
+      ""
+    const fullName = `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.username || email || "Pengguna Baru"
+    const username = user.username || (email ? email.split("@")[0] : `clerk_${clerkId.replace(/[^a-zA-Z0-9]/g, "").slice(-10)}`)
 
     if (!isDatabaseConfigured) {
       return {
@@ -126,8 +143,8 @@ export async function provisionTenantForClerkUser(clerkId: string): Promise<Sess
 
       // 3. Provision Admin Account linked to Clerk ID (SSOT & legacy compat)
       await client.query(
-        `INSERT INTO admin_accounts (username, "clerkId", email, "fullName", role, "tenantId", "createdAt", "updatedAt")
-         VALUES ($1, $2, $3, $4, 'OWNER', $5, NOW(), NOW())
+        `INSERT INTO admin_accounts (username, "clerkId", email, "fullName", role, "tenantId", password, "createdAt", "updatedAt")
+         VALUES ($1, $2, $3, $4, 'OWNER', $5, 'oauth_clerk_login', NOW(), NOW())
          ON CONFLICT ("clerkId") DO UPDATE SET "updatedAt" = NOW()`,
         [username, clerkId, email, fullName, tenantId]
       )

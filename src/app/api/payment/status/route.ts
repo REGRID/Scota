@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { getSession } from "@/lib/authHelper"
 import { queryPg, isDatabaseConfigured } from "@/lib/pgDb"
 import { getPakasirTransactionDetail } from "@/lib/pakasir"
 import { TIER_CONFIG, SubscriptionTier } from "@/lib/subscription"
@@ -12,11 +13,16 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Parameter order_id wajib disertakan." }, { status: 400 })
     }
 
+    const session = await getSession(req)
+    if (!session || !session.tenantId) {
+      return NextResponse.json({ error: "Sesi tidak valid. Silakan login." }, { status: 401 })
+    }
+
     if (!isDatabaseConfigured) {
       return NextResponse.json({ status: "pending", orderId })
     }
 
-    // 1. Check local database transaction status
+    // 1. Check local database transaction status (scoped strictly to current session's tenant)
     const trxRes = await queryPg<{
       id: string
       orderId: string
@@ -33,13 +39,14 @@ export async function GET(req: NextRequest) {
       `SELECT id, "orderId", "invoiceNumber", "tenantId", tier, "billingCycle", 
               amount, status, "paymentMethod", "expiredAt", "completedAt"
        FROM billing_transactions
-       WHERE "orderId" = $1 OR "invoiceNumber" = $1
+       WHERE ("orderId" = $1 OR "invoiceNumber" = $1) AND "tenantId" = $2
        LIMIT 1`,
-      [orderId]
+      [orderId, session.tenantId]
     )
 
     const trx = trxRes.rows?.[0]
     if (!trx) {
+      // Generic 404 to avoid leaking info about transactions belonging to other tenants
       return NextResponse.json({ error: "Transaksi tidak ditemukan." }, { status: 404 })
     }
 

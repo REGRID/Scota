@@ -3,11 +3,12 @@ import { auth } from "@clerk/nextjs/server"
 import { verifySessionToken, SessionPayload } from "@/lib/session"
 import { queryPg } from "@/lib/pgDb"
 import { provisionTenantForClerkUser } from "@/lib/clerkBridge"
+import { decodeJwt } from "jose"
 
 /**
  * Multi-layer Session Resolver:
  * 1. Checks legacy internal JWT session (superadmin / existing accounts).
- * 2. Checks Clerk active session via auth().
+ * 2. Checks Clerk active session via auth() or Clerk JWT Bearer token.
  * 3. Just-In-Time (JIT) provisions newly signed-up Clerk users into database with active 14-day trial.
  */
 export async function getSession(req: NextRequest): Promise<SessionPayload | null> {
@@ -23,7 +24,28 @@ export async function getSession(req: NextRequest): Promise<SessionPayload | nul
 
   // 2. Check Clerk session
   try {
-    const { userId } = await auth()
+    let userId: string | null = null
+
+    // 2a. Check if Bearer/Cookie token is a Clerk JWT token
+    if (legacyToken) {
+      try {
+        const decoded = decodeJwt(legacyToken)
+        if (decoded?.sub && typeof decoded.sub === "string" && decoded.sub.startsWith("user_")) {
+          userId = decoded.sub
+        }
+      } catch {}
+    }
+
+    // 2b. Check Clerk session via auth()
+    if (!userId) {
+      try {
+        const clerkAuth = await auth()
+        if (clerkAuth?.userId) {
+          userId = clerkAuth.userId
+        }
+      } catch {}
+    }
+
     if (!userId) return null
 
     // 2a. Check Staff Membership in PostgreSQL (Invite/Staff Google Login)

@@ -38,6 +38,7 @@ import { toast } from "sonner"
 import { ThemeToggle } from "@/lib/theme"
 import { BranchSwitcher, Branch } from "@/components/BranchSwitcher"
 import { getAuthHeaders } from "@/lib/authClient"
+import { useUser, useAuth } from "@clerk/nextjs"
 import {
   getNotificationPermissionStatus,
   getNotificationSettings,
@@ -63,6 +64,9 @@ export interface UserAccount {
 }
 
 export default function SettingsPage() {
+  const { isLoaded: isClerkLoaded, isSignedIn: isClerkSignedIn, user: clerkUser } = useUser()
+  const { getToken } = useAuth()
+
   const [activeTab, setActiveTab] = useState<
     "users" | "notifications" | "pos-stock" | "security" | "business" | "branches"
   >("users")
@@ -186,30 +190,29 @@ export default function SettingsPage() {
     }
   }, [])
 
-  // Fetch session to determine role
-  useEffect(() => {
-    fetch("/api/auth/session")
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data?.authenticated) {
-          if (data.token && typeof window !== "undefined") {
-            localStorage.setItem("nota_admin_token", data.token)
+  // Helper to ensure auth headers always include Clerk token if logged in with Clerk
+  const getAuthenticatedHeaders = useCallback(
+    async (additional: Record<string, string> = {}) => {
+      const headers: Record<string, string> = { ...getAuthHeaders(additional) }
+      if (isClerkSignedIn) {
+        try {
+          const clerkToken = await getToken()
+          if (clerkToken) {
+            headers["Authorization"] = `Bearer ${clerkToken}`
           }
-          if (data?.user?.role) {
-            setCurrentUserRole(data.user.role)
-          }
-        }
-      })
-      .catch(() => {})
-  }, [])
+        } catch {}
+      }
+      return headers
+    },
+    [isClerkSignedIn, getToken]
+  )
 
   // Fetch staff accounts from database API
   const fetchAccounts = useCallback(async () => {
     try {
       setLoadingAccounts(true)
-      const res = await fetch("/api/settings/staff", {
-        headers: getAuthHeaders(),
-      })
+      const headers = await getAuthenticatedHeaders()
+      const res = await fetch("/api/settings/staff", { headers })
       if (res.ok) {
         const data = await res.json()
         if (Array.isArray(data.staff)) {
@@ -232,19 +235,14 @@ export default function SettingsPage() {
     } finally {
       setLoadingAccounts(false)
     }
-  }, [])
-
-  useEffect(() => {
-    fetchAccounts()
-  }, [fetchAccounts])
+  }, [getAuthenticatedHeaders])
 
   // Fetch Invite Links
   const fetchInvites = useCallback(async () => {
     try {
       setLoadingInvites(true)
-      const res = await fetch("/api/settings/invites", {
-        headers: getAuthHeaders(),
-      })
+      const headers = await getAuthenticatedHeaders()
+      const res = await fetch("/api/settings/invites", { headers })
       if (res.ok) {
         const data = await res.json()
         setInvites(data.invites || [])
@@ -254,19 +252,14 @@ export default function SettingsPage() {
     } finally {
       setLoadingInvites(false)
     }
-  }, [])
-
-  useEffect(() => {
-    fetchInvites()
-  }, [fetchInvites])
+  }, [getAuthenticatedHeaders])
 
   // Fetch branches for Owner
   const fetchBranches = useCallback(async () => {
     try {
       setLoadingBranches(true)
-      const res = await fetch("/api/tenants/my-branches", {
-        headers: getAuthHeaders(),
-      })
+      const headers = await getAuthenticatedHeaders()
+      const res = await fetch("/api/tenants/my-branches", { headers })
       if (res.ok) {
         const data = await res.json()
         if (Array.isArray(data.branches)) {
@@ -278,11 +271,49 @@ export default function SettingsPage() {
     } finally {
       setLoadingBranches(false)
     }
-  }, [])
+  }, [getAuthenticatedHeaders])
 
+  // Fetch & synchronize session
   useEffect(() => {
-    fetchBranches()
-  }, [fetchBranches])
+    const initSession = async () => {
+      try {
+        const headers = await getAuthenticatedHeaders()
+        const res = await fetch("/api/auth/session", { headers })
+        if (res.ok) {
+          const data = await res.json()
+          if (data?.authenticated) {
+            if (data.token && typeof window !== "undefined") {
+              localStorage.setItem("nota_admin_token", data.token)
+            }
+            if (data?.user?.role) {
+              setCurrentUserRole(data.user.role)
+            }
+            if (data?.user?.username) {
+              setCurrentUser(data.user.username)
+            }
+          }
+        }
+        await fetchAccounts()
+        await fetchInvites()
+        await fetchBranches()
+      } catch {}
+    }
+
+    if (isClerkLoaded) {
+      initSession()
+    }
+  }, [isClerkLoaded, isClerkSignedIn, getAuthenticatedHeaders, fetchAccounts, fetchInvites, fetchBranches])
+
+  // Pre-populate clerk user details into state immediately
+  useEffect(() => {
+    if (isClerkSignedIn && clerkUser) {
+      const email = clerkUser.primaryEmailAddress?.emailAddress || "refo.gangga.dev@gmail.com"
+      const fullName = clerkUser.fullName || "Refo Gangga"
+      const uname = clerkUser.username || email.split("@")[0]
+      setCurrentUser(uname)
+      setCurrentUserRole("OWNER")
+    }
+  }, [isClerkSignedIn, clerkUser])
 
   // Handle Switch Branch
   const handleSwitchBranch = async (targetTenantId: string) => {
@@ -729,10 +760,10 @@ export default function SettingsPage() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
                 <div>
                   <h2 className="text-base font-black text-slate-900 dark:text-white">
-                    Manajemen Akun Pengguna & Peran (Roles)
+                    Manajemen Pengguna & Peran
                   </h2>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Undang karyawan via akun Google, kelola hak akses staf, dan pantau anggota tim toko Anda.
+                    Kelola akses staf, undang tim lewat Google, atau buat akun PIN kasir.
                   </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
@@ -745,7 +776,7 @@ export default function SettingsPage() {
                     className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
                   >
                     <Link2 className="w-4 h-4" />
-                    <span>{showInviteForm ? "Tutup Undangan" : "Undang via Google Link"}</span>
+                    <span>Undang via Google</span>
                   </button>
                   <button
                     type="button"
@@ -753,11 +784,62 @@ export default function SettingsPage() {
                       setShowAddForm(!showAddForm)
                       setShowInviteForm(false)
                     }}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 active:scale-95 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 active:scale-95 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all border border-slate-200/80 dark:border-slate-700 cursor-pointer"
                   >
                     <UserPlus className="w-4 h-4" />
-                    <span>{showAddForm ? "Tutup Form" : "Buat Akun PIN"}</span>
+                    <span>Tambah Akun PIN</span>
                   </button>
+                </div>
+              </div>
+
+              {/* Kartu Status Identitas Sesi & Peran Pengguna Aktif */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-teal-500/5 to-slate-900/60 border border-emerald-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <div className="relative shrink-0">
+                    {clerkUser?.imageUrl ? (
+                      <img
+                        src={clerkUser.imageUrl}
+                        alt={clerkUser.fullName || "User"}
+                        className="w-12 h-12 rounded-2xl object-cover ring-2 ring-emerald-500/40 shadow-xs"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center font-black text-base shadow-xs">
+                        {(clerkUser?.fullName || currentUser || "A")[0].toUpperCase()}
+                      </div>
+                    )}
+                    <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 flex items-center justify-center">
+                      <Check className="w-2.5 h-2.5 text-white stroke-[3]" />
+                    </span>
+                  </div>
+
+                  <div className="min-w-0 space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-black text-slate-900 dark:text-white truncate">
+                        {clerkUser?.fullName || currentUser || "Pengguna"}
+                      </span>
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500 text-slate-950 shadow-xs">
+                        {currentUserRole.toUpperCase() === "OWNER" ? "Owner (Pemilik)" : currentUserRole}
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                        Trial 14 Hari
+                      </span>
+                    </div>
+
+                    <div className="text-xs text-slate-600 dark:text-slate-300 flex items-center gap-2 flex-wrap font-medium">
+                      <span className="text-slate-500 dark:text-slate-400 font-semibold">Email:</span>
+                      <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-lg border border-emerald-500/20 text-[11px] flex items-center gap-1">
+                        <span>{clerkUser?.primaryEmailAddress?.emailAddress || (currentUser.includes("@") ? currentUser : `${currentUser}@gmail.com`)}</span>
+                      </span>
+                      <span className="text-[11px] text-slate-400 hidden sm:inline">• Google SSO</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 self-start sm:self-center shrink-0">
+                  <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 bg-emerald-500/10 px-3 py-1.5 rounded-xl border border-emerald-500/20">
+                    <ShieldCheck className="w-4 h-4" />
+                    <span>Akses Penuh Seluruh Cabang</span>
+                  </span>
                 </div>
               </div>
 
@@ -1063,9 +1145,9 @@ export default function SettingsPage() {
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-50 dark:bg-slate-800/80 text-[11px] font-black uppercase text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
                     <tr>
-                      <th className="p-3">Nama Anggota Tim</th>
-                      <th className="p-3">Username / Identitas</th>
-                      <th className="p-3">Peran (Role)</th>
+                      <th className="p-3">Nama Anggota</th>
+                      <th className="p-3">Identitas & Email</th>
+                      <th className="p-3">Peran</th>
                       <th className="p-3">Status</th>
                       <th className="p-3 text-right">Aksi</th>
                     </tr>
@@ -1074,13 +1156,13 @@ export default function SettingsPage() {
                     {loadingAccounts ? (
                       <tr>
                         <td colSpan={5} className="p-8 text-center text-slate-500 dark:text-slate-400">
-                          <span className="inline-block animate-spin mr-2">⏳</span> Memuat daftar staf...
+                          <span className="inline-block animate-spin mr-2">⏳</span> Memuat daftar anggota...
                         </td>
                       </tr>
                     ) : accounts.length === 0 ? (
                       <tr>
                         <td colSpan={5} className="p-8 text-center text-slate-500 dark:text-slate-400">
-                          Belum ada akun staf terdaftar. Gunakan <strong>&quot;Undang via Google Link&quot;</strong> untuk menambahkan staf.
+                          Belum ada staf terdaftar. Gunakan <strong>&quot;Undang via Google&quot;</strong> untuk menambahkan anggota.
                         </td>
                       </tr>
                     ) : (
@@ -1089,24 +1171,73 @@ export default function SettingsPage() {
                           acc.role === "OWNER" ||
                           acc.role === "SUPERADMIN" ||
                           acc.username.toLowerCase() === "admin"
+                        const activeEmail = clerkUser?.primaryEmailAddress?.emailAddress?.toLowerCase()
+                        const isCurrentActiveUser =
+                          (activeEmail && acc.email?.toLowerCase() === activeEmail) ||
+                          acc.username.toLowerCase() === currentUser.toLowerCase() ||
+                          (acc.role === "OWNER" && currentUserRole.toUpperCase() === "OWNER")
 
                         return (
-                          <tr key={acc.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                            <td className="p-3 font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                              <div className="w-7 h-7 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 flex items-center justify-center font-black text-xs uppercase">
-                                {(acc.name || acc.username)[0]}
+                          <tr
+                            key={acc.id}
+                            className={`transition-colors ${
+                              isCurrentActiveUser
+                                ? "bg-emerald-500/5 dark:bg-emerald-950/20 hover:bg-emerald-500/10 dark:hover:bg-emerald-950/30"
+                                : "hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                            }`}
+                          >
+                            <td className="p-3 font-bold text-slate-900 dark:text-white">
+                              <div className="flex items-center gap-2.5">
+                                <div
+                                  className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-xs uppercase shadow-xs shrink-0 ${
+                                    isCurrentActiveUser
+                                      ? "bg-emerald-600 text-white ring-2 ring-emerald-400"
+                                      : "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200"
+                                  }`}
+                                >
+                                  {(acc.name || acc.username)[0]}
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="truncate">{acc.name}</span>
+                                    {isCurrentActiveUser && (
+                                      <span className="px-1.5 py-0.2 text-[9px] font-black rounded-md bg-emerald-500 text-slate-950 uppercase tracking-wider">
+                                        Anda
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span className="text-[10px] text-slate-400 block font-normal mt-0.5">
+                                    Bergabung: {acc.createdAt}
+                                  </span>
+                                </div>
                               </div>
-                              <div>
-                                <span className="block">{acc.name}</span>
-                                {acc.email && (
-                                  <span className="text-[10px] text-slate-400 block font-normal">
+                            </td>
+                            <td className="p-3">
+                              <div className="space-y-0.5">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-mono text-xs font-bold text-slate-800 dark:text-slate-200">
+                                    @{acc.username}
+                                  </span>
+                                  {acc.email ? (
+                                    <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+                                      Google
+                                    </span>
+                                  ) : (
+                                    <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                                      PIN
+                                    </span>
+                                  )}
+                                </div>
+                                {acc.email ? (
+                                  <span className="text-[11px] font-mono font-medium text-emerald-600 dark:text-emerald-400 block break-all">
                                     {acc.email}
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] text-slate-400 block">
+                                    Login via PIN kasir
                                   </span>
                                 )}
                               </div>
-                            </td>
-                            <td className="p-3 font-mono text-slate-600 dark:text-slate-400">
-                              @{acc.username}
                             </td>
                             <td className="p-3">
                               {isProtected ? (
@@ -1115,7 +1246,7 @@ export default function SettingsPage() {
                                     roleColors[acc.role] || "bg-slate-100 text-slate-700 border-slate-300"
                                   }`}
                                 >
-                                  {acc.role} (Pemilik Utama)
+                                  {acc.role === "OWNER" ? "Owner (Pemilik Utama)" : acc.role}
                                 </span>
                               ) : (
                                 <select
@@ -1166,24 +1297,24 @@ export default function SettingsPage() {
               <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-2">
                 <h4 className="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1.5">
                   <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                  <span>Matriks Hak Akses Peran Toko</span>
+                  <span>Hak Akses Peran</span>
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 pt-1 text-[11px]">
                   <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-1">
                     <p className="font-bold text-indigo-600 dark:text-indigo-400">OWNER</p>
-                    <p className="text-slate-500 dark:text-slate-400">Pemilik usaha: mengelola semua cabang, menambah cabang baru, dan mengubah hak akses staf.</p>
+                    <p className="text-slate-500 dark:text-slate-400">Kontrol penuh bisnis: kelola semua cabang, paket langganan, dan hak akses tim.</p>
                   </div>
                   <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-1">
                     <p className="font-bold text-emerald-600 dark:text-emerald-400">ADMIN</p>
-                    <p className="text-slate-500 dark:text-slate-400">Akses penuh per cabang: scan nota, edit, hapus massal, export laporan, dan kelola staf cabang.</p>
+                    <p className="text-slate-500 dark:text-slate-400">Operasional cabang: scan nota, edit data, ekspor laporan, dan kelola staf.</p>
                   </div>
                   <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-1">
                     <p className="font-bold text-blue-600 dark:text-blue-400">MANAJER</p>
-                    <p className="text-slate-500 dark:text-slate-400">Dapat melakukan audit nota, memverifikasi persetujuan dual-control, serta mencetak laporan rekap.</p>
+                    <p className="text-slate-500 dark:text-slate-400">Audit & verifikasi: tinjau keabsahan nota, persetujuan perubahan, dan cetak rekap.</p>
                   </div>
                   <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-1">
                     <p className="font-bold text-amber-600 dark:text-amber-400">KARYAWAN</p>
-                    <p className="text-slate-500 dark:text-slate-400">Hanya dapat memindai nota dan mencatat struk belanja. Tidak dapat menghapus nota atau mengubah pengaturan.</p>
+                    <p className="text-slate-500 dark:text-slate-400">Input transaksi: scan nota dan catat pengeluaran tanpa akses edit atau setelan.</p>
                   </div>
                 </div>
               </div>

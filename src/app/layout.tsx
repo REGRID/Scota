@@ -91,13 +91,13 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="id" className={`${plusJakartaSans.variable} ${geistMono.variable} dark max-w-full overflow-x-hidden`} suppressHydrationWarning>
+    <html lang="id" className={`${plusJakartaSans.variable} ${geistMono.variable} dark max-w-full overflow-x-clip`} suppressHydrationWarning>
       <head>
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
       </head>
-      <body className="min-h-screen max-w-full overflow-x-hidden bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 flex flex-col font-sans antialiased selection:bg-emerald-500 selection:text-white transition-colors duration-200">
+      <body className="min-h-screen max-w-full overflow-x-clip bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 flex flex-col font-sans antialiased selection:bg-emerald-500 selection:text-white transition-colors duration-200">
         <ClerkProvider appearance={{ theme: shadcn }}>
           <ThemeProvider>
           <AppDialogProvider>

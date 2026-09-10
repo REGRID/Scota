@@ -87,14 +87,17 @@ export async function POST(req: NextRequest) {
         )
       }
 
-      // Gunakan persis model yang diminta pengguna (hanya ubah jika gemini-2.5-flash non-existent)
+      // Gunakan gemini-flash-latest sebagai universal auto-resolving engine
       let targetModel = (model || "").trim()
-      if (!targetModel || targetModel === "gemini-2.5-flash") {
+      if (!targetModel || targetModel === "gemini-2.0-flash" || targetModel === "gemini-2.5-flash" || targetModel.startsWith("gemini-3.")) {
         targetModel = await getActiveGeminiModel()
+      }
+      if (!targetModel) {
+        targetModel = "gemini-flash-latest"
       }
 
       const startTime = Date.now()
-      const geminiRes = await fetch(
+      let geminiRes = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${testKey}`,
         {
           method: "POST",
@@ -106,6 +109,22 @@ export async function POST(req: NextRequest) {
         }
       )
 
+      // Auto-fallback if specific model returns 404
+      if (!geminiRes.ok && geminiRes.status === 404 && targetModel !== "gemini-flash-latest") {
+        targetModel = "gemini-flash-latest"
+        geminiRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${testKey}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: "Ping test: balas satu kata 'OK'." }] }],
+              generationConfig: { maxOutputTokens: 10, temperature: 0.1 },
+            }),
+          }
+        )
+      }
+
       const latencyMs = Date.now() - startTime
 
       if (!geminiRes.ok) {
@@ -116,7 +135,7 @@ export async function POST(req: NextRequest) {
         } else if (geminiRes.status === 429) {
           cleanErrMsg = "Kuota API Google Cloud terlampaui (Rate Limit / Quota Exceeded)."
         } else if (geminiRes.status === 404) {
-          cleanErrMsg = `Model ${targetModel} tidak tersedia untuk API Key Anda (HTTP 404). Silakan pilih model lain atau gunakan 'Deteksi Model Aktif'.`
+          cleanErrMsg = `Endpoint model Google Gemini tidak dapat ditemukan (HTTP 404). Pastikan Generative Language API aktif pada Google Cloud Console Anda.`
         }
         return NextResponse.json({ error: cleanErrMsg }, { status: geminiRes.status })
       }
@@ -127,7 +146,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         success: true,
         testedModel: targetModel,
-        message: `Koneksi Berhasil! Model ${targetModel} merespons: "${reply}"`,
+        message: `Koneksi Berhasil! Google Gemini Flash Engine merespons: "${reply}"`,
         latencyMs,
       })
     }

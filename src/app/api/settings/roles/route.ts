@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requireRole } from "@/lib/roleGuard"
-import { getTenantRoles, getAllPermissions, createTenantRole } from "@/lib/dynamicRoles"
+import { getTenantRoles, getAllPermissions, createTenantRole, getEffectiveTenantFeatures } from "@/lib/dynamicRoles"
 
 export async function GET(req: NextRequest) {
   try {
@@ -34,6 +34,23 @@ export async function POST(req: NextRequest) {
     const requiresApproval = !!body.requiresApproval
     const permissionCodes = Array.isArray(body.permissions) ? body.permissions : []
 
+    // Enforce effective feature flags according to active subscription tier
+    const effectiveFeatures = await getEffectiveTenantFeatures(auth.tenantId)
+
+    if (!effectiveFeatures.custom_roles) {
+      return NextResponse.json(
+        { error: "Fitur pembuatan peran khusus (custom roles) belum aktif atau memerlukan paket Pro atau lebih tinggi." },
+        { status: 403 }
+      )
+    }
+
+    if (scope === "MULTI_TENANT" && !effectiveFeatures.multi_tenant_roles) {
+      return NextResponse.json(
+        { error: "Fitur peran lintas-cabang (multi-tenant) belum aktif atau memerlukan paket Enterprise." },
+        { status: 403 }
+      )
+    }
+
     const result = await createTenantRole(auth.tenantId, null, {
       name,
       scope,
@@ -57,3 +74,4 @@ export async function POST(req: NextRequest) {
     )
   }
 }
+

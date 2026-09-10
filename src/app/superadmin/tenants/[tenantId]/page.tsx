@@ -25,6 +25,8 @@ import {
   RefreshCw,
   X,
   AlertTriangle,
+  Trash2,
+  Unlock,
 } from "lucide-react"
 import {
   ResponsiveContainer,
@@ -71,6 +73,10 @@ export default function TenantDetailPage({ params }: TenantDetailPageProps) {
   // Suspend Confirm Dialog
   const [showSuspendDialog, setShowSuspendDialog] = useState(false)
   const [isTogglingSuspend, setIsTogglingSuspend] = useState(false)
+
+  // Delete Confirm Dialog
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [isDeletingTenant, setIsDeletingTenant] = useState(false)
 
   // Approval Workflow State
   const [tenantWorkflow, setTenantWorkflow] = useState<any>({
@@ -129,7 +135,8 @@ export default function TenantDetailPage({ params }: TenantDetailPageProps) {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          username: tenantId,
+          tenantId: data?.tenant?.id || tenantId,
+          username: data?.tenant?.username || tenantId,
           action: "update_approval_workflow",
           workflow: tenantWorkflow,
         }),
@@ -158,7 +165,8 @@ export default function TenantDetailPage({ params }: TenantDetailPageProps) {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          username: tenantId,
+          tenantId: data?.tenant?.id || tenantId,
+          username: data?.tenant?.username || tenantId,
           action: "update_subscription",
           tier: newTier,
           durationDays: newDurationDays,
@@ -190,7 +198,8 @@ export default function TenantDetailPage({ params }: TenantDetailPageProps) {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          username: tenantId,
+          tenantId: data?.tenant?.id || tenantId,
+          username: data?.tenant?.username || tenantId,
           action: "reset_password",
           newPassword: newPasswordVal,
         }),
@@ -222,7 +231,8 @@ export default function TenantDetailPage({ params }: TenantDetailPageProps) {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          username: tenantId,
+          tenantId: data.tenant.id || tenantId,
+          username: data.tenant.username || tenantId,
           action: "toggle_status",
           status: newStatus,
         }),
@@ -239,6 +249,36 @@ export default function TenantDetailPage({ params }: TenantDetailPageProps) {
       alert("Terjadi kesalahan jaringan")
     } finally {
       setIsTogglingSuspend(false)
+    }
+  }
+
+  // Handle Delete Tenant Permanently
+  const handleConfirmDelete = async () => {
+    if (!data?.tenant) return
+    setIsDeletingTenant(true)
+    try {
+      const res = await fetch("/api/superadmin/tenants", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tenantId: data.tenant.id || tenantId,
+          username: data.tenant.username || tenantId,
+        }),
+      })
+      const resData = await res.json()
+      if (resData.success) {
+        showToast(resData.message || "Tenant berhasil dihapus permanen!")
+        setShowDeleteDialog(false)
+        setTimeout(() => {
+          router.push("/superadmin/tenants")
+        }, 1200)
+      } else {
+        alert(resData.error || "Gagal menghapus tenant")
+      }
+    } catch {
+      alert("Terjadi kesalahan jaringan")
+    } finally {
+      setIsDeletingTenant(false)
     }
   }
 
@@ -407,18 +447,38 @@ export default function TenantDetailPage({ params }: TenantDetailPageProps) {
             <span>Reset Pass</span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => setShowSuspendDialog(true)}
-            className={`px-3.5 py-2.5 rounded-2xl border text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-              tenant?.status === "suspended"
-                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20"
-                : "bg-rose-500/10 border-rose-500/30 text-rose-400 hover:bg-rose-500/20"
-            }`}
-          >
-            <ShieldAlert className="w-4 h-4" />
-            <span>{tenant?.status === "suspended" ? "Aktifkan" : "Suspend"}</span>
-          </button>
+          {tenant?.status === "suspended" ? (
+            <>
+              <button
+                type="button"
+                onClick={() => setShowSuspendDialog(true)}
+                className="px-3.5 py-2.5 rounded-2xl border border-emerald-500/40 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm shadow-emerald-500/10"
+                title="Buka / Aktifkan Kembali Akses Tenant"
+              >
+                <Unlock className="w-4 h-4" />
+                <span>Buka Suspend</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowDeleteDialog(true)}
+                className="px-3.5 py-2.5 rounded-2xl border border-rose-500/40 bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm shadow-rose-500/10"
+                title="Hapus Tenant dan Seluruh Datanya Secara Permanen"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Hapus Tenant</span>
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowSuspendDialog(true)}
+              className="px-3.5 py-2.5 rounded-2xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <ShieldAlert className="w-4 h-4" />
+              <span>Suspend</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -1052,6 +1112,18 @@ export default function TenantDetailPage({ params }: TenantDetailPageProps) {
         isLoading={isTogglingSuspend}
         onConfirm={handleConfirmSuspend}
         onCancel={() => setShowSuspendDialog(false)}
+      />
+
+      {/* CONFIRM DIALOG: Delete Tenant Permanently */}
+      <ConfirmDialog
+        open={showDeleteDialog}
+        title={`Hapus Permanen Tenant @${tenant?.username}?`}
+        description="PERINGATAN: Seluruh data nota, transaksi, limit scan, akun pengguna, dan langganan akan dihapus secara permanen dari database dan sistem auth. Tindakan ini TIDAK DAPAT DIBATALKAN!"
+        confirmText="Ya, Hapus Permanen"
+        variant="danger"
+        isLoading={isDeletingTenant}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setShowDeleteDialog(false)}
       />
     </div>
   )

@@ -23,6 +23,8 @@ import {
   AlertTriangle,
   ChevronLeft,
   ChevronRight,
+  Trash2,
+  Unlock,
 } from "lucide-react"
 import { SubscriptionTier, TIER_CONFIG } from "@/lib/subscription"
 import { StatusBadge } from "@/components/superadmin/StatusBadge"
@@ -71,6 +73,10 @@ function SuperadminTenantsContent() {
   // Suspend Confirm Dialog State
   const [suspendTarget, setSuspendTarget] = useState<TenantSummary | null>(null)
   const [isTogglingSuspend, setIsTogglingSuspend] = useState(false)
+
+  // Delete Confirm Dialog State
+  const [deleteTarget, setDeleteTarget] = useState<TenantSummary | null>(null)
+  const [isDeletingTenant, setIsDeletingTenant] = useState(false)
 
   const [toastMsg, setToastMsg] = useState<string | null>(null)
 
@@ -131,6 +137,7 @@ function SuperadminTenantsContent() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           username: editingTenant.username,
+          tenantId: editingTenant.tenantId,
           action: "update_subscription",
           tier: newTier,
           durationDays: newDurationDays,
@@ -164,6 +171,7 @@ function SuperadminTenantsContent() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           username: resetPassTenant.username,
+          tenantId: resetPassTenant.tenantId,
           action: "reset_password",
           newPassword: newPasswordVal,
         }),
@@ -218,7 +226,7 @@ function SuperadminTenantsContent() {
     }
   }
 
-  // Handle Toggle Suspend Tenant
+  // Handle Toggle Suspend Tenant (Open / Suspend)
   const handleConfirmSuspend = async () => {
     if (!suspendTarget) return
     setIsTogglingSuspend(true)
@@ -230,6 +238,7 @@ function SuperadminTenantsContent() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           username: suspendTarget.username,
+          tenantId: suspendTarget.tenantId,
           action: "toggle_status",
           status: newStatus,
         }),
@@ -246,6 +255,36 @@ function SuperadminTenantsContent() {
       alert("Terjadi kesalahan jaringan")
     } finally {
       setIsTogglingSuspend(false)
+    }
+  }
+
+  // Handle Permanently Delete Tenant
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return
+    setIsDeletingTenant(true)
+
+    try {
+      const res = await fetch("/api/superadmin/tenants", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: deleteTarget.username,
+          tenantId: deleteTarget.tenantId,
+          action: "delete_tenant",
+        }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        showToast(data.message || "Tenant berhasil dihapus permanen!")
+        setDeleteTarget(null)
+        fetchTenants()
+      } else {
+        alert(data.error || "Gagal menghapus tenant")
+      }
+    } catch (e) {
+      alert("Terjadi kesalahan jaringan saat menghapus tenant")
+    } finally {
+      setIsDeletingTenant(false)
     }
   }
 
@@ -490,19 +529,39 @@ function SuperadminTenantsContent() {
                             <Key className="w-4 h-4 text-amber-400" />
                           </button>
 
-                          {/* Suspend / Unsuspend */}
-                          <button
-                            type="button"
-                            onClick={() => setSuspendTarget(t)}
-                            className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-all cursor-pointer"
-                            title={t.status === "suspended" ? "Aktifkan Tenant" : "Suspend Tenant"}
-                          >
-                            <ShieldAlert
-                              className={`w-4 h-4 ${
-                                t.status === "suspended" ? "text-emerald-400" : "text-rose-400"
-                              }`}
-                            />
-                          </button>
+                          {t.status === "suspended" ? (
+                            <>
+                              {/* Option 1: Open / Buka Suspend / Aktifkan Kembali */}
+                              <button
+                                type="button"
+                                onClick={() => setSuspendTarget(t)}
+                                className="p-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 hover:text-emerald-300 transition-all cursor-pointer"
+                                title="Buka Suspend (Open) / Aktifkan Kembali"
+                              >
+                                <Unlock className="w-4 h-4 text-emerald-400" />
+                              </button>
+
+                              {/* Option 2: Delete / Hapus Tenant Permanen */}
+                              <button
+                                type="button"
+                                onClick={() => setDeleteTarget(t)}
+                                className="p-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 hover:text-rose-300 transition-all cursor-pointer"
+                                title="Hapus Tenant Permanen (Delete)"
+                              >
+                                <Trash2 className="w-4 h-4 text-rose-400" />
+                              </button>
+                            </>
+                          ) : (
+                            /* Normal Suspend Action */
+                            <button
+                              type="button"
+                              onClick={() => setSuspendTarget(t)}
+                              className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-all cursor-pointer"
+                              title="Tangguhkan / Suspend Tenant"
+                            >
+                              <ShieldAlert className="w-4 h-4 text-rose-400" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -805,21 +864,33 @@ function SuperadminTenantsContent() {
         open={!!suspendTarget}
         title={
           suspendTarget?.status === "suspended"
-            ? `Aktifkan Kembali Tenant @${suspendTarget?.username}?`
+            ? `Buka Suspend (Aktifkan Kembali) @${suspendTarget?.username}?`
             : `Tangguhkan / Suspend Tenant @${suspendTarget?.username}?`
         }
         description={
           suspendTarget?.status === "suspended"
-            ? "Tenant ini akan dapat login kembali dan memproses scan nota seperti biasa."
-            : "Setelah disuspend, seluruh user di bawah akun tenant ini tidak dapat mengakses dashboard sampai diaktifkan kembali."
+            ? "Akun tenant ini akan dibuka kembali dari penangguhan, status aktif dipulihkan, dan seluruh pengguna dapat login serta memproses nota seperti biasa."
+            : "Setelah disuspend, seluruh user di bawah akun tenant ini tidak dapat mengakses dashboard dan fitur scan nota diblokir sampai diaktifkan kembali."
         }
         confirmText={
-          suspendTarget?.status === "suspended" ? "Ya, Aktifkan Tenant" : "Ya, Suspend Tenant"
+          suspendTarget?.status === "suspended" ? "Ya, Buka Suspend (Aktifkan)" : "Ya, Suspend Tenant"
         }
         variant={suspendTarget?.status === "suspended" ? "primary" : "danger"}
         isLoading={isTogglingSuspend}
         onConfirm={handleConfirmSuspend}
         onCancel={() => setSuspendTarget(null)}
+      />
+
+      {/* CONFIRM DIALOG: Delete Tenant */}
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title={`Hapus Permanen Tenant @${deleteTarget?.username}?`}
+        description="PERINGATAN KRUSIAL: Tindakan ini permanen dan tidak dapat dibatalkan. Seluruh data transaksi nota, toko cabang, staf karyawan, kuota OCR, dan akun langganan akan dihapus bersih dari sistem."
+        confirmText="Ya, Hapus Tenant Permanen"
+        variant="danger"
+        isLoading={isDeletingTenant}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setDeleteTarget(null)}
       />
     </div>
   )

@@ -1718,11 +1718,16 @@ function SettingsContent() {
                           Izinkan pembuatan peran dengan cakupan akses ke beberapa cabang sekaligus (misal Manager Regional).
                         </p>
                       </div>
-                      <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md self-start ${
-                        tenantFeatures.multi_tenant_roles ? "bg-emerald-500/10 text-emerald-600" : "bg-slate-100 dark:bg-slate-800 text-slate-400"
-                      }`}>
-                        {tenantFeatures.multi_tenant_roles ? "Aktif" : "Nonaktif"}
-                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md self-start ${
+                          tenantFeatures.multi_tenant_roles ? "bg-emerald-500/10 text-emerald-600" : "bg-slate-100 dark:bg-slate-800 text-slate-400"
+                        }`}>
+                          {tenantFeatures.multi_tenant_roles ? "Aktif" : "Nonaktif"}
+                        </span>
+                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+                          Minimal Enterprise
+                        </span>
+                      </div>
                     </div>
 
                     {/* Feature 2: custom_roles */}
@@ -1749,11 +1754,16 @@ function SettingsContent() {
                           Buat peran tim baru dengan penamaan bebas (misal: Supervisor Gudang, Barista, Auditor).
                         </p>
                       </div>
-                      <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md self-start ${
-                        tenantFeatures.custom_roles ? "bg-emerald-500/10 text-emerald-600" : "bg-slate-100 dark:bg-slate-800 text-slate-400"
-                      }`}>
-                        {tenantFeatures.custom_roles ? "Aktif" : "Nonaktif"}
-                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md self-start ${
+                          tenantFeatures.custom_roles ? "bg-emerald-500/10 text-emerald-600" : "bg-slate-100 dark:bg-slate-800 text-slate-400"
+                        }`}>
+                          {tenantFeatures.custom_roles ? "Aktif" : "Nonaktif"}
+                        </span>
+                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                          Minimal Pro
+                        </span>
+                      </div>
                     </div>
 
                     {/* Feature 3: custom_permissions */}
@@ -1780,11 +1790,16 @@ function SettingsContent() {
                           Atur centang izin spesifik per peran (scan nota, lihat laporan, kelola staf, POS & stok).
                         </p>
                       </div>
-                      <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md self-start ${
-                        tenantFeatures.custom_permissions ? "bg-emerald-500/10 text-emerald-600" : "bg-slate-100 dark:bg-slate-800 text-slate-400"
-                      }`}>
-                        {tenantFeatures.custom_permissions ? "Aktif" : "Nonaktif"}
-                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md self-start ${
+                          tenantFeatures.custom_permissions ? "bg-emerald-500/10 text-emerald-600" : "bg-slate-100 dark:bg-slate-800 text-slate-400"
+                        }`}>
+                          {tenantFeatures.custom_permissions ? "Aktif" : "Nonaktif"}
+                        </span>
+                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+                          Minimal Enterprise
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>

@@ -21,6 +21,7 @@ import {
   Camera,
   History,
   ShieldCheck,
+  ShieldAlert,
   CheckCircle2,
   LogOut,
   Loader2,
@@ -826,6 +827,52 @@ export function MainApp({
           router.push("/")
         }}
       />
+    )
+  }
+
+  // 4. Suspended Account Guard: Display suspension notice if account was suspended
+  if (subscription?.status === "suspended") {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-4 selection:bg-rose-500 selection:text-white">
+        <div className="max-w-md w-full bg-slate-900 border border-rose-500/30 rounded-3xl p-8 shadow-2xl text-center space-y-6 animate-in zoom-in-95">
+          <div className="w-16 h-16 mx-auto rounded-3xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400">
+            <ShieldAlert className="w-8 h-8" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-xl font-black text-white">Akses Akun Ditangguhkan</h2>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Akses akun Scota untuk <span className="text-rose-400 font-semibold">{subscription?.studioProfile?.studioName || "organisasi Anda"}</span> sedang ditangguhkan oleh Administrator sistem. Seluruh fitur pemindaian dan riwayat nota dinonaktifkan sementara.
+            </p>
+          </div>
+          <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 text-left text-xs text-slate-400 space-y-1.5">
+            <div className="flex justify-between items-center">
+              <span>Status Akun:</span>
+              <span className="font-black text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded-full border border-rose-500/20 text-[10px]">SUSPENDED</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span>Paket Sebelumnya:</span>
+              <span className="font-bold text-slate-300 uppercase">{subscription.tier}</span>
+            </div>
+          </div>
+          <div className="space-y-3 pt-2">
+            <a
+              href="https://wa.me/6285215973776?text=Halo%20Admin%20Scota,%20akun%20saya%20terkena%20suspend%20mohon%20bantuannya"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-black transition-all shadow-lg shadow-emerald-500/20"
+            >
+              Hubungi Support WhatsApp
+            </a>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="w-full py-2.5 px-4 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-all"
+            >
+              Keluar Sesi Akun
+            </button>
+          </div>
+        </div>
+      </div>
     )
   }
 

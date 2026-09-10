@@ -24,7 +24,7 @@ export interface ApprovalWorkflowConfig {
 
 export interface SubscriptionInfo {
   tier: SubscriptionTier
-  status: "active" | "expiring" | "expired" | "trial"
+  status: "active" | "expiring" | "expired" | "trial" | "suspended"
   validUntil: string // ISO string
   monthlyScanLimit: number
   usedScansThisMonth: number

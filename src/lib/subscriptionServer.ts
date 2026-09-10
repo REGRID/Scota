@@ -38,7 +38,7 @@ export async function getSubscriptionInfo(tenantId: string = DEFAULT_TENANT_ID):
   if (isDatabaseConfigured) {
     try {
       const res = await queryPg<any>(
-        `SELECT s.*, t."businessName", t.tagline as "tenantTagline" 
+        `SELECT s.*, t."businessName", t.tagline as "tenantTagline", t.status as "tenantStatus" 
          FROM subscriptions s 
          LEFT JOIN tenants t ON t.id = s."tenantId" 
          WHERE s."tenantId" = $1 LIMIT 1`,
@@ -53,9 +53,15 @@ export async function getSubscriptionInfo(tenantId: string = DEFAULT_TENANT_ID):
         const isExpiring = !isExpired && validUntil.getTime() - now.getTime() < 5 * 24 * 60 * 60 * 1000
 
         let status: SubscriptionInfo["status"] = "active"
-        if (data.tier === "trial") status = isExpired ? "expired" : "trial"
-        else if (isExpired) status = "expired"
-        else if (isExpiring) status = "expiring"
+        if (data.status === "suspended" || data.tenantStatus === "suspended") {
+          status = "suspended"
+        } else if (data.tier === "trial") {
+          status = isExpired ? "expired" : "trial"
+        } else if (isExpired) {
+          status = "expired"
+        } else if (isExpiring) {
+          status = "expiring"
+        }
 
         const resolvedStudioName =
           (data.studioName && data.studioName !== "Scota Business" ? data.studioName : data.businessName) ||

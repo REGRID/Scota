@@ -1,4 +1,5 @@
 import { queryPg, withTransactionPg } from "@/lib/pgDb"
+import { TIER_CONFIG, SubscriptionTier } from "@/lib/subscription"
 
 export interface PermissionItem {
   code: string
@@ -23,6 +24,28 @@ export interface TenantFeaturesMap {
   custom_permissions: boolean
   custom_roles: boolean
   ownership_transfer: boolean
+}
+
+/**
+ * Minimum tier required to enable each feature flag.
+ * Source of truth: centralized in this map.
+ */
+export const FEATURE_MIN_TIER: Record<keyof TenantFeaturesMap, SubscriptionTier> = {
+  multi_tenant_roles: "enterprise", // "Dukungan Multi-Cabang & Multi-Usaha"
+  custom_permissions: "enterprise",
+  custom_roles: "pro",              // Custom roles available starting from Pro tier
+  ownership_transfer: "enterprise",
+}
+
+export const TIER_RANK: Record<SubscriptionTier, number> = {
+  trial: 0,
+  starter: 1,
+  pro: 2,
+  enterprise: 3,
+}
+
+export function tierMeetsMinimum(currentTier: SubscriptionTier, requiredTier: SubscriptionTier): boolean {
+  return (TIER_RANK[currentTier] ?? 0) >= (TIER_RANK[requiredTier] ?? 0)
 }
 
 /**
@@ -189,14 +212,38 @@ export async function getTenantFeatures(tenantId: string): Promise<TenantFeature
 }
 
 /**
- * Set feature flag for a tenant with toggle-off validation (Bab 11.7).
+ * Set feature flag for a tenant with tier requirement validation when enabling,
+ * and data integrity validation when disabling (Bab 11.7).
  */
 export async function setTenantFeature(
   tenantId: string,
   featureKey: string,
   enabled: boolean
 ): Promise<{ success: boolean; error?: string }> {
-  // Bab 11.7: Validasi saat menonaktifkan fitur
+  if (!(featureKey in FEATURE_MIN_TIER)) {
+    return { success: false, error: "Nama fitur tidak dikenali." }
+  }
+
+  // 1. Validasi tier langganan sebelum mengizinkan fitur DIAKTIFKAN
+  if (enabled) {
+    const tenantRes = await queryPg<{ tier: SubscriptionTier }>(
+      `SELECT s.tier FROM subscriptions s WHERE s."tenantId" = $1 LIMIT 1`,
+      [tenantId]
+    )
+    const currentTier = tenantRes.rows?.[0]?.tier || "trial"
+    const requiredTier = FEATURE_MIN_TIER[featureKey as keyof TenantFeaturesMap]
+
+    if (!tierMeetsMinimum(currentTier, requiredTier)) {
+      const requiredTierName = TIER_CONFIG[requiredTier]?.name || requiredTier
+      const currentTierName = TIER_CONFIG[currentTier]?.name || currentTier
+      return {
+        success: false,
+        error: `Fitur ini memerlukan paket ${requiredTierName} atau lebih tinggi. Paket Anda saat ini: ${currentTierName}. Silakan upgrade paket Anda untuk mengaktifkan fitur ini.`,
+      }
+    }
+  }
+
+  // 2. Bab 11.7: Validasi saat MENONAKTIFKAN fitur (selalu diizinkan tanpa cek tier)
   if (!enabled) {
     if (featureKey === "multi_tenant_roles") {
       const grantCheck = await queryPg<{ count: string }>(
@@ -221,6 +268,28 @@ export async function setTenantFeature(
   )
 
   return { success: true }
+}
+
+/**
+ * Fitur efektif yang BENAR-BENAR aktif untuk tenant -- mempertimbangkan baik flag di
+ * tenant_features MAUPUN tier langganan saat ini.
+ * Jika tier langganan turun (downgrade/expired), fitur otomatis nonaktif secara efektif.
+ */
+export async function getEffectiveTenantFeatures(tenantId: string): Promise<TenantFeaturesMap> {
+  const [flags, tenantRes] = await Promise.all([
+    getTenantFeatures(tenantId),
+    queryPg<{ tier: SubscriptionTier }>(`SELECT tier FROM subscriptions WHERE "tenantId" = $1 LIMIT 1`, [tenantId]),
+  ])
+
+  const currentTier = tenantRes.rows?.[0]?.tier || "trial"
+
+  const effective: TenantFeaturesMap = { ...flags }
+  for (const key of Object.keys(FEATURE_MIN_TIER) as (keyof TenantFeaturesMap)[]) {
+    if (effective[key] && !tierMeetsMinimum(currentTier, FEATURE_MIN_TIER[key])) {
+      effective[key] = false
+    }
+  }
+  return effective
 }
 
 /**

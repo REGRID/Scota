@@ -32,6 +32,7 @@ export async function isSuperadminUser(username: string): Promise<boolean> {
 }
 
 export interface TenantSummary {
+  id?: string
   tenantId?: string
   username: string
   fullName?: string
@@ -95,7 +96,145 @@ export interface BillingTransaction {
 export async function getAllTenants(): Promise<TenantSummary[]> {
   const tenantsMap = new Map<string, TenantSummary>()
 
-  // 1. Fetch Real Registered Users from Clerk Backend API (Google OAuth & Email Registrations)
+  // 1. Primary Source of Truth: PostgreSQL Registered Tenants, Subscriptions, Admin Accounts, and Users
+  if (isDatabaseConfigured) {
+    try {
+      const tenantsRes = await queryPg<any>(
+        `SELECT t.id as "tenantId", t."businessName", t.phone as "tenantPhone", t.status as "tenantStatus", t."createdAt",
+                s.tier as "subTier", s.status as "subStatus", s."validUntil" as "subValidUntil",
+                s."monthlyScanLimit" as "subScanLimit", s."usedScansThisMonth" as "subUsedScans",
+                s."approvalWorkflow",
+                a.username as "adminUsername", a.email as "adminEmail", a."fullName" as "adminFullName", a.role as "adminRole", a.status as "adminStatus",
+                u.email as "userEmail", u.name as "userName", u."clerkId", u.phone as "userPhone"
+         FROM tenants t
+         LEFT JOIN subscriptions s ON t.id = s."tenantId"
+         LEFT JOIN admin_accounts a ON t.id = a."tenantId"
+         LEFT JOIN users u ON t."ownerId" = u.id
+         WHERE t."isDemo" = false OR t."isDemo" IS NULL
+         ORDER BY t."createdAt" DESC`
+      )
+
+      if (tenantsRes.rows) {
+        for (const row of tenantsRes.rows) {
+          const tenantId = row.tenantId
+          const email = (row.userEmail || row.adminEmail || "").toLowerCase().trim()
+          const rawUser = email || row.adminUsername || `tenant_${tenantId.slice(0, 8)}`
+          const usernameKey = rawUser.toLowerCase().trim()
+
+          const tier = (row.subTier || "trial") as SubscriptionTier
+          const tierCfg = TIER_CONFIG[tier] || TIER_CONFIG.trial
+          const validDate = new Date(row.subValidUntil || Date.now() + 14 * 24 * 60 * 60 * 1000)
+          const isExpired = validDate < new Date()
+
+          const isSuspended =
+            row.tenantStatus === "suspended" ||
+            row.subStatus === "suspended" ||
+            row.adminStatus === "suspended"
+
+          let status: "active" | "expired" | "trial" | "suspended" = "active"
+          if (isSuspended) {
+            status = "suspended"
+          } else if (isExpired) {
+            status = "expired"
+          } else if (tier === "trial") {
+            status = "trial"
+          } else {
+            status = "active"
+          }
+
+          let workflow: ApprovalWorkflowConfig = { ...DEFAULT_APPROVAL_WORKFLOW }
+          if (row.approvalWorkflow) {
+            try {
+              const parsed =
+                typeof row.approvalWorkflow === "string"
+                  ? JSON.parse(row.approvalWorkflow)
+                  : row.approvalWorkflow
+              workflow = { ...DEFAULT_APPROVAL_WORKFLOW, ...parsed }
+            } catch (e) {}
+          }
+
+          const fullName = row.userName || row.adminFullName || row.businessName || usernameKey
+          const businessName = row.businessName || `Bisnis ${fullName}`
+
+          tenantsMap.set(tenantId, {
+            id: tenantId,
+            tenantId,
+            username: usernameKey,
+            fullName,
+            businessName,
+            phone: row.tenantPhone || row.userPhone || "",
+            role: row.adminRole || "OWNER",
+            tier,
+            validUntil: row.subValidUntil
+              ? new Date(row.subValidUntil).toISOString()
+              : validDate.toISOString(),
+            monthlyScanLimit: row.subScanLimit || tierCfg.monthlyScanLimit,
+            usedScansThisMonth: row.subUsedScans || 0,
+            createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : new Date().toISOString(),
+            status,
+            approvalWorkflow: workflow,
+          })
+        }
+      }
+
+      // Also check standalone admin_accounts without tenant or legacy
+      const accRes = await queryPg<any>(
+        `SELECT a.id, a.username, a.role, a."fullName", a."businessName", a.phone, a.email, a.status, a."createdAt",
+                a."tenantId",
+                s.tier as "subTier",
+                s.status as "subStatus",
+                s."validUntil" as "subValidUntil",
+                s."monthlyScanLimit" as "subScanLimit",
+                s."usedScansThisMonth" as "subUsedScans"
+         FROM admin_accounts a
+         LEFT JOIN subscriptions s ON a."tenantId" = s."tenantId"
+         ORDER BY a."createdAt" DESC`
+      )
+
+      if (accRes.rows) {
+        for (const acc of accRes.rows) {
+          const tenantId = acc.tenantId || acc.id
+          if (tenantsMap.has(tenantId)) continue
+
+          const email = (acc.email || "").toLowerCase().trim()
+          const usernameKey = email || (acc.username || "").toLowerCase().trim()
+          if (!usernameKey) continue
+
+          const tier = (acc.subTier || acc.tier || "starter") as SubscriptionTier
+          const tierCfg = TIER_CONFIG[tier] || TIER_CONFIG.trial
+          const validDate = new Date(acc.subValidUntil || acc.validUntil || Date.now() + 14 * 24 * 60 * 60 * 1000)
+          const isExpired = validDate < new Date()
+          const isSuspended = acc.status === "suspended" || acc.subStatus === "suspended"
+
+          let status: "active" | "expired" | "trial" | "suspended" = "active"
+          if (isSuspended) status = "suspended"
+          else if (isExpired) status = "expired"
+          else if (tier === "trial") status = "trial"
+
+          tenantsMap.set(tenantId, {
+            id: tenantId,
+            tenantId,
+            username: usernameKey,
+            fullName: acc.fullName || usernameKey,
+            businessName: acc.businessName || "Scota Business",
+            phone: acc.phone || "",
+            role: acc.role || "ADMIN",
+            tier,
+            validUntil: validDate.toISOString(),
+            monthlyScanLimit: acc.subScanLimit || tierCfg.monthlyScanLimit,
+            usedScansThisMonth: acc.subUsedScans || 0,
+            createdAt: acc.createdAt ? new Date(acc.createdAt).toISOString() : new Date().toISOString(),
+            status,
+            approvalWorkflow: { ...DEFAULT_APPROVAL_WORKFLOW },
+          })
+        }
+      }
+    } catch (err) {
+      console.warn("PostgreSQL tenants fetch notice in superadmin:", err)
+    }
+  }
+
+  // 2. Enrich / supplement with Clerk backend users (only enrich or add unprovisioned)
   const clerkSecret = process.env.CLERK_SECRET_KEY
   if (clerkSecret) {
     try {
@@ -117,146 +256,56 @@ export async function getAllTenants(): Promise<TenantSummary[]> {
             const lastName = u.last_name || ""
             const fullName = `${firstName} ${lastName}`.trim() || u.username || email.split("@")[0] || "Pelanggan Google"
             const usernameKey = email || (u.username ? u.username.toLowerCase() : `clerk_${u.id.slice(-8)}`)
-            
-            const isSuperadminEmail = email === (process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL || "refo.gangga.dev@gmail.com").toLowerCase().trim()
-            const role = isSuperadminEmail ? "SUPERADMIN" : "OWNER"
-            const tier: SubscriptionTier = isSuperadminEmail ? "enterprise" : "trial"
-            const tierCfg = TIER_CONFIG[tier] || TIER_CONFIG.trial
 
-            const createdAt = u.created_at ? new Date(u.created_at).toISOString() : new Date().toISOString()
-            const validDate = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
+            // Check if already in tenantsMap by email or username
+            let existingEntry: TenantSummary | undefined
+            for (const t of tenantsMap.values()) {
+              if (t.username.toLowerCase() === usernameKey || (email && t.username.toLowerCase() === email)) {
+                existingEntry = t
+                break
+              }
+            }
 
-            tenantsMap.set(usernameKey, {
-              tenantId: u.id,
-              username: usernameKey,
-              fullName,
-              businessName: `Bisnis ${fullName}`,
-              phone: u.phone_numbers?.[0]?.phone_number || "",
-              role,
-              tier,
-              validUntil: validDate.toISOString(),
-              monthlyScanLimit: isSuperadminEmail ? 99999 : tierCfg.monthlyScanLimit,
-              usedScansThisMonth: 0,
-              createdAt,
-              status: "active",
-              approvalWorkflow: { ...DEFAULT_APPROVAL_WORKFLOW },
-            })
+            if (existingEntry) {
+              if (fullName && (!existingEntry.fullName || existingEntry.fullName === existingEntry.username)) {
+                existingEntry.fullName = fullName
+              }
+              if (u.phone_numbers?.[0]?.phone_number && !existingEntry.phone) {
+                existingEntry.phone = u.phone_numbers[0].phone_number
+              }
+              if (u.banned) {
+                existingEntry.status = "suspended"
+              }
+            } else {
+              const isSuperadminEmail = email === (process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL || "refo.gangga.dev@gmail.com").toLowerCase().trim()
+              const role = isSuperadminEmail ? "SUPERADMIN" : "OWNER"
+              const tier: SubscriptionTier = isSuperadminEmail ? "enterprise" : "trial"
+              const tierCfg = TIER_CONFIG[tier] || TIER_CONFIG.trial
+              const createdAt = u.created_at ? new Date(u.created_at).toISOString() : new Date().toISOString()
+              const validDate = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
+
+              tenantsMap.set(u.id, {
+                id: u.id,
+                tenantId: u.id,
+                username: usernameKey,
+                fullName,
+                businessName: `Bisnis ${fullName}`,
+                phone: u.phone_numbers?.[0]?.phone_number || "",
+                role,
+                tier,
+                validUntil: validDate.toISOString(),
+                monthlyScanLimit: isSuperadminEmail ? 99999 : tierCfg.monthlyScanLimit,
+                usedScansThisMonth: 0,
+                createdAt,
+                status: u.banned ? "suspended" : "trial",
+                approvalWorkflow: { ...DEFAULT_APPROVAL_WORKFLOW },
+              })
+            }
           }
         }
       }
     } catch (clerkErr) {
       console.warn("Clerk users fetch notice in superadmin:", clerkErr)
-    }
-  }
-
-  // 2. Fetch PostgreSQL Registered Tenants & Admin Accounts
-  if (isDatabaseConfigured) {
-    try {
-      // 2A. Query Registered Tenants (where not demo or demo count is 0)
-      const tenantsRes = await queryPg<any>(
-        `SELECT t.id, t."businessName", t.phone, t.status, t."createdAt", t."isDemo", t."demoEmail",
-                s.tier as "subTier",
-                s."validUntil" as "subValidUntil",
-                s."monthlyScanLimit" as "subScanLimit",
-                s."usedScansThisMonth" as "subUsedScans",
-                s."approvalWorkflow",
-                a.username,
-                a.email,
-                a."fullName",
-                a.role
-         FROM tenants t
-         LEFT JOIN subscriptions s ON t.id = s."tenantId"
-         LEFT JOIN admin_accounts a ON t.id = a."tenantId"
-         WHERE t."isDemo" = false OR t."isDemo" IS NULL
-         ORDER BY t."createdAt" DESC`
-      )
-
-      if (tenantsRes.rows) {
-        for (const row of tenantsRes.rows) {
-          const tenantId = row.id
-          const rawUser = row.username || row.email || row.demoEmail || `tenant_${tenantId.slice(0, 8)}`
-          const cleanUser = rawUser.trim().toLowerCase()
-          
-          const tier = (row.subTier || "trial") as SubscriptionTier
-          const tierCfg = TIER_CONFIG[tier] || TIER_CONFIG.trial
-          const validDate = new Date(row.subValidUntil || Date.now() + 14 * 24 * 60 * 60 * 1000)
-          const isExpired = validDate < new Date()
-
-          let workflow: ApprovalWorkflowConfig = { ...DEFAULT_APPROVAL_WORKFLOW }
-          if (row.approvalWorkflow) {
-            try {
-              const parsed = typeof row.approvalWorkflow === "string" ? JSON.parse(row.approvalWorkflow) : row.approvalWorkflow
-              workflow = { ...DEFAULT_APPROVAL_WORKFLOW, ...parsed }
-            } catch (e) {}
-          }
-
-          // If already added by Clerk, enrich with PostgreSQL details
-          const existing = tenantsMap.get(cleanUser) || (row.email ? tenantsMap.get(row.email.toLowerCase().trim()) : undefined)
-          const finalKey = existing ? existing.username : cleanUser
-
-          tenantsMap.set(finalKey, {
-            tenantId,
-            username: finalKey,
-            fullName: row.fullName || existing?.fullName || row.businessName || finalKey,
-            businessName: row.businessName || existing?.businessName || "Scota Business",
-            phone: row.phone || existing?.phone || "",
-            role: row.role || existing?.role || "OWNER",
-            tier: (row.subTier as SubscriptionTier) || existing?.tier || tier,
-            validUntil: row.subValidUntil ? new Date(row.subValidUntil).toISOString() : (existing?.validUntil || validDate.toISOString()),
-            monthlyScanLimit: row.subScanLimit || existing?.monthlyScanLimit || tierCfg.monthlyScanLimit,
-            usedScansThisMonth: row.subUsedScans || existing?.usedScansThisMonth || 0,
-            createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : (existing?.createdAt || new Date().toISOString()),
-            status: row.status === "suspended" ? "suspended" : (isExpired ? "expired" : "active"),
-            approvalWorkflow: workflow,
-          })
-        }
-      }
-
-      // 2B. Query admin_accounts
-      const accRes = await queryPg<any>(
-        `SELECT a.id, a.username, a.role, a."fullName", a."businessName", a.phone, a.email, a.status, a."createdAt",
-                a."tenantId",
-                s.tier as "subTier",
-                s."validUntil" as "subValidUntil",
-                s."monthlyScanLimit" as "subScanLimit",
-                s."usedScansThisMonth" as "subUsedScans",
-                s."approvalWorkflow"
-         FROM admin_accounts a
-         LEFT JOIN subscriptions s ON a."tenantId" = s."tenantId"
-         ORDER BY a."createdAt" DESC`
-      )
-
-      if (accRes.rows) {
-        for (const acc of accRes.rows) {
-          const cleanUser = (acc.username || acc.email || "").trim().toLowerCase()
-          if (!cleanUser) continue
-          
-          if (!tenantsMap.has(cleanUser)) {
-            const tier = (acc.subTier || "starter") as SubscriptionTier
-            const tierCfg = TIER_CONFIG[tier] || TIER_CONFIG.trial
-            const validDate = new Date(acc.subValidUntil || Date.now() + 14 * 24 * 60 * 60 * 1000)
-            const isExpired = validDate < new Date()
-
-            tenantsMap.set(cleanUser, {
-              tenantId: acc.tenantId || DEFAULT_TENANT_ID,
-              username: cleanUser,
-              fullName: acc.fullName || cleanUser,
-              businessName: acc.businessName || "Scota Business",
-              phone: acc.phone || "",
-              role: acc.role || "ADMIN",
-              tier,
-              validUntil: validDate.toISOString(),
-              monthlyScanLimit: acc.subScanLimit || tierCfg.monthlyScanLimit,
-              usedScansThisMonth: acc.subUsedScans || 0,
-              createdAt: acc.createdAt ? new Date(acc.createdAt).toISOString() : new Date().toISOString(),
-              status: acc.status === "suspended" ? "suspended" : (isExpired ? "expired" : "active"),
-              approvalWorkflow: { ...DEFAULT_APPROVAL_WORKFLOW },
-            })
-          }
-        }
-      }
-    } catch (err) {
-      console.warn("PostgreSQL tenants fetch notice in superadmin:", err)
     }
   }
 
@@ -350,6 +399,122 @@ export async function getSuperadminPlatformStats(): Promise<PlatformStats> {
 }
 
 /**
+ * Helper to resolve the exact tenant entity across PostgreSQL and Clerk.
+ */
+export interface ResolvedTenantTarget {
+  tenantId: string
+  adminUsernames: string[]
+  emails: string[]
+  clerkIds: string[]
+  ownerUserId?: string
+}
+
+export async function resolveTenantEntity(
+  identifier: string,
+  explicitTenantId?: string
+): Promise<ResolvedTenantTarget | null> {
+  const cleanId = (identifier || "").trim().toLowerCase()
+  const cleanExplicit = (explicitTenantId || "").trim()
+
+  if (!cleanId && !cleanExplicit) return null
+
+  // 1. If explicit tenantId is provided and valid
+  if (cleanExplicit && cleanExplicit !== DEFAULT_TENANT_ID) {
+    const tRes = await queryPg<{ id: string; ownerId?: string }>(
+      `SELECT id, "ownerId" FROM tenants WHERE id = $1 LIMIT 1`,
+      [cleanExplicit]
+    )
+    if (tRes.rows?.[0]) {
+      const tenantId = tRes.rows[0].id
+      const accRes = await queryPg<{ username: string; email?: string; clerkId?: string }>(
+        `SELECT username, email, "clerkId" FROM admin_accounts WHERE "tenantId" = $1`,
+        [tenantId]
+      )
+      const uRes = await queryPg<{ email?: string; clerkId?: string }>(
+        `SELECT email, "clerkId" FROM users WHERE id = $1`,
+        [tRes.rows[0].ownerId]
+      )
+      const adminUsernames = accRes.rows.map((r) => r.username.toLowerCase()).filter(Boolean)
+      const emails = [
+        ...accRes.rows.map((r) => r.email?.toLowerCase()).filter(Boolean),
+        ...uRes.rows.map((r) => r.email?.toLowerCase()).filter(Boolean),
+        cleanId.includes("@") ? cleanId : null,
+      ].filter(Boolean) as string[]
+      const clerkIds = [
+        ...accRes.rows.map((r) => r.clerkId).filter(Boolean),
+        ...uRes.rows.map((r) => r.clerkId).filter(Boolean),
+        cleanId.startsWith("user_") ? cleanId : null,
+      ].filter(Boolean) as string[]
+
+      return {
+        tenantId,
+        adminUsernames: Array.from(new Set(adminUsernames)),
+        emails: Array.from(new Set(emails)),
+        clerkIds: Array.from(new Set(clerkIds)),
+        ownerUserId: tRes.rows[0].ownerId,
+      }
+    }
+  }
+
+  // 2. Try match cleanId as tenant UUID
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanId)
+  if (isUuid) {
+    const tRes = await queryPg<{ id: string; ownerId?: string }>(
+      `SELECT id, "ownerId" FROM tenants WHERE id = $1 LIMIT 1`,
+      [cleanId]
+    )
+    if (tRes.rows?.[0]) {
+      return resolveTenantEntity(cleanId, tRes.rows[0].id)
+    }
+  }
+
+  // 3. Try match cleanId in admin_accounts (by username, email, clerkId)
+  const accRes = await queryPg<{ tenantId: string; username: string; email?: string; clerkId?: string }>(
+    `SELECT "tenantId", username, email, "clerkId" FROM admin_accounts 
+     WHERE LOWER(username) = LOWER($1) OR LOWER(email) = LOWER($1) OR "clerkId" = $1 LIMIT 1`,
+    [cleanId]
+  )
+  if (accRes.rows?.[0]?.tenantId) {
+    return resolveTenantEntity(cleanId, accRes.rows[0].tenantId)
+  }
+
+  // 4. Try match cleanId in users table (by email or clerkId)
+  const uRes = await queryPg<{ id: string; clerkId?: string; email?: string }>(
+    `SELECT id, "clerkId", email FROM users 
+     WHERE LOWER(email) = LOWER($1) OR "clerkId" = $1 LIMIT 1`,
+    [cleanId]
+  )
+  if (uRes.rows?.[0]) {
+    const userId = uRes.rows[0].id
+    const tRes = await queryPg<{ id: string }>(
+      `SELECT id FROM tenants WHERE "ownerId" = $1 LIMIT 1`,
+      [userId]
+    )
+    if (tRes.rows?.[0]?.id) {
+      return resolveTenantEntity(cleanId, tRes.rows[0].id)
+    }
+    const mRes = await queryPg<{ tenantId: string }>(
+      `SELECT "tenantId" FROM memberships WHERE "userId" = $1 LIMIT 1`,
+      [userId]
+    )
+    if (mRes.rows?.[0]?.tenantId) {
+      return resolveTenantEntity(cleanId, mRes.rows[0].tenantId)
+    }
+  }
+
+  // 5. Try match cleanId in subscriptions table
+  const subRes = await queryPg<{ tenantId: string }>(
+    `SELECT "tenantId" FROM subscriptions WHERE "tenantId" = $1 LIMIT 1`,
+    [cleanId]
+  )
+  if (subRes.rows?.[0]?.tenantId) {
+    return resolveTenantEntity(cleanId, subRes.rows[0].tenantId)
+  }
+
+  return null
+}
+
+/**
  * Superadmin update of a tenant's subscription tier & validity
  */
 export async function updateTenantSubscription(
@@ -359,11 +524,19 @@ export async function updateTenantSubscription(
     durationDays?: number
     customValidUntil?: string
     customScanLimit?: number
+    tenantId?: string
   },
   actorUsername: string = "Superadmin"
 ): Promise<{ success: boolean; message: string }> {
   try {
     const cleanUser = username.trim().toLowerCase()
+    const resolved = await resolveTenantEntity(cleanUser, params.tenantId)
+
+    if (!resolved || !resolved.tenantId) {
+      return { success: false, message: `Tenant tidak ditemukan untuk identitas: ${username}` }
+    }
+
+    const { tenantId, adminUsernames, emails } = resolved
     const tierConfig = TIER_CONFIG[params.tier] || TIER_CONFIG.trial
     const days = params.durationDays || 30
 
@@ -377,42 +550,39 @@ export async function updateTenantSubscription(
     const monthlyScanLimit = params.customScanLimit || tierConfig.monthlyScanLimit
 
     if (isDatabaseConfigured) {
-      try {
-        const userAcc = await getUserAccountDetails(cleanUser)
-        const targetTenantId = userAcc?.tenantId || DEFAULT_TENANT_ID
+      await withTransactionPg(async (client) => {
+        // Update or Insert status langganan di tabel subscriptions (SSOT)
+        await client.query(
+          `INSERT INTO subscriptions ("tenantId", tier, status, "validUntil", "monthlyScanLimit", "updatedAt")
+           VALUES ($1, $2, 'active', $3, $4, NOW())
+           ON CONFLICT ("tenantId") DO UPDATE SET
+             tier = EXCLUDED.tier,
+             status = CASE 
+               WHEN subscriptions.status = 'suspended' THEN 'suspended'
+               WHEN EXCLUDED."validUntil" < NOW() THEN 'expired' 
+               ELSE 'active' 
+             END,
+             "validUntil" = EXCLUDED."validUntil",
+             "monthlyScanLimit" = EXCLUDED."monthlyScanLimit",
+             "updatedAt" = NOW()`,
+          [tenantId, params.tier, validUntilIso, monthlyScanLimit]
+        )
 
-        await withTransactionPg(async (client) => {
-          // Update status langganan di tabel subscriptions (SSOT)
-          await client.query(
-            `INSERT INTO subscriptions ("tenantId", tier, status, "validUntil", "monthlyScanLimit", "updatedAt")
-             VALUES ($1, $2, 'active', $3, $4, NOW())
-             ON CONFLICT ("tenantId") DO UPDATE SET
-               tier = EXCLUDED.tier,
-               status = CASE WHEN EXCLUDED."validUntil" < NOW() THEN 'expired' ELSE 'active' END,
-               "validUntil" = EXCLUDED."validUntil",
-               "monthlyScanLimit" = EXCLUDED."monthlyScanLimit",
-               "updatedAt" = NOW()`,
-            [targetTenantId, params.tier, validUntilIso, monthlyScanLimit]
-          )
-
-          // Aktifkan akun admin jika status sebelumnya suspended
-          await client.query(
-            `UPDATE admin_accounts
-             SET status = 'active', "updatedAt" = NOW()
-             WHERE LOWER(username) = LOWER($1) AND status = 'suspended'`,
-            [cleanUser]
-          )
-        })
-      } catch (err) {
-        console.warn("updateTenantSubscription PostgreSQL error:", err)
-      }
+        // Update admin_accounts
+        await client.query(
+          `UPDATE admin_accounts
+           SET tier = $1, "validUntil" = $2, "monthlyScanLimit" = $3, "updatedAt" = NOW()
+           WHERE "tenantId" = $4 OR LOWER(email) = ANY($5) OR LOWER(username) = ANY($6)`,
+          [params.tier, validUntilIso, monthlyScanLimit, tenantId, emails, adminUsernames]
+        )
+      })
     }
 
     await recordAuditLog({
       superadmin: actorUsername,
       action: "UPDATE_SUBSCRIPTION",
       targetTenant: cleanUser,
-      detail: `Paket diubah ke ${tierConfig.name} (Valid s/d ${new Date(validUntilIso).toLocaleDateString("id-ID")})`,
+      detail: `Paket tenant (ID: ${tenantId}) diubah ke ${tierConfig.name} (Valid s/d ${new Date(validUntilIso).toLocaleDateString("id-ID")})`,
     })
 
     return {
@@ -420,6 +590,7 @@ export async function updateTenantSubscription(
       message: `Paket ${cleanUser} berhasil diupdate ke ${tierConfig.name} hingga ${new Date(validUntilIso).toLocaleDateString("id-ID")}`,
     }
   } catch (error: any) {
+    console.error("updateTenantSubscription error:", error)
     return { success: false, message: error.message || "Gagal update langganan tenant" }
   }
 }
@@ -470,24 +641,73 @@ export async function updateTenantApprovalConfig(
 }
 
 /**
- * Superadmin toggle tenant suspension
+ * Superadmin toggle tenant suspension (Active <-> Suspended)
  */
 export async function toggleTenantStatus(
   username: string,
   newStatus: "active" | "suspended",
-  actorUsername: string = "Superadmin"
+  actorUsername: string = "Superadmin",
+  explicitTenantId?: string
 ): Promise<{ success: boolean; message: string }> {
   try {
     const cleanUser = username.trim().toLowerCase()
+    const resolved = await resolveTenantEntity(cleanUser, explicitTenantId)
+
+    if (!resolved || !resolved.tenantId) {
+      return { success: false, message: `Tenant tidak ditemukan untuk identitas: ${username}` }
+    }
+
+    const { tenantId, adminUsernames, emails, clerkIds } = resolved
 
     if (isDatabaseConfigured) {
-      try {
-        await queryPg(
-          `UPDATE admin_accounts SET status = $1, "updatedAt" = NOW() WHERE LOWER(username) = LOWER($2)`,
-          [newStatus, cleanUser]
+      await withTransactionPg(async (client) => {
+        // 1. Update tenants table
+        await client.query(
+          `UPDATE tenants SET status = $1, "updatedAt" = NOW() WHERE id = $2`,
+          [newStatus, tenantId]
         )
-      } catch (err) {
-        console.warn("toggleTenantStatus PostgreSQL notice:", err)
+
+        // 2. Update subscriptions table
+        await client.query(
+          `UPDATE subscriptions SET status = $1, "updatedAt" = NOW() WHERE "tenantId" = $2`,
+          [newStatus, tenantId]
+        )
+
+        // 3. Update admin_accounts table
+        await client.query(
+          `UPDATE admin_accounts SET status = $1, "updatedAt" = NOW() 
+           WHERE "tenantId" = $2 
+              OR LOWER(email) = ANY($3) 
+              OR LOWER(username) = ANY($4)`,
+          [newStatus, tenantId, emails, adminUsernames]
+        )
+
+        // 4. Update memberships table
+        const memStatus = newStatus === "suspended" ? "SUSPENDED" : "ACTIVE"
+        await client.query(
+          `UPDATE memberships SET status = $1, "updatedAt" = NOW() WHERE "tenantId" = $2`,
+          [memStatus, tenantId]
+        )
+      })
+    }
+
+    // 5. Sync to Clerk API if Clerk User (Ban/Unban)
+    const clerkSecret = process.env.CLERK_SECRET_KEY
+    if (clerkSecret && clerkIds.length > 0) {
+      for (const cid of clerkIds) {
+        if (!cid.startsWith("user_")) continue
+        try {
+          const actionEndpoint = newStatus === "suspended" ? "ban" : "unban"
+          await fetch(`https://api.clerk.com/v1/users/${cid}/${actionEndpoint}`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${clerkSecret}`,
+              "Content-Type": "application/json",
+            },
+          })
+        } catch (clerkErr) {
+          console.warn(`Clerk ${newStatus} sync notice for ${cid}:`, clerkErr)
+        }
       }
     }
 
@@ -495,15 +715,121 @@ export async function toggleTenantStatus(
       superadmin: actorUsername,
       action: newStatus === "suspended" ? "SUSPEND_TENANT" : "ACTIVATE_TENANT",
       targetTenant: cleanUser,
-      detail: `Status tenant diubah menjadi ${newStatus.toUpperCase()}`,
+      detail: `Status tenant (ID: ${tenantId}) berhasil diubah menjadi ${newStatus.toUpperCase()}`,
+    })
+
+    const actionText = newStatus === "suspended" ? "ditangguhkan (suspended)" : "diaktifkan kembali (open)"
+    return {
+      success: true,
+      message: `Tenant ${cleanUser} berhasil ${actionText}.`,
+    }
+  } catch (error: any) {
+    console.error("toggleTenantStatus error:", error)
+    return { success: false, message: error.message || "Gagal mengubah status tenant" }
+  }
+}
+
+/**
+ * Superadmin permanently delete tenant and all its data
+ */
+export async function deleteTenant(
+  username: string,
+  actorUsername: string = "Superadmin",
+  explicitTenantId?: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const cleanUser = username.trim().toLowerCase()
+    const resolved = await resolveTenantEntity(cleanUser, explicitTenantId)
+
+    if (!resolved || !resolved.tenantId) {
+      return { success: false, message: `Tenant tidak ditemukan untuk identitas: ${username}` }
+    }
+
+    const { tenantId, clerkIds, ownerUserId } = resolved
+
+    if (tenantId === DEFAULT_TENANT_ID) {
+      return { success: false, message: "Tenant sistem utama tidak dapat dihapus." }
+    }
+
+    if (isDatabaseConfigured) {
+      await withTransactionPg(async (client) => {
+        // 1. Hapus receipt_items dan receipts jika ada
+        const checkReceiptItems = await client.query(
+          `SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'receipt_items'`
+        )
+        const checkReceipts = await client.query(
+          `SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'receipts'`
+        )
+        if (checkReceiptItems.rows.length > 0 && checkReceipts.rows.length > 0) {
+          await client.query(
+            `DELETE FROM receipt_items WHERE "receiptId" IN (SELECT id FROM receipts WHERE "tenantId" = $1)`,
+            [tenantId]
+          )
+          await client.query(`DELETE FROM receipts WHERE "tenantId" = $1`, [tenantId])
+        }
+
+        // 2. Hapus referensi tenant di seluruh tabel anak yang benar-benar memiliki kolom tenantId / tenant_id
+        const colsRes = await client.query(
+          `SELECT table_name, column_name 
+           FROM information_schema.columns 
+           WHERE table_schema = 'public' 
+             AND column_name IN ('tenantId', 'tenant_id')
+             AND table_name != 'tenants'`
+        )
+
+        for (const row of colsRes.rows) {
+          const colName = row.column_name === "tenantId" ? '"tenantId"' : 'tenant_id'
+          await client.query(`DELETE FROM "${row.table_name}" WHERE ${colName} = $1`, [tenantId])
+        }
+
+        // 3. Hapus entitas tenant utama
+        await client.query(`DELETE FROM tenants WHERE id = $1`, [tenantId])
+
+        // 4. Hapus user di users jika tidak punya tenant lain
+        if (ownerUserId) {
+          const otherTenants = await client.query(
+            `SELECT id FROM tenants WHERE "ownerId" = $1 LIMIT 1`,
+            [ownerUserId]
+          )
+          if (otherTenants.rows.length === 0) {
+            await client.query(`DELETE FROM users WHERE id = $1`, [ownerUserId])
+          }
+        }
+      })
+    }
+
+    // 5. Hapus user dari Clerk jika terhubung
+    const clerkSecret = process.env.CLERK_SECRET_KEY
+    if (clerkSecret && clerkIds.length > 0) {
+      for (const cid of clerkIds) {
+        if (!cid.startsWith("user_")) continue
+        try {
+          await fetch(`https://api.clerk.com/v1/users/${cid}`, {
+            method: "DELETE",
+            headers: {
+              Authorization: `Bearer ${clerkSecret}`,
+            },
+          })
+        } catch (clerkErr) {
+          console.warn(`Clerk delete notice for ${cid}:`, clerkErr)
+        }
+      }
+    }
+
+    await recordAuditLog({
+      superadmin: actorUsername,
+      action: "DELETE_TENANT",
+      targetTenant: cleanUser,
+      detail: `Tenant ${cleanUser} (ID: ${tenantId}) dan seluruh datanya telah dihapus permanen.`,
     })
 
     return {
       success: true,
-      message: `Tenant ${cleanUser} berhasil diubah statusnya menjadi ${newStatus}.`,
+      message: `Tenant ${cleanUser} berhasil dihapus permanen dari sistem.`,
     }
   } catch (error: any) {
-    return { success: false, message: error.message || "Gagal mengubah status tenant" }
+    console.error("deleteTenant error:", error)
+    return { success: false, message: error.message || "Gagal menghapus tenant" }
   }
 }
 

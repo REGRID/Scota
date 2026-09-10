@@ -42,6 +42,7 @@ export const TIER_RANK: Record<SubscriptionTier, number> = {
   starter: 1,
   pro: 2,
   enterprise: 3,
+  developer: 99,
 }
 
 export function tierMeetsMinimum(currentTier: SubscriptionTier, requiredTier: SubscriptionTier): boolean {
@@ -282,6 +283,15 @@ export async function getEffectiveTenantFeatures(tenantId: string): Promise<Tena
   ])
 
   const currentTier = tenantRes.rows?.[0]?.tier || "trial"
+
+  if (currentTier === "developer") {
+    return {
+      multi_tenant_roles: true,
+      custom_permissions: true,
+      custom_roles: true,
+      ownership_transfer: true,
+    }
+  }
 
   const effective: TenantFeaturesMap = { ...flags }
   for (const key of Object.keys(FEATURE_MIN_TIER) as (keyof TenantFeaturesMap)[]) {

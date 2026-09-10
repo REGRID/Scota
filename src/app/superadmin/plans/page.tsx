@@ -115,7 +115,9 @@ export default function SuperadminPlansPage() {
                 <div className="flex items-center justify-between">
                   <span
                     className={`px-2.5 py-0.5 rounded-full text-[10.5px] font-black uppercase tracking-wider ${
-                      tierKey === "pro"
+                      tierKey === "developer"
+                        ? "bg-violet-500/20 text-violet-300 border border-violet-500/40"
+                        : tierKey === "pro"
                         ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
                         : tierKey === "starter"
                         ? "bg-teal-500/20 text-teal-400 border border-teal-500/30"

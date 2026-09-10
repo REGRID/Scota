@@ -444,7 +444,9 @@ function SuperadminTenantsContent() {
                       <td className="py-3.5 px-4">
                         <span
                           className={`px-2.5 py-0.5 rounded-full text-[10.5px] font-black uppercase tracking-wider ${
-                            t.tier === "pro"
+                            t.tier === "developer"
+                              ? "bg-violet-500/20 text-violet-300 border border-violet-500/40 font-bold"
+                              : t.tier === "pro"
                               ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
                               : t.tier === "starter"
                               ? "bg-teal-500/20 text-teal-400 border border-teal-500/30"
@@ -464,11 +466,13 @@ function SuperadminTenantsContent() {
                             isExp ? "text-rose-400 font-bold" : "text-slate-300"
                           }`}
                         >
-                          {new Date(t.validUntil).toLocaleDateString("id-ID", {
-                            day: "numeric",
-                            month: "short",
-                            year: "numeric",
-                          })}
+                          {t.tier === "developer"
+                            ? "Selamanya (Lifetime)"
+                            : new Date(t.validUntil).toLocaleDateString("id-ID", {
+                                day: "numeric",
+                                month: "short",
+                                year: "numeric",
+                              })}
                         </span>
                       </td>
 
@@ -632,6 +636,7 @@ function SuperadminTenantsContent() {
                   onChange={(e) => setNewTier(e.target.value as SubscriptionTier)}
                   className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-2.5 text-xs font-bold text-white outline-none cursor-pointer"
                 >
+                  <option value="developer">Developer / Superadmin (Unlimited Selamanya)</option>
                   <option value="trial">Free Trial 14 Hari (Limit 30 nota)</option>
                   <option value="starter">Starter Bisnis (Rp 49k/bln - Limit 100 nota)</option>
                   <option value="pro">Pro Usaha (Rp 149k/bln - Limit 500 nota)</option>
@@ -646,6 +651,7 @@ function SuperadminTenantsContent() {
                   onChange={(e) => setNewDurationDays(Number(e.target.value))}
                   className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-2.5 text-xs font-bold text-white outline-none cursor-pointer"
                 >
+                  <option value={36500}>Selamanya / Lifetime (Tahun 2099+)</option>
                   <option value={14}>+ 14 Hari (Trial Extend)</option>
                   <option value={30}>+ 30 Hari (1 Bulan)</option>
                   <option value={90}>+ 90 Hari (3 Bulan)</option>
@@ -663,13 +669,13 @@ function SuperadminTenantsContent() {
                 <div className="flex justify-between items-center text-slate-400">
                   <span>Status akun setelah simpan:</span>
                   <span className={`font-bold ${newTier === "trial" ? "text-sky-400" : "text-emerald-400"}`}>
-                    {newTier === "trial" ? "Trial" : "Aktif (Berbayar)"}
+                    {newTier === "trial" ? "Trial" : "Aktif (Berbayar / Unlimited)"}
                   </span>
                 </div>
                 <div className="flex justify-between items-center text-slate-400">
                   <span>Limit OCR bulanan:</span>
                   <span className="font-mono text-slate-200">
-                    {newTier === "enterprise" ? "Unlimited (Tanpa Batas)" : `${TIER_CONFIG[newTier]?.monthlyScanLimit || 30} nota / bulan`}
+                    {newTier === "developer" || newTier === "enterprise" ? "Unlimited (Tanpa Batas)" : `${TIER_CONFIG[newTier]?.monthlyScanLimit || 30} nota / bulan`}
                   </span>
                 </div>
               </div>
@@ -847,6 +853,7 @@ function SuperadminTenantsContent() {
                     }
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs font-bold text-white outline-none"
                   >
+                    <option value="developer">Developer / Unlimited</option>
                     <option value="trial">Trial 14 Hari</option>
                     <option value="starter">Starter Bisnis</option>
                     <option value="pro">Pro Usaha</option>

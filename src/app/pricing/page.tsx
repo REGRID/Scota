@@ -28,6 +28,7 @@ const TIER_DESCRIPTIONS: Record<SubscriptionTier, string> = {
   starter: "Solusi efisien untuk UMKM, toko kelontong, dan usaha rintisan.",
   pro: "Pilihan terbaik untuk kafe, resto, retail, dan bisnis berkembang.",
   enterprise: "Kapasitas penuh multi-cabang dengan integrasi kustom.",
+  developer: "Akses eksklusif tanpa batasan kuota & fitur untuk Developer / Superadmin.",
 }
 
 export default function PricingPage() {

@@ -248,7 +248,7 @@ export async function POST(req: NextRequest) {
     )
     const currentStaffCount = parseInt(staffCountRes.rows?.[0]?.count || "0", 10)
 
-    if (currentStaffCount >= maxUsers) {
+    if (sub.tier !== "developer" && auth.userRole !== "SUPERADMIN" && currentStaffCount >= maxUsers) {
       return NextResponse.json(
         {
           error: `Batas maksimal staf (${maxUsers} pengguna) untuk paket ${tierConfig.name} telah tercapai. Silakan upgrade paket Anda untuk menambah lebih banyak anggota tim.`,

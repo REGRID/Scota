@@ -1,4 +1,4 @@
-export type SubscriptionTier = "trial" | "starter" | "pro" | "enterprise"
+export type SubscriptionTier = "trial" | "starter" | "pro" | "enterprise" | "developer"
 
 export interface StudioProfile {
   studioName: string
@@ -113,6 +113,24 @@ export const TIER_CONFIG: Record<SubscriptionTier, TierConfig> = {
       "Custom POS Sync / Webhook API",
       "Dedicated Database & SLA 99.9%",
       "Onboarding & Training Tim Khusus",
+    ],
+  },
+  developer: {
+    name: "Developer / Unlimited Master",
+    monthlyScanLimit: 999999,
+    priceMonthly: 0,
+    priceYearly: 0,
+    maxUsers: 999,
+    maxBranches: 999,
+    features: [
+      "Unlimited Scan Nota AI (Tanpa Batas Kuota)",
+      "Semua Fitur Terbuka Penuh Tanpa Batasan",
+      "Multi-Cabang & Multi-Usaha Bebas Tanpa Batas",
+      "Dual-Control Approval & Peran Kustom Penuh",
+      "AI Vision Multimodal Gemini Cloud Tanpa Batas",
+      "Ekspor Excel, PDF, CSV, & Akuntansi",
+      "Akses Eksklusif Master Platform & Superadmin",
+      "Masa Berlaku Selamanya (Lifetime Access)",
     ],
   },
 }

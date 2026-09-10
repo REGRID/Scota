@@ -34,27 +34,49 @@ function getFallbackSubscription(tenantId: string): SubscriptionInfo {
  */
 export async function getSubscriptionInfo(tenantId: string = DEFAULT_TENANT_ID): Promise<SubscriptionInfo> {
   const targetTenant = tenantId || DEFAULT_TENANT_ID
+  const masterEmail = (process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL || "refo.gangga.dev@gmail.com").toLowerCase().trim()
 
   if (isDatabaseConfigured) {
     try {
       const res = await queryPg<any>(
-        `SELECT s.*, t."businessName", t.tagline as "tenantTagline", t.status as "tenantStatus" 
+        `SELECT s.*, t."businessName", t.tagline as "tenantTagline", t.status as "tenantStatus",
+                EXISTS (
+                  SELECT 1 FROM admin_accounts a 
+                  WHERE a."tenantId" = s."tenantId" 
+                    AND (a.role = 'SUPERADMIN' OR a.role = 'DEVELOPER' OR LOWER(a.username) IN ('superadmin', 'developer') OR LOWER(a.email) = LOWER($2))
+                ) as "isSuperadminTenant",
+                EXISTS (
+                  SELECT 1 FROM tenants t2 
+                  JOIN users u ON u.id = t2."ownerId" 
+                  WHERE t2.id = s."tenantId" 
+                    AND LOWER(u.email) = LOWER($2)
+                ) as "isSuperadminOwner"
          FROM subscriptions s 
          LEFT JOIN tenants t ON t.id = s."tenantId" 
          WHERE s."tenantId" = $1 LIMIT 1`,
-        [targetTenant]
+        [targetTenant, masterEmail]
       )
       const data = res.rows?.[0]
 
       if (data) {
-        const validUntil = new Date(data.validUntil || Date.now() + 14 * 86400000)
+        const isSuperadminAccount =
+          targetTenant === DEFAULT_TENANT_ID ||
+          data.tier === "developer" ||
+          Boolean(data.isSuperadminTenant) ||
+          Boolean(data.isSuperadminOwner)
+
+        const validUntil = isSuperadminAccount
+          ? new Date("2099-12-31T23:59:59.999Z")
+          : new Date(data.validUntil || Date.now() + 14 * 86400000)
         const now = new Date()
-        const isExpired = validUntil < now
-        const isExpiring = !isExpired && validUntil.getTime() - now.getTime() < 5 * 24 * 60 * 60 * 1000
+        const isExpired = !isSuperadminAccount && validUntil < now
+        const isExpiring = !isSuperadminAccount && !isExpired && validUntil.getTime() - now.getTime() < 5 * 24 * 60 * 60 * 1000
 
         let status: SubscriptionInfo["status"] = "active"
         if (data.status === "suspended" || data.tenantStatus === "suspended") {
           status = "suspended"
+        } else if (isSuperadminAccount) {
+          status = "active"
         } else if (data.tier === "trial") {
           status = isExpired ? "expired" : "trial"
         } else if (isExpired) {
@@ -93,12 +115,20 @@ export async function getSubscriptionInfo(tenantId: string = DEFAULT_TENANT_ID):
           } catch (e) {}
         }
 
+        const resolvedTier: SubscriptionTier = isSuperadminAccount
+          ? "developer"
+          : (data.tier as SubscriptionTier) || "trial"
+
+        const resolvedMonthlyScanLimit = isSuperadminAccount
+          ? 999999
+          : (data.monthlyScanLimit || TIER_CONFIG[resolvedTier]?.monthlyScanLimit || 30)
+
         const result: SubscriptionInfo = {
-          tier: (data.tier as SubscriptionTier) || "trial",
+          tier: resolvedTier,
           status,
-          validUntil: data.validUntil || validUntil.toISOString(),
-          monthlyScanLimit: data.monthlyScanLimit || TIER_CONFIG[(data.tier as SubscriptionTier) || "trial"]?.monthlyScanLimit || 30,
-          usedScansThisMonth: data.usedScansThisMonth || 0,
+          validUntil: isSuperadminAccount ? "2099-12-31T23:59:59.999Z" : (data.validUntil || validUntil.toISOString()),
+          monthlyScanLimit: resolvedMonthlyScanLimit,
+          usedScansThisMonth: isSuperadminAccount ? 0 : (data.usedScansThisMonth || 0),
           studioProfile: profile,
           activeLicenseKey: data.activeLicenseKey,
           approvalWorkflow: workflow,
@@ -109,6 +139,19 @@ export async function getSubscriptionInfo(tenantId: string = DEFAULT_TENANT_ID):
       }
     } catch (e) {
       console.warn("Could not query PostgreSQL subscriptions table for tenant, using local cache:", e)
+    }
+  }
+
+  // Fallback to in-memory state for this tenant
+  if (targetTenant === DEFAULT_TENANT_ID) {
+    return {
+      tier: "developer",
+      status: "active",
+      validUntil: "2099-12-31T23:59:59.999Z",
+      monthlyScanLimit: 999999,
+      usedScansThisMonth: 0,
+      studioProfile: { ...DEFAULT_STUDIO_PROFILE },
+      approvalWorkflow: { ...DEFAULT_APPROVAL_WORKFLOW },
     }
   }
 

@@ -998,6 +998,7 @@ export default function TenantDetailPage({ params }: TenantDetailPageProps) {
                   onChange={(e) => setNewTier(e.target.value as SubscriptionTier)}
                   className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-2.5 text-xs font-bold text-white outline-none cursor-pointer"
                 >
+                  <option value="developer">Developer / Superadmin (Unlimited Selamanya)</option>
                   <option value="trial">Free Trial 14 Hari</option>
                   <option value="starter">Starter Bisnis (Rp 49k/bln)</option>
                   <option value="pro">Pro Usaha (Rp 149k/bln)</option>
@@ -1012,6 +1013,7 @@ export default function TenantDetailPage({ params }: TenantDetailPageProps) {
                   onChange={(e) => setNewDurationDays(Number(e.target.value))}
                   className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-2.5 text-xs font-bold text-white outline-none cursor-pointer"
                 >
+                  <option value={36500}>Selamanya / Lifetime (Tahun 2099+)</option>
                   <option value={14}>+ 14 Hari</option>
                   <option value={30}>+ 30 Hari (1 Bulan)</option>
                   <option value={90}>+ 90 Hari (3 Bulan)</option>
@@ -1029,13 +1031,13 @@ export default function TenantDetailPage({ params }: TenantDetailPageProps) {
                 <div className="flex justify-between items-center text-slate-400">
                   <span>Status akun setelah simpan:</span>
                   <span className={`font-bold ${newTier === "trial" ? "text-sky-400" : "text-emerald-400"}`}>
-                    {newTier === "trial" ? "Trial" : "Aktif (Berbayar)"}
+                    {newTier === "trial" ? "Trial" : "Aktif (Berbayar / Unlimited)"}
                   </span>
                 </div>
                 <div className="flex justify-between items-center text-slate-400">
                   <span>Limit OCR bulanan:</span>
                   <span className="font-mono text-slate-200">
-                    {newTier === "enterprise" ? "Unlimited (Tanpa Batas)" : `${TIER_CONFIG[newTier]?.monthlyScanLimit || 30} nota / bulan`}
+                    {newTier === "developer" || newTier === "enterprise" ? "Unlimited (Tanpa Batas)" : `${TIER_CONFIG[newTier]?.monthlyScanLimit || 30} nota / bulan`}
                   </span>
                 </div>
               </div>

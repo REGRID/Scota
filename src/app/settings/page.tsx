@@ -1996,13 +1996,17 @@ function SettingsContent() {
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${
-                        isSubExpired
+                        subTier === "developer"
+                          ? "bg-violet-600 text-white shadow-xs font-black"
+                          : isSubExpired
                           ? "bg-rose-500 text-white"
                           : isTrial
                           ? "bg-amber-500 text-slate-950"
                           : "bg-emerald-500 text-slate-950"
                       }`}>
-                        {isSubExpired
+                        {subTier === "developer"
+                          ? "Developer Master (Aktif Selamanya)"
+                          : isSubExpired
                           ? "Kadaluarsa"
                           : isTrial
                           ? `Trial 14 Hari (${daysRemaining} Hari Tersisa)`
@@ -2013,7 +2017,9 @@ function SettingsContent() {
                       </span>
                     </div>
                     <p className="text-xs text-slate-500 dark:text-slate-400">
-                      {isSubExpired
+                      {subTier === "developer"
+                        ? "Akun Developer Master memiliki akses tanpa batasan kuota OCR, multi-cabang bebas, dan seluruh fitur platform terbuka selamanya."
+                        : isSubExpired
                         ? "Masa aktif paket Anda telah habis. Perpanjang sekarang agar proses scan struk tetap berjalan."
                         : isTrial
                         ? `Masa evaluasi 14 hari aktif hingga ${formattedExpiry}. Semua fitur AI & multi-cabang terbuka.`

@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
     )
     const currentBranchCount = parseInt(existingBranchesRes.rows?.[0]?.count || "1", 10)
 
-    if (currentBranchCount >= maxBranches) {
+    if (sub.tier !== "developer" && auth.userRole !== "SUPERADMIN" && currentBranchCount >= maxBranches) {
       return NextResponse.json(
         {
           error: `Batas maksimal cabang (${maxBranches} cabang) untuk paket ${tierConfig.name} telah tercapai. Silakan upgrade ke paket Pro atau Enterprise untuk menambah cabang baru.`,

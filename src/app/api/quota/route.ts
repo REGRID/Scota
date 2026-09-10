@@ -8,15 +8,16 @@ import { getSubscriptionInfo } from "@/lib/subscriptionServer"
 export async function GET(req: NextRequest) {
   try {
     const session = await getSession(req)
+    const isSuperadmin = session?.role === "SUPERADMIN" || session?.role === "DEVELOPER"
     const isBusiness = Boolean(session && session.role && session.role !== "DEMO" && session.tenantId)
 
     if (isBusiness && session?.tenantId) {
       const sub = await getSubscriptionInfo(session.tenantId)
-      const limit = sub.monthlyScanLimit || 30
-      const used = sub.usedScansThisMonth || 0
-      const isUnlimited = limit >= 99999
-      const remaining = isUnlimited ? 99999 : Math.max(0, limit - used)
-      const allowed = sub.status !== "expired" && (isUnlimited || remaining > 0)
+      const isUnlimited = isSuperadmin || sub.tier === "developer" || (sub.monthlyScanLimit || 30) >= 99999
+      const limit = isUnlimited ? 999999 : (sub.monthlyScanLimit || 30)
+      const used = isSuperadmin || sub.tier === "developer" ? 0 : (sub.usedScansThisMonth || 0)
+      const remaining = isUnlimited ? 999999 : Math.max(0, limit - used)
+      const allowed = isUnlimited || (sub.status !== "expired" && remaining > 0)
 
       const res = NextResponse.json({
         dailyLimit: limit,
@@ -25,8 +26,8 @@ export async function GET(req: NextRequest) {
         remaining,
         allowed,
         tier: sub.tier,
-        status: sub.status,
-        validUntil: sub.validUntil,
+        status: isUnlimited ? "active" : sub.status,
+        validUntil: isUnlimited ? "2099-12-31T23:59:59.999Z" : sub.validUntil,
         isUnlimited,
         isBusiness: true,
       })

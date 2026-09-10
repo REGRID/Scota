@@ -210,31 +210,37 @@ export async function POST(req: NextRequest) {
     } else if (isBusiness && session?.tenantId) {
       // Validasi langganan & kuota scan bulanan akun bisnis (SSOT)
       const businessSub = await getSubscriptionInfo(session.tenantId)
+      const isSuperadminAccount =
+        session.role === "SUPERADMIN" ||
+        session.role === "DEVELOPER" ||
+        businessSub.tier === "developer"
 
-      if (businessSub.status === "expired") {
-        return NextResponse.json(
-          {
-            error: "SUBSCRIPTION_EXPIRED",
-            message: "Masa aktif paket langganan Anda telah berakhir. Silakan perpanjang paket untuk melanjutkan pemindaian nota.",
-            upsell: true,
-            remaining: 0,
-          },
-          { status: 403 }
-        )
-      }
+      if (!isSuperadminAccount) {
+        if (businessSub.status === "expired") {
+          return NextResponse.json(
+            {
+              error: "SUBSCRIPTION_EXPIRED",
+              message: "Masa aktif paket langganan Anda telah berakhir. Silakan perpanjang paket untuk melanjutkan pemindaian nota.",
+              upsell: true,
+              remaining: 0,
+            },
+            { status: 403 }
+          )
+        }
 
-      const limit = businessSub.monthlyScanLimit || 30
-      const used = businessSub.usedScansThisMonth || 0
-      if (limit < 99999 && used >= limit) {
-        return NextResponse.json(
-          {
-            error: "QUOTA_EXCEEDED",
-            message: `Batas kuota pemindaian bulanan (${limit} nota) untuk paket Anda telah tercapai. Silakan upgrade paket untuk menambah kuota.`,
-            upsell: true,
-            remaining: 0,
-          },
-          { status: 429 }
-        )
+        const limit = businessSub.monthlyScanLimit || 30
+        const used = businessSub.usedScansThisMonth || 0
+        if (limit < 99999 && used >= limit) {
+          return NextResponse.json(
+            {
+              error: "QUOTA_EXCEEDED",
+              message: `Batas kuota pemindaian bulanan (${limit} nota) untuk paket Anda telah tercapai. Silakan upgrade paket untuk menambah kuota.`,
+              upsell: true,
+              remaining: 0,
+            },
+            { status: 429 }
+          )
+        }
       }
     }
 
@@ -351,18 +357,24 @@ Keluarkan HANYA JSON:
     contentsParts.push({ text: promptText })
 
     const targetModel =
-      configuredModel && configuredModel.startsWith("gemini-") && !configuredModel.includes("3.")
+      configuredModel &&
+      configuredModel.startsWith("gemini-") &&
+      !configuredModel.includes("2.0-flash") &&
+      !configuredModel.includes("1.5-flash") &&
+      !configuredModel.includes("1.5-pro") &&
+      !configuredModel.includes("2.5-flash")
         ? configuredModel
-        : "gemini-2.0-flash"
+        : "gemini-flash-latest"
 
     const candidateModels = Array.from(
       new Set([
         targetModel,
-        "gemini-2.0-flash",
-        "gemini-1.5-flash",
-        "gemini-2.5-flash",
-        "gemini-1.5-pro",
-      ])
+        "gemini-flash-latest",
+        "gemini-3.5-flash",
+        "gemini-flash-lite-latest",
+        "gemini-3.1-flash-lite",
+        "gemini-3.6-flash",
+      ].filter(Boolean))
     )
     let textOutput = ""
     let lastError: any = null

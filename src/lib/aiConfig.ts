@@ -36,9 +36,9 @@ export async function getActiveGeminiModel(): Promise<string> {
       )
       const dbModel = res.rows?.[0]?.value?.trim()
       if (dbModel) {
-        // Normalisasi model non-existent ke model resmi yang stabil
-        if (dbModel.startsWith("gemini-3.") || dbModel === "gemini-2.5-flash" || !dbModel.startsWith("gemini-")) {
-          return "gemini-2.0-flash"
+        // Normalisasi model yang sudah discontinued (2.0/1.5) ke model resmi stabil
+        if (dbModel.includes("2.0-flash") || dbModel.includes("1.5-flash") || dbModel.includes("1.5-pro") || !dbModel.startsWith("gemini-")) {
+          return DEFAULT_AI_MODEL
         }
         return dbModel
       }

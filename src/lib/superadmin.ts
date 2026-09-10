@@ -63,6 +63,7 @@ export interface PlatformStats {
     starter: number
     pro: number
     enterprise: number
+    developer?: number
   }
   recentRegistrations: TenantSummary[]
   expiringSoonTenants: TenantSummary[]
@@ -121,10 +122,21 @@ export async function getAllTenants(): Promise<TenantSummary[]> {
           const rawUser = email || row.adminUsername || `tenant_${tenantId.slice(0, 8)}`
           const usernameKey = rawUser.toLowerCase().trim()
 
-          const tier = (row.subTier || "trial") as SubscriptionTier
+          const masterEmail = (process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL || "refo.gangga.dev@gmail.com").toLowerCase().trim()
+          const isSuperadminAccount =
+            email === masterEmail ||
+            row.adminRole === "SUPERADMIN" ||
+            row.adminRole === "DEVELOPER" ||
+            row.adminUsername === "superadmin" ||
+            row.adminUsername === "developer" ||
+            row.subTier === "developer"
+
+          const tier = (isSuperadminAccount ? "developer" : (row.subTier || "trial")) as SubscriptionTier
           const tierCfg = TIER_CONFIG[tier] || TIER_CONFIG.trial
-          const validDate = new Date(row.subValidUntil || Date.now() + 14 * 24 * 60 * 60 * 1000)
-          const isExpired = validDate < new Date()
+          const validDate = isSuperadminAccount
+            ? new Date("2099-12-31T23:59:59.999Z")
+            : new Date(row.subValidUntil || Date.now() + 14 * 24 * 60 * 60 * 1000)
+          const isExpired = !isSuperadminAccount && validDate < new Date()
 
           const isSuspended =
             row.tenantStatus === "suspended" ||
@@ -134,6 +146,8 @@ export async function getAllTenants(): Promise<TenantSummary[]> {
           let status: "active" | "expired" | "trial" | "suspended" = "active"
           if (isSuspended) {
             status = "suspended"
+          } else if (isSuperadminAccount) {
+            status = "active"
           } else if (isExpired) {
             status = "expired"
           } else if (tier === "trial") {
@@ -279,10 +293,12 @@ export async function getAllTenants(): Promise<TenantSummary[]> {
             } else {
               const isSuperadminEmail = email === (process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL || "refo.gangga.dev@gmail.com").toLowerCase().trim()
               const role = isSuperadminEmail ? "SUPERADMIN" : "OWNER"
-              const tier: SubscriptionTier = isSuperadminEmail ? "enterprise" : "trial"
+              const tier: SubscriptionTier = isSuperadminEmail ? "developer" : "trial"
               const tierCfg = TIER_CONFIG[tier] || TIER_CONFIG.trial
               const createdAt = u.created_at ? new Date(u.created_at).toISOString() : new Date().toISOString()
-              const validDate = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
+              const validDate = isSuperadminEmail
+                ? new Date("2099-12-31T23:59:59.999Z")
+                : new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
 
               tenantsMap.set(u.id, {
                 id: u.id,
@@ -294,10 +310,10 @@ export async function getAllTenants(): Promise<TenantSummary[]> {
                 role,
                 tier,
                 validUntil: validDate.toISOString(),
-                monthlyScanLimit: isSuperadminEmail ? 99999 : tierCfg.monthlyScanLimit,
+                monthlyScanLimit: isSuperadminEmail ? 999999 : tierCfg.monthlyScanLimit,
                 usedScansThisMonth: 0,
                 createdAt,
-                status: u.banned ? "suspended" : "trial",
+                status: u.banned ? "suspended" : (isSuperadminEmail ? "active" : "trial"),
                 approvalWorkflow: { ...DEFAULT_APPROVAL_WORKFLOW },
               })
             }
@@ -347,6 +363,7 @@ export async function getSuperadminPlatformStats(): Promise<PlatformStats> {
     starter: 0,
     pro: 0,
     enterprise: 0,
+    developer: 0,
   }
 
   let activeTenants = 0
@@ -556,14 +573,19 @@ export async function updateTenantSubscription(
     const tierConfig = TIER_CONFIG[params.tier] || TIER_CONFIG.trial
     const days = params.durationDays || 30
 
+    const isDevTier = params.tier === "developer"
     let validUntilIso = params.customValidUntil
     if (!validUntilIso) {
-      const date = new Date()
-      date.setDate(date.getDate() + days)
-      validUntilIso = date.toISOString()
+      if (isDevTier || (params.durationDays && params.durationDays >= 36500)) {
+        validUntilIso = "2099-12-31T23:59:59.999Z"
+      } else {
+        const date = new Date()
+        date.setDate(date.getDate() + days)
+        validUntilIso = date.toISOString()
+      }
     }
 
-    const monthlyScanLimit = params.customScanLimit || tierConfig.monthlyScanLimit
+    const monthlyScanLimit = isDevTier ? 999999 : (params.customScanLimit || tierConfig.monthlyScanLimit)
 
     if (isDatabaseConfigured) {
       await withTransactionPg(async (client) => {

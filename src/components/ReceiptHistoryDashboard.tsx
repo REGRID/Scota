@@ -2082,7 +2082,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
       {/* TOP 4 KPI CARDS ROW */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         {/* Card 1: Total Pengeluaran */}
-        <div className="bg-white dark:bg-slate-900/90 p-3.5 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs dark:shadow-xl space-y-2 sm:space-y-3 hover:border-slate-300 dark:hover:border-slate-700 transition-all text-left flex flex-col justify-between">
+        <div className="bg-white dark:bg-slate-900/90 p-3 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs dark:shadow-xl space-y-1.5 sm:space-y-3 hover:border-slate-300 dark:hover:border-slate-700 transition-all text-left flex flex-col justify-between">
           <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-[10px] sm:text-xs font-bold uppercase tracking-wider">
             <span className="truncate">
               {isSubCategoryActive ? `Sub: ${selectedSubCategory}` : "Total Pengeluaran"}
@@ -2092,7 +2092,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
             </span>
           </div>
           <div>
-            <p className="text-lg sm:text-2xl lg:text-3xl font-black text-slate-900 dark:text-white tracking-tight truncate">
+            <p className="text-sm xs:text-base sm:text-2xl lg:text-3xl font-black text-slate-900 dark:text-white tracking-tight truncate">
               Rp {totalSpend.toLocaleString("id-ID")}
             </p>
             <p className="text-[10px] sm:text-xs font-medium text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1.5 truncate">
@@ -2103,7 +2103,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
         </div>
 
         {/* Card 2: Jumlah Nota */}
-        <div className="bg-white dark:bg-slate-900/90 p-3.5 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs dark:shadow-xl space-y-2 sm:space-y-3 hover:border-slate-300 dark:hover:border-slate-700 transition-all text-left flex flex-col justify-between">
+        <div className="bg-white dark:bg-slate-900/90 p-3 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs dark:shadow-xl space-y-1.5 sm:space-y-3 hover:border-slate-300 dark:hover:border-slate-700 transition-all text-left flex flex-col justify-between">
           <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-[10px] sm:text-xs font-bold uppercase tracking-wider">
             <span className="truncate">Volume Transaksi</span>
             <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center border border-sky-500/20 shrink-0">
@@ -2111,7 +2111,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
             </div>
           </div>
           <div>
-            <p className="text-lg sm:text-2xl lg:text-3xl font-black text-slate-900 dark:text-white tracking-tight truncate">
+            <p className="text-sm xs:text-base sm:text-2xl lg:text-3xl font-black text-slate-900 dark:text-white tracking-tight truncate">
               {filteredReceipts.length} <span className="text-xs sm:text-base font-bold text-slate-500 dark:text-slate-400">Struk</span>
             </p>
             <p className="text-[10px] sm:text-xs font-medium text-slate-500 dark:text-slate-400 mt-1 truncate">
@@ -2121,7 +2121,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
         </div>
 
         {/* Card 3: Total Barang */}
-        <div className="bg-white dark:bg-slate-900/90 p-3.5 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs dark:shadow-xl space-y-2 sm:space-y-3 hover:border-slate-300 dark:hover:border-slate-700 transition-all text-left flex flex-col justify-between">
+        <div className="bg-white dark:bg-slate-900/90 p-3 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs dark:shadow-xl space-y-1.5 sm:space-y-3 hover:border-slate-300 dark:hover:border-slate-700 transition-all text-left flex flex-col justify-between">
           <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-[10px] sm:text-xs font-bold uppercase tracking-wider">
             <span className="truncate">{isSubCategoryActive ? `Item ${selectedSubCategory}` : "Total Barang"}</span>
             <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center border border-purple-500/20 shrink-0">
@@ -2129,7 +2129,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
             </div>
           </div>
           <div>
-            <p className="text-lg sm:text-2xl lg:text-3xl font-black text-slate-900 dark:text-white tracking-tight truncate">
+            <p className="text-sm xs:text-base sm:text-2xl lg:text-3xl font-black text-slate-900 dark:text-white tracking-tight truncate">
               {totalItemsCount} <span className="text-xs sm:text-base font-bold text-slate-500 dark:text-slate-400">Item</span>
             </p>
             <p className="text-[10px] sm:text-xs font-medium text-purple-600 dark:text-purple-400 mt-1 truncate">Produk terdata di sistem</p>
@@ -2137,7 +2137,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
         </div>
 
         {/* Card 4: Kategori Dominan */}
-        <div className="bg-white dark:bg-slate-900/90 p-3.5 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs dark:shadow-xl space-y-2 sm:space-y-3 hover:border-slate-300 dark:hover:border-slate-700 transition-all text-left flex flex-col justify-between">
+        <div className="bg-white dark:bg-slate-900/90 p-3 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs dark:shadow-xl space-y-1.5 sm:space-y-3 hover:border-slate-300 dark:hover:border-slate-700 transition-all text-left flex flex-col justify-between">
           <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-[10px] sm:text-xs font-bold uppercase tracking-wider">
             <span className="truncate">Beban Terbesar</span>
             <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center border border-amber-500/20 shrink-0">
@@ -2145,7 +2145,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
             </div>
           </div>
           <div>
-            <p className="text-base sm:text-xl font-black text-slate-900 dark:text-white truncate tracking-tight">
+            <p className="text-xs xs:text-sm sm:text-xl font-black text-slate-900 dark:text-white truncate tracking-tight">
               {dominantCategoryName}
             </p>
             <p className="text-[10px] sm:text-xs font-bold text-amber-600 dark:text-amber-400 mt-1 truncate">
@@ -2209,7 +2209,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
               {activeFilterPopover === "kategori" && (
                 <>
                   <div className="fixed inset-0 z-30" onClick={() => setActiveFilterPopover(null)} />
-                  <div className="absolute left-0 sm:right-auto sm:left-0 top-full mt-1.5 w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2.5 space-y-1 z-40 animate-in fade-in zoom-in-95 duration-150">
+                  <div className="absolute left-0 sm:right-auto sm:left-0 top-full mt-1.5 w-64 max-w-[calc(100vw-2rem)] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2.5 space-y-1 z-40 animate-in fade-in zoom-in-95 duration-150">
                     <div className="flex items-center justify-between px-2 py-1 text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 pb-1.5">
                       <span>Kategori</span>
                       {selectedCategories.length > 0 && (
@@ -2314,7 +2314,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
               {activeFilterPopover === "metode" && (
                 <>
                   <div className="fixed inset-0 z-30" onClick={() => setActiveFilterPopover(null)} />
-                  <div className="absolute left-0 sm:right-auto sm:left-0 top-full mt-1.5 w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2.5 space-y-1 z-40 animate-in fade-in zoom-in-95 duration-150">
+                  <div className="absolute left-0 sm:right-auto sm:left-0 top-full mt-1.5 w-64 max-w-[calc(100vw-2rem)] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2.5 space-y-1 z-40 animate-in fade-in zoom-in-95 duration-150">
                     <div className="flex items-center justify-between px-2 py-1 text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 pb-1.5">
                       <span>Metode Bayar</span>
                       {selectedPaymentMethods.length > 0 && (
@@ -2420,7 +2420,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
               {activeFilterPopover === "status" && (
                 <>
                   <div className="fixed inset-0 z-30" onClick={() => setActiveFilterPopover(null)} />
-                  <div className="absolute left-0 sm:right-auto sm:left-0 top-full mt-1.5 w-60 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2.5 space-y-1 z-40 animate-in fade-in zoom-in-95 duration-150">
+                  <div className="absolute left-0 sm:right-auto sm:left-0 top-full mt-1.5 w-60 max-w-[calc(100vw-2rem)] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2.5 space-y-1 z-40 animate-in fade-in zoom-in-95 duration-150">
                     <div className="flex items-center justify-between px-2 py-1 text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 pb-1.5">
                       <span>Status Pelunasan</span>
                       {selectedStatuses.length > 0 && (

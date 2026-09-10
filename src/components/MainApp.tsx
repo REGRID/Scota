@@ -801,10 +801,10 @@ export function MainApp({
 
       {/* Top Header Navbar */}
       <header className="bg-white/95 text-slate-900 dark:bg-slate-900/95 dark:text-white sticky top-0 z-40 shadow-xs dark:shadow-md pt-[env(safe-area-inset-top,0px)] border-b border-slate-200 dark:border-slate-800 backdrop-blur-md transition-colors duration-200 w-full max-w-full">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-13 sm:h-16 flex items-center justify-between gap-2 sm:gap-4 min-w-0">
+        <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 h-13 sm:h-16 flex items-center justify-between gap-1 sm:gap-4 min-w-0">
           {/* Brand Logo & Name & Branch Switcher */}
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0 min-w-0">
-            <Link href="/" className="flex items-center gap-2 sm:gap-3 shrink-0 hover:opacity-90 transition-opacity min-w-0">
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0 min-w-0">
+            <Link href="/" className="flex items-center gap-1.5 sm:gap-3 shrink-0 hover:opacity-90 transition-opacity min-w-0">
               <img
                 src="/scota-icon.png"
                 alt="Scota"
@@ -823,7 +823,7 @@ export function MainApp({
             <BranchSwitcher
               currentRole={userRole}
               businessName={subscription?.studioProfile?.studioName}
-              className="ml-0.5 sm:ml-1"
+              className="ml-0 sm:ml-1"
             />
           </div>
 
@@ -833,7 +833,7 @@ export function MainApp({
               type="button"
               disabled={isProcessing}
               onClick={() => handleTabChange("scan")}
-              className={`flex items-center gap-1.5 px-2.5 py-1 sm:px-4 sm:py-2 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold transition-all cursor-pointer ${
+              className={`flex items-center gap-1 sm:gap-1.5 px-2 py-1 sm:px-4 sm:py-2 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold transition-all cursor-pointer ${
                 activeTab === "scan" && !imagePreviewUrl
                   ? "bg-emerald-500 text-slate-950 font-black shadow-xs"
                   : "text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
@@ -847,7 +847,7 @@ export function MainApp({
               type="button"
               disabled={isProcessing}
               onClick={() => handleTabChange("history")}
-              className={`flex items-center gap-1.5 px-2.5 py-1 sm:px-4 sm:py-2 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold transition-all cursor-pointer ${
+              className={`flex items-center gap-1 sm:gap-1.5 px-2 py-1 sm:px-4 sm:py-2 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold transition-all cursor-pointer ${
                 activeTab === "history" && !imagePreviewUrl
                   ? "bg-emerald-500 text-slate-950 font-black shadow-xs"
                   : "text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
@@ -859,7 +859,7 @@ export function MainApp({
           </div>
 
           {/* Right: Dual Control + Notifications + Theme Toggle + Unified User Profile Menu */}
-          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 relative">
+          <div className="flex items-center gap-0.5 sm:gap-1.5 shrink-0 relative">
             {dualControlEnabled && (
               <button
                 type="button"

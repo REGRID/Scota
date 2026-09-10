@@ -160,9 +160,9 @@ export function BranchSwitcher({
   // If user is not an OWNER and only 1 branch is known, render clean static badge
   if (!isOwner && branches.length <= 1) {
     return (
-      <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-slate-200 ${className}`}>
+      <div className={`flex items-center gap-1.5 px-2 py-1 sm:px-2.5 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-slate-200 ${className}`}>
         <Store className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-        <span className="truncate max-w-[140px] sm:max-w-[200px]">{displayName}</span>
+        <span className="truncate max-w-[80px] sm:max-w-[200px]">{displayName}</span>
       </div>
     )
   }
@@ -173,15 +173,15 @@ export function BranchSwitcher({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-1.5 sm:gap-2 px-2.5 py-1 sm:py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700/80 border border-slate-200/80 dark:border-slate-700 text-xs font-bold text-slate-900 dark:text-slate-100 transition-all cursor-pointer active:scale-95 shadow-2xs"
+        className="flex items-center gap-1 sm:gap-2 px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700/80 border border-slate-200/80 dark:border-slate-700 text-xs font-bold text-slate-900 dark:text-slate-100 transition-all cursor-pointer active:scale-95 shadow-2xs"
         title="Beralih atau Kelola Cabang"
       >
         <Store className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-500 shrink-0" />
-        <span className="truncate max-w-[110px] sm:max-w-[160px] md:max-w-[200px]">
+        <span className="truncate max-w-[70px] sm:max-w-[160px] md:max-w-[200px]">
           {displayName}
         </span>
         {branches.length > 1 && (
-          <span className="px-1.5 py-0.2 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[9px] font-black shrink-0">
+          <span className="hidden sm:inline-flex px-1.5 py-0.2 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[9px] font-black shrink-0">
             {branches.length} Cabang
           </span>
         )}

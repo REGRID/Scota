@@ -852,15 +852,15 @@ export function VerificationSplitScreen({
 
             {/* Itemized Products Table with Dynamic Fuzzy Matched Sub-Categories */}
             <div className="space-y-4 pt-2">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
-                <label className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
-                  <ShoppingBag className="w-4 h-4 text-emerald-600" /> RINCIAN ITEM PRODUK & SUB-KATEGORI ({items.length})
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2.5">
+                <label className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
+                  <ShoppingBag className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> RINCIAN ITEM PRODUK & SUB-KATEGORI ({items.length})
                 </label>
 
                 <button
                   type="button"
                   onClick={handleAddItem}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-extrabold text-xs transition-colors border border-emerald-200 shadow-2xs active:scale-95"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 font-extrabold text-xs transition-colors border border-emerald-200 dark:border-emerald-800 shadow-2xs active:scale-95"
                 >
                   <Plus className="w-4 h-4" /> Tambah Item Baru
                 </button>
@@ -882,16 +882,16 @@ export function VerificationSplitScreen({
                   return (
                     <div
                       key={idx}
-                      className="p-4 sm:p-5 rounded-2xl bg-slate-50/80 border border-slate-200 hover:border-slate-300 transition-all space-y-4 shadow-2xs"
+                      className="p-3.5 sm:p-5 rounded-2xl bg-slate-50/80 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 transition-all space-y-3 sm:space-y-4 shadow-2xs"
                     >
                       {/* Header Row of Item Card */}
-                      <div className="flex items-center justify-between border-b border-slate-200/80 pb-2.5">
+                      <div className="flex items-center justify-between border-b border-slate-200/80 dark:border-slate-800 pb-2.5">
                         <div className="flex items-center gap-2">
-                          <span className="w-6 h-6 rounded-lg bg-slate-900 text-white text-xs font-bold flex items-center justify-center">
+                          <span className="w-6 h-6 rounded-lg bg-slate-900 dark:bg-slate-800 text-white text-xs font-bold flex items-center justify-center">
                             #{idx + 1}
                           </span>
-                          <span className="text-xs font-bold text-slate-700">Subtotal Item:</span>
-                          <span className="text-xs font-extrabold text-emerald-700 bg-emerald-100/90 px-2.5 py-0.5 rounded-lg border border-emerald-200">
+                          <span className="text-xs font-bold text-slate-700 dark:text-slate-300 hidden xs:inline">Subtotal:</span>
+                          <span className="text-xs font-extrabold text-emerald-700 dark:text-emerald-400 bg-emerald-100/90 dark:bg-emerald-950/80 px-2.5 py-0.5 rounded-lg border border-emerald-200 dark:border-emerald-800">
                             Rp {itemTotal.toLocaleString("id-ID")}
                           </span>
                         </div>
@@ -899,7 +899,7 @@ export function VerificationSplitScreen({
                         <button
                           type="button"
                           onClick={() => handleRemoveItem(idx)}
-                          className="text-red-500 hover:text-red-700 p-1.5 hover:bg-red-50 rounded-xl transition-colors flex items-center gap-1 text-xs font-bold"
+                          className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 p-1.5 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-xl transition-colors flex items-center gap-1 text-xs font-bold cursor-pointer"
                           title="Hapus Item"
                         >
                           <Trash2 className="w-4 h-4" /> Hapus
@@ -907,23 +907,23 @@ export function VerificationSplitScreen({
                       </div>
 
                       {/* Row 1: Nama Barang, Harga Satuan, Qty */}
-                      <div className="grid grid-cols-1 sm:grid-cols-12 gap-3.5">
+                      <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 sm:gap-3.5">
                         <div className="sm:col-span-6 space-y-1.5">
-                          <label className="text-xs font-bold text-slate-700 flex items-center gap-1">
-                            <ShoppingBag className="w-3.5 h-3.5 text-slate-500" /> Nama Produk / Barang
+                          <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                            <ShoppingBag className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" /> Nama Produk / Barang
                           </label>
                           <input
                             type="text"
                             value={item.name}
                             onChange={(e) => handleItemChange(idx, "name", e.target.value)}
                             placeholder="Contoh: Syrup Romma 1L"
-                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-500 text-xs font-semibold text-slate-900 bg-white"
+                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 focus:border-emerald-500 text-xs font-semibold text-slate-900 dark:text-white bg-white dark:bg-slate-900"
                           />
                         </div>
 
                         <div className="sm:col-span-3 space-y-1.5">
-                          <label className="text-xs font-bold text-slate-700 flex items-center gap-1">
-                            <Coins className="w-3.5 h-3.5 text-slate-500" /> Harga Satuan (Rp)
+                          <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                            <Coins className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" /> Harga Satuan (Rp)
                           </label>
                           <input
                             type="number"
@@ -934,13 +934,13 @@ export function VerificationSplitScreen({
                               handleItemChange(idx, "price", val === "" ? "" : parseFloat(val))
                             }}
                             placeholder="0"
-                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-500 text-xs font-bold text-slate-900 bg-white"
+                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 focus:border-emerald-500 text-xs font-bold text-slate-900 dark:text-white bg-white dark:bg-slate-900"
                           />
                         </div>
 
                         <div className="sm:col-span-3 space-y-1.5">
-                          <label className="text-xs font-bold text-slate-700 flex items-center gap-1">
-                            <Package className="w-3.5 h-3.5 text-slate-500" /> Jumlah (Qty)
+                          <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                            <Package className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" /> Jumlah (Qty)
                           </label>
                           <input
                             type="number"
@@ -951,7 +951,7 @@ export function VerificationSplitScreen({
                               handleItemChange(idx, "quantity", val === "" ? "" : parseInt(val, 10))
                             }}
                             placeholder="1"
-                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-500 text-xs font-bold text-slate-900 bg-white"
+                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 focus:border-emerald-500 text-xs font-bold text-slate-900 dark:text-white bg-white dark:bg-slate-900"
                           />
                         </div>
                       </div>
@@ -1290,12 +1290,12 @@ export function VerificationSplitScreen({
       )}
 
       {/* STICKY BOTTOM ACC BAR FOR MOBILE PHONE (< sm) */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 sm:hidden bg-white/95 backdrop-blur-md border-t border-slate-200 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] flex items-center justify-between gap-2 shadow-2xl">
+      <div className="fixed bottom-0 left-0 right-0 z-50 sm:hidden bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] flex items-center justify-between gap-2 shadow-2xl">
         <div className="pl-1 shrink-0">
-          <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold block">
+          <span className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 font-bold block">
             {batchInfo ? `Nota ${batchInfo.currentIndex + 1}/${batchInfo.totalCount}` : "Total Netto"}
           </span>
-          <p className="text-sm sm:text-base font-black text-emerald-700">
+          <p className="text-sm sm:text-base font-black text-emerald-700 dark:text-emerald-400">
             Rp {calculatedTotal.toLocaleString("id-ID")}
           </p>
         </div>
@@ -1305,7 +1305,7 @@ export function VerificationSplitScreen({
             <button
               type="button"
               onClick={onSkipBatch}
-              className="px-3 py-2.5 rounded-xl bg-amber-50 active:bg-amber-100 text-amber-800 font-bold text-xs border border-amber-200 transition-all"
+              className="px-3 py-2.5 rounded-xl bg-amber-50 active:bg-amber-100 dark:bg-amber-950/40 dark:active:bg-amber-900/50 text-amber-800 dark:text-amber-300 font-bold text-xs border border-amber-200 dark:border-amber-800 transition-all"
             >
               Lewati
             </button>
@@ -1315,13 +1315,13 @@ export function VerificationSplitScreen({
             type="button"
             disabled={isSaving}
             onClick={handleSave}
-            className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-emerald-600 active:bg-emerald-700 text-white font-extrabold text-xs sm:text-sm transition-all shadow-md shadow-emerald-600/30 disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 active:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-400 text-white dark:text-slate-950 font-extrabold text-xs transition-all shadow-md shadow-emerald-600/30 disabled:opacity-50"
           >
             {isSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             {batchInfo && batchInfo.currentIndex < batchInfo.totalCount - 1
               ? `ACC & Lanjut`
               : editingReceiptId
-              ? "Simpan Perubahan"
+              ? "Simpan"
               : "Simpan / ACC"}
           </button>
         </div>

@@ -38,7 +38,10 @@ export async function getSubscriptionInfo(tenantId: string = DEFAULT_TENANT_ID):
   if (isDatabaseConfigured) {
     try {
       const res = await queryPg<any>(
-        `SELECT * FROM subscriptions WHERE "tenantId" = $1 LIMIT 1`,
+        `SELECT s.*, t."businessName", t.tagline as "tenantTagline" 
+         FROM subscriptions s 
+         LEFT JOIN tenants t ON t.id = s."tenantId" 
+         WHERE s."tenantId" = $1 LIMIT 1`,
         [targetTenant]
       )
       const data = res.rows?.[0]
@@ -54,9 +57,21 @@ export async function getSubscriptionInfo(tenantId: string = DEFAULT_TENANT_ID):
         else if (isExpired) status = "expired"
         else if (isExpiring) status = "expiring"
 
+        const resolvedStudioName =
+          (data.studioName && data.studioName !== "Scota Business" ? data.studioName : data.businessName) ||
+          data.studioName ||
+          data.businessName ||
+          DEFAULT_STUDIO_PROFILE.studioName
+
+        const resolvedTagline =
+          (data.tagline && data.tagline !== "Digitalisasi Struk & Pengeluaran Usaha" ? data.tagline : data.tenantTagline) ||
+          data.tagline ||
+          data.tenantTagline ||
+          DEFAULT_STUDIO_PROFILE.tagline
+
         const profile: StudioProfile = {
-          studioName: data.studioName || DEFAULT_STUDIO_PROFILE.studioName,
-          tagline: data.tagline || DEFAULT_STUDIO_PROFILE.tagline,
+          studioName: resolvedStudioName,
+          tagline: resolvedTagline,
           address: data.address || DEFAULT_STUDIO_PROFILE.address,
           phone: data.phone || DEFAULT_STUDIO_PROFILE.phone,
           logoUrl: data.logoUrl || undefined,
@@ -120,10 +135,10 @@ export async function updateApprovalWorkflow(
     try {
       await queryPg(
         `INSERT INTO subscriptions ("tenantId", tier, "studioName", "approvalWorkflow", "createdAt", "updatedAt")
-         VALUES ($1, 'trial', 'Scota Business', $2, NOW(), NOW())
+         VALUES ($1, 'trial', $2, $3, NOW(), NOW())
          ON CONFLICT ("tenantId") 
          DO UPDATE SET "approvalWorkflow" = EXCLUDED."approvalWorkflow", "updatedAt" = NOW()`,
-        [targetTenant, JSON.stringify(updatedWorkflow)]
+        [targetTenant, current.studioProfile.studioName || "Bisnis", JSON.stringify(updatedWorkflow)]
       )
     } catch (err) {
       console.warn("Could not persist approval workflow to PostgreSQL database:", err)

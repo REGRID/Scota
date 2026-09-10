@@ -986,21 +986,17 @@ export function MainApp({
                       )}
                       <div className="min-w-0 flex-1">
                         <p className="text-xs font-black text-slate-900 dark:text-white truncate">
-                          {clerkUser?.fullName ||
-                            (adminUser.toLowerCase() === "karyawan"
-                              ? `Karyawan (${staffName || "Staf"})`
-                              : `Admin (${adminUser})`)}
+                          {clerkUser?.fullName || staffName || adminUser || "Pengguna"}
                         </p>
                         <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
-                          {clerkUser?.primaryEmailAddress?.emailAddress ||
-                            (adminUser.toLowerCase() === "karyawan"
-                              ? "Karyawan / Staf Usaha"
-                              : "Admin Utama")}
+                          {clerkUser?.primaryEmailAddress?.emailAddress || (adminUser ? `@${adminUser}` : "")}
                         </p>
-                        <div className="flex items-center gap-1.5 mt-1 text-[10px]">
-                          <span className="text-slate-400">Paket:</span>
-                          <span className="font-bold text-emerald-600 dark:text-emerald-400 uppercase">
-                            {subscription?.tier || "Trial"}
+                        <div className="flex items-center gap-2 mt-1 text-[10px]">
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                            {userRole || (isClerkSignedIn ? "OWNER" : "ADMIN")}
+                          </span>
+                          <span className="text-slate-400">
+                            {subscription?.tier ? subscription.tier.toUpperCase() : "TRIAL"}
                           </span>
                         </div>
                       </div>

@@ -109,8 +109,13 @@ export async function getSession(req: NextRequest): Promise<SessionPayload | nul
       role: string
       tenantId: string
       fullName: string
+      email?: string
+      businessName?: string
     }>(
-      `SELECT username, role, "tenantId", "fullName" FROM admin_accounts WHERE "clerkId" = $1`,
+      `SELECT a.username, a.role, a."tenantId", a."fullName", a.email, t."businessName" 
+       FROM admin_accounts a 
+       LEFT JOIN tenants t ON t.id = a."tenantId" 
+       WHERE a."clerkId" = $1`,
       [userId]
     )
 
@@ -122,6 +127,8 @@ export async function getSession(req: NextRequest): Promise<SessionPayload | nul
         tenantId: account.tenantId,
         staffName: account.fullName,
         fullName: account.fullName,
+        email: account.email,
+        businessName: account.businessName || undefined,
       }
     }
 

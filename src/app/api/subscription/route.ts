@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { activateLicenseKey, getSubscriptionInfo, updateStudioProfile } from "@/lib/subscriptionServer"
+import { activateLicenseKey, getSubscriptionInfo, updateStudioProfile, updateApprovalWorkflow } from "@/lib/subscriptionServer"
 import { getSession } from "@/lib/authHelper"
 import { DEFAULT_TENANT_ID } from "@/lib/session"
 
@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
     const tenantId = session?.tenantId || DEFAULT_TENANT_ID
 
     const body = await req.json()
-    const { action, licenseKey, studioProfile } = body
+    const { action, licenseKey, studioProfile, workflow } = body
 
     if (action === "activate_license") {
       if (!licenseKey) {
@@ -37,6 +37,14 @@ export async function POST(req: NextRequest) {
       }
       const updated = await updateStudioProfile(studioProfile, tenantId)
       return NextResponse.json({ success: true, studioProfile: updated })
+    }
+
+    if (action === "update_workflow") {
+      if (!workflow || typeof workflow !== "object") {
+        return NextResponse.json({ success: false, message: "Data alur persetujuan tidak valid" }, { status: 400 })
+      }
+      const updated = await updateApprovalWorkflow(workflow, tenantId)
+      return NextResponse.json({ success: true, workflow: updated })
     }
 
     return NextResponse.json({ success: false, message: "Aksi tidak dikenali" }, { status: 400 })

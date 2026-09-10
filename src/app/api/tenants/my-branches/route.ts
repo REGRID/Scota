@@ -41,16 +41,36 @@ export async function GET(req: NextRequest) {
       ownerUserId = tRes.rows?.[0]?.ownerId || null
     }
 
+    const currentTenantId = session?.tenantId || null
+
     if (!ownerUserId) {
       // Return at least the current tenant if ownerId is not yet backfilled
-      if (session?.tenantId) {
-        const fallbackRes = await queryPg(
+      if (currentTenantId) {
+        const fallbackRes = await queryPg<{
+          id: string
+          businessName: string
+          tagline: string | null
+          status: string
+          createdAt: string
+        }>(
           `SELECT id, "businessName", tagline, status, "createdAt" FROM tenants WHERE id = $1`,
-          [session.tenantId]
+          [currentTenantId]
         )
-        return NextResponse.json({ branches: fallbackRes.rows || [] })
+        const mappedFallback = (fallbackRes.rows || []).map((b) => ({
+          id: b.id,
+          name: b.businessName,
+          businessName: b.businessName,
+          tagline: b.tagline,
+          isCurrent: true,
+          status: b.status,
+          createdAt: b.createdAt,
+        }))
+        return NextResponse.json({
+          branches: mappedFallback,
+          currentTenantId,
+        })
       }
-      return NextResponse.json({ branches: [] })
+      return NextResponse.json({ branches: [], currentTenantId: null })
     }
 
     const res = await queryPg<{
@@ -67,9 +87,21 @@ export async function GET(req: NextRequest) {
       [ownerUserId]
     )
 
+    const activeTenantId = currentTenantId || res.rows?.[0]?.id || null
+
+    const branches = (res.rows || []).map((b) => ({
+      id: b.id,
+      name: b.businessName,
+      businessName: b.businessName,
+      tagline: b.tagline,
+      isCurrent: b.id === activeTenantId,
+      status: b.status,
+      createdAt: b.createdAt,
+    }))
+
     return NextResponse.json({
-      branches: res.rows || [],
-      currentTenantId: session?.tenantId || res.rows?.[0]?.id || null,
+      branches,
+      currentTenantId: activeTenantId,
     })
   } catch (error: any) {
     console.error("GET /api/tenants/my-branches error:", error)

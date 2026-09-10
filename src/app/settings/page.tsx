@@ -136,22 +136,17 @@ export default function SettingsPage() {
   const [minAmountThreshold, setMinAmountThreshold] = useState("0")
 
   // 6. Business Profile State
-  const [businessName, setBusinessName] = useState("Scota Business")
-  const [tagline, setTagline] = useState("Digitalisasi Struk & Pengeluaran Usaha")
+  const [businessName, setBusinessName] = useState("")
+  const [tagline, setTagline] = useState("")
   const [defaultTaxPercent, setDefaultTaxPercent] = useState("11")
+  const [isSavingBusiness, setIsSavingBusiness] = useState(false)
+  const [isSavingSecurity, setIsSavingSecurity] = useState(false)
 
   // Load Persisted Settings on Mount
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const storedUser = localStorage.getItem("nota_admin_user") || "admin"
-      setCurrentUser(storedUser)
-
-      const storedAccounts = localStorage.getItem("scota_user_accounts")
-      if (storedAccounts) {
-        try {
-          setAccounts(JSON.parse(storedAccounts))
-        } catch {}
-      }
+      const storedUser = localStorage.getItem("nota_admin_user")
+      if (storedUser) setCurrentUser(storedUser)
 
       const storedStockDest = localStorage.getItem("nota_default_stock_dest") as "BAR" | "WAREHOUSE"
       if (storedStockDest) setStockDestination(storedStockDest)
@@ -273,6 +268,38 @@ export default function SettingsPage() {
     }
   }, [getAuthenticatedHeaders])
 
+  // Fetch subscription info (profile and workflow) from database
+  const fetchSubscription = useCallback(async () => {
+    try {
+      const headers = await getAuthenticatedHeaders()
+      const res = await fetch("/api/subscription", { headers })
+      if (res.ok) {
+        const data = await res.json()
+        if (data.subscription?.studioProfile) {
+          if (data.subscription.studioProfile.studioName) {
+            setBusinessName(data.subscription.studioProfile.studioName)
+          }
+          if (data.subscription.studioProfile.tagline) {
+            setTagline(data.subscription.studioProfile.tagline)
+          }
+        }
+        if (data.subscription?.approvalWorkflow) {
+          const wf = data.subscription.approvalWorkflow
+          if (typeof wf.enabled === "boolean") setEnableApproval(wf.enabled)
+          if (wf.approverTarget) setApproverTarget(wf.approverTarget)
+          if (wf.designatedApprover) setDesignatedApprover(wf.designatedApprover)
+          if (typeof wf.requireForCreate === "boolean") setRequireForCreate(wf.requireForCreate)
+          if (typeof wf.requireForEdit === "boolean") setRequireForEdit(wf.requireForEdit)
+          if (typeof wf.requireForDelete === "boolean") setRequireForDelete(wf.requireForDelete)
+          if (typeof wf.requireForSettle === "boolean") setRequireForSettle(wf.requireForSettle)
+          if (typeof wf.minAmountThreshold === "number") setMinAmountThreshold(String(wf.minAmountThreshold))
+        }
+      }
+    } catch (err) {
+      console.warn("Failed to load subscription details:", err)
+    }
+  }, [getAuthenticatedHeaders])
+
   // Fetch & synchronize session
   useEffect(() => {
     const initSession = async () => {
@@ -291,8 +318,12 @@ export default function SettingsPage() {
             if (data?.user?.username) {
               setCurrentUser(data.user.username)
             }
+            if (data?.user?.businessName) {
+              setBusinessName(data.user.businessName)
+            }
           }
         }
+        await fetchSubscription()
         await fetchAccounts()
         await fetchInvites()
         await fetchBranches()
@@ -302,14 +333,13 @@ export default function SettingsPage() {
     if (isClerkLoaded) {
       initSession()
     }
-  }, [isClerkLoaded, isClerkSignedIn, getAuthenticatedHeaders, fetchAccounts, fetchInvites, fetchBranches])
+  }, [isClerkLoaded, isClerkSignedIn, getAuthenticatedHeaders, fetchSubscription, fetchAccounts, fetchInvites, fetchBranches])
 
   // Pre-populate clerk user details into state immediately
   useEffect(() => {
     if (isClerkSignedIn && clerkUser) {
-      const email = clerkUser.primaryEmailAddress?.emailAddress || "refo.gangga.dev@gmail.com"
-      const fullName = clerkUser.fullName || "Refo Gangga"
-      const uname = clerkUser.username || email.split("@")[0]
+      const email = clerkUser.primaryEmailAddress?.emailAddress || ""
+      const uname = clerkUser.username || (email ? email.split("@")[0] : "user")
       setCurrentUser(uname)
       setCurrentUserRole("OWNER")
     }
@@ -560,29 +590,31 @@ export default function SettingsPage() {
 
   // Handle Save Approval Workflow & Security
   const handleSaveSecurity = async () => {
-    localStorage.setItem("scota_approval_threshold", minAmountThreshold)
-    localStorage.setItem("scota_dual_control_enabled", String(enableApproval))
-    localStorage.setItem("scota_approver_target", approverTarget)
-    localStorage.setItem("scota_designated_approver", designatedApprover)
-    localStorage.setItem("scota_req_create", String(requireForCreate))
-    localStorage.setItem("scota_req_edit", String(requireForEdit))
-    localStorage.setItem("scota_req_delete", String(requireForDelete))
-    localStorage.setItem("scota_req_settle", String(requireForSettle))
-
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new Event("storage"))
-    }
-
     try {
-      await fetch("/api/superadmin/tenants", {
+      setIsSavingSecurity(true)
+      localStorage.setItem("scota_approval_threshold", minAmountThreshold)
+      localStorage.setItem("scota_dual_control_enabled", String(enableApproval))
+      localStorage.setItem("scota_approver_target", approverTarget)
+      localStorage.setItem("scota_designated_approver", designatedApprover)
+      localStorage.setItem("scota_req_create", String(requireForCreate))
+      localStorage.setItem("scota_req_edit", String(requireForEdit))
+      localStorage.setItem("scota_req_delete", String(requireForDelete))
+      localStorage.setItem("scota_req_settle", String(requireForSettle))
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("storage"))
+      }
+
+      const headers = await getAuthenticatedHeaders({ "Content-Type": "application/json" })
+      const res = await fetch("/api/subscription", {
         method: "POST",
-        headers: getAuthHeaders(),
+        headers,
         body: JSON.stringify({
-          action: "update_approval_workflow",
+          action: "update_workflow",
           workflow: {
-            enableApproval,
+            enabled: enableApproval,
             approverTarget,
-            designatedApproverUsername: designatedApprover.trim().toLowerCase() || undefined,
+            designatedApprover: designatedApprover.trim().toLowerCase() || undefined,
             requireForCreate,
             requireForEdit,
             requireForDelete,
@@ -590,22 +622,57 @@ export default function SettingsPage() {
             minAmountThreshold: Number(minAmountThreshold) || 0,
           },
         }),
-      }).catch(() => {})
-    } catch {}
+      })
 
-    if (newPassword.trim()) {
-      toast.success("Sandi & kebijakan alur persetujuan (Dual-Approval) berhasil diperbarui!")
-      setOldPassword("")
-      setNewPassword("")
-    } else {
-      toast.success("Pengaturan alur persetujuan (Dual-Approval) berhasil disimpan!")
+      if (res.ok) {
+        if (newPassword.trim()) {
+          toast.success("Sandi & kebijakan alur persetujuan berhasil disimpan ke database!")
+          setOldPassword("")
+          setNewPassword("")
+        } else {
+          toast.success("Kebijakan alur persetujuan berhasil disimpan ke database!")
+        }
+      } else {
+        toast.error("Gagal menyimpan alur persetujuan ke server")
+      }
+    } catch {
+      toast.error("Terjadi kesalahan jaringan saat menyimpan alur persetujuan")
+    } finally {
+      setIsSavingSecurity(false)
     }
   }
 
   // Handle Save Business Profile
-  const handleSaveBusiness = () => {
-    localStorage.setItem("scota_business_name", businessName)
-    toast.success("Profil bisnis berhasil disimpan!")
+  const handleSaveBusiness = async () => {
+    try {
+      setIsSavingBusiness(true)
+      const cleanName = businessName.trim()
+      const cleanTagline = tagline.trim()
+
+      const headers = await getAuthenticatedHeaders({ "Content-Type": "application/json" })
+      const res = await fetch("/api/subscription", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          action: "update_profile",
+          studioProfile: {
+            studioName: cleanName,
+            tagline: cleanTagline,
+          },
+        }),
+      })
+
+      if (res.ok) {
+        localStorage.setItem("scota_business_name", cleanName)
+        toast.success("Profil bisnis berhasil disimpan ke database!")
+      } else {
+        toast.error("Gagal menyimpan profil bisnis ke server")
+      }
+    } catch {
+      toast.error("Terjadi kesalahan jaringan saat menyimpan profil bisnis")
+    } finally {
+      setIsSavingBusiness(false)
+    }
   }
 
   const roleColors: Record<string, string> = {
@@ -1653,10 +1720,18 @@ export default function SettingsPage() {
               <div className="pt-2">
                 <button
                   type="button"
+                  disabled={isSavingSecurity}
                   onClick={handleSaveSecurity}
-                  className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs font-black transition-all shadow-xs cursor-pointer"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 active:scale-95 text-white text-xs font-black transition-all shadow-xs cursor-pointer"
                 >
-                  Simpan Kebijakan Persetujuan & Keamanan
+                  {isSavingSecurity ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Menyimpan ke Database...</span>
+                    </>
+                  ) : (
+                    <span>Simpan Kebijakan Persetujuan & Keamanan</span>
+                  )}
                 </button>
               </div>
             </div>
@@ -1714,10 +1789,18 @@ export default function SettingsPage() {
                 <div className="pt-2">
                   <button
                     type="button"
+                    disabled={isSavingBusiness}
                     onClick={handleSaveBusiness}
-                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs font-black transition-all shadow-xs cursor-pointer"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 active:scale-95 text-white text-xs font-black transition-all shadow-xs cursor-pointer"
                   >
-                    Simpan Profil Usaha
+                    {isSavingBusiness ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Menyimpan ke Database...</span>
+                      </>
+                    ) : (
+                      <span>Simpan Profil Usaha</span>
+                    )}
                   </button>
                 </div>
               </div>

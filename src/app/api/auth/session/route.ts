@@ -17,6 +17,7 @@ export async function GET(req: NextRequest) {
       staffName: session.staffName || session.fullName || "",
       fullName: session.fullName || session.name || session.username,
       businessName: session.businessName,
+      email: session.email,
     })
 
     const response = NextResponse.json({
@@ -29,6 +30,7 @@ export async function GET(req: NextRequest) {
         fullName: session.fullName || session.name || session.username,
         tenantId: session.tenantId,
         businessName: session.businessName || "Bisnis Saya",
+        email: session.email,
       },
     })
 

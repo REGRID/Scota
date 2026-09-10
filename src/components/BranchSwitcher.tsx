@@ -14,6 +14,7 @@ import {
   ExternalLink,
 } from "lucide-react"
 import { toast } from "sonner"
+import { getAuthHeaders } from "@/lib/authClient"
 
 export interface Branch {
   id: string
@@ -56,7 +57,9 @@ export function BranchSwitcher({
   const fetchBranches = useCallback(async () => {
     try {
       setIsLoading(true)
-      const res = await fetch("/api/tenants/my-branches")
+      const res = await fetch("/api/tenants/my-branches", {
+        headers: getAuthHeaders(),
+      })
       if (res.ok) {
         const data = await res.json()
         if (Array.isArray(data.branches)) {
@@ -87,7 +90,7 @@ export function BranchSwitcher({
       setIsSwitching(true)
       const res = await fetch("/api/tenants/switch-branch", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ tenantId: targetTenantId }),
       })
 
@@ -124,7 +127,7 @@ export function BranchSwitcher({
       setIsCreating(true)
       const res = await fetch("/api/tenants/create-branch", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           name: newBranchName.trim(),
           address: newBranchAddress.trim() || undefined,

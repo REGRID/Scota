@@ -37,6 +37,7 @@ import {
 import { toast } from "sonner"
 import { ThemeToggle } from "@/lib/theme"
 import { BranchSwitcher, Branch } from "@/components/BranchSwitcher"
+import { getAuthHeaders } from "@/lib/authClient"
 import {
   getNotificationPermissionStatus,
   getNotificationSettings,
@@ -190,8 +191,13 @@ export default function SettingsPage() {
     fetch("/api/auth/session")
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (data?.authenticated && data?.user?.role) {
-          setCurrentUserRole(data.user.role)
+        if (data?.authenticated) {
+          if (data.token && typeof window !== "undefined") {
+            localStorage.setItem("nota_admin_token", data.token)
+          }
+          if (data?.user?.role) {
+            setCurrentUserRole(data.user.role)
+          }
         }
       })
       .catch(() => {})
@@ -201,7 +207,9 @@ export default function SettingsPage() {
   const fetchAccounts = useCallback(async () => {
     try {
       setLoadingAccounts(true)
-      const res = await fetch("/api/settings/staff")
+      const res = await fetch("/api/settings/staff", {
+        headers: getAuthHeaders(),
+      })
       if (res.ok) {
         const data = await res.json()
         if (Array.isArray(data.staff)) {
@@ -234,7 +242,9 @@ export default function SettingsPage() {
   const fetchInvites = useCallback(async () => {
     try {
       setLoadingInvites(true)
-      const res = await fetch("/api/settings/invites")
+      const res = await fetch("/api/settings/invites", {
+        headers: getAuthHeaders(),
+      })
       if (res.ok) {
         const data = await res.json()
         setInvites(data.invites || [])
@@ -254,7 +264,9 @@ export default function SettingsPage() {
   const fetchBranches = useCallback(async () => {
     try {
       setLoadingBranches(true)
-      const res = await fetch("/api/tenants/my-branches")
+      const res = await fetch("/api/tenants/my-branches", {
+        headers: getAuthHeaders(),
+      })
       if (res.ok) {
         const data = await res.json()
         if (Array.isArray(data.branches)) {
@@ -279,7 +291,7 @@ export default function SettingsPage() {
       setSwitchingBranchId(targetTenantId)
       const res = await fetch("/api/tenants/switch-branch", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ tenantId: targetTenantId }),
       })
       const data = await res.json()
@@ -308,7 +320,7 @@ export default function SettingsPage() {
       setCreatingBranch(true)
       const res = await fetch("/api/tenants/create-branch", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           name: newBranchName.trim(),
           address: newBranchAddress.trim() || undefined,
@@ -347,7 +359,7 @@ export default function SettingsPage() {
       setCreatingInvite(true)
       const res = await fetch("/api/settings/invites", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           role: inviteRole,
           maxUses: inviteMaxUses ? parseInt(inviteMaxUses, 10) : null,
@@ -380,6 +392,7 @@ export default function SettingsPage() {
     try {
       const res = await fetch(`/api/settings/invites/${id}`, {
         method: "DELETE",
+        headers: getAuthHeaders(),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -411,7 +424,7 @@ export default function SettingsPage() {
       setUpdatingRoleId(id)
       const res = await fetch("/api/settings/staff", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ id, role: newRoleValue }),
       })
       const data = await res.json()
@@ -440,7 +453,7 @@ export default function SettingsPage() {
       setSubmittingAccount(true)
       const res = await fetch("/api/settings/staff", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           fullName: newName.trim(),
           username: newUsername.trim(),
@@ -477,6 +490,7 @@ export default function SettingsPage() {
     try {
       const res = await fetch(`/api/settings/staff?id=${encodeURIComponent(id)}`, {
         method: "DELETE",
+        headers: getAuthHeaders(),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -531,7 +545,7 @@ export default function SettingsPage() {
     try {
       await fetch("/api/superadmin/tenants", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           action: "update_approval_workflow",
           workflow: {

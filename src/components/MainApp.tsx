@@ -301,6 +301,9 @@ export function MainApp({
           const data = await res.json()
           if (data.authenticated) {
             setIsAuthenticated(true)
+            if (data.token && typeof window !== "undefined") {
+              localStorage.setItem("nota_admin_token", data.token)
+            }
             if (data.user?.username) setAdminUser(data.user.username)
             if (data.user?.role) setUserRole(data.user.role)
             if (data.user?.staffName) setStaffName(data.user.staffName)
@@ -745,7 +748,10 @@ export function MainApp({
       <AdminLoginScreen
         initialMode={authInitialMode}
         initialTier={authInitialTier}
-        onLoginSuccess={(_token, user) => {
+        onLoginSuccess={(token, user) => {
+          if (token && typeof window !== "undefined") {
+            localStorage.setItem("nota_admin_token", token)
+          }
           setAdminUser(user)
           setIsAuthenticated(true)
           fetchSubscription()
@@ -774,7 +780,10 @@ export function MainApp({
       <AdminLoginScreen
         initialMode={authInitialMode}
         initialTier={authInitialTier}
-        onLoginSuccess={(_token, user) => {
+        onLoginSuccess={(token, user) => {
+          if (token && typeof window !== "undefined") {
+            localStorage.setItem("nota_admin_token", token)
+          }
           setAdminUser(user)
           setIsAuthenticated(true)
           fetchSubscription()

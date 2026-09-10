@@ -88,36 +88,37 @@ export function IntroductionDashboard({
   onOpenPricingModal,
 }: IntroductionDashboardProps) {
   const { isLoaded, isSignedIn, user } = useUser()
-  const [cachedUser, setCachedUser] = useState<string | null>(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("nota_admin_user")
-    }
-    return null
-  })
+  const [isMounted, setIsMounted] = useState(false)
+  const [cachedUser, setCachedUser] = useState<string | null>(null)
   const [sessionUser, setSessionUser] = useState<string | null>(null)
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("nota_admin_user")
-      if (stored) setCachedUser(stored)
-    }
+    setIsMounted(true)
+    const stored = localStorage.getItem("nota_admin_user")
+    if (stored) setCachedUser(stored)
 
     // Unified check against Scota internal auth session
     fetch("/api/auth/session")
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data?.authenticated && data.user) {
+          if (data.token && typeof window !== "undefined") {
+            localStorage.setItem("nota_admin_token", data.token)
+          }
           setSessionUser(data.user.staffName || data.user.fullName || data.user.username)
         }
       })
       .catch(() => {})
   }, [])
 
+  // Guard against SSR hydration mismatch: client-only auth states are evaluated only after mounting
   const isUserLoggedIn = Boolean(
     isAuthenticated === true ||
-    (isLoaded && isSignedIn) ||
-    Boolean(sessionUser) ||
-    Boolean(cachedUser)
+    (isMounted && (
+      (isLoaded && isSignedIn) ||
+      Boolean(sessionUser) ||
+      Boolean(cachedUser)
+    ))
   )
 
   const activeDisplayName =

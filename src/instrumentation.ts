@@ -10,7 +10,7 @@ export async function register() {
       const path = await import("path")
       const envFiles = [".env.local", ".env"]
       for (const file of envFiles) {
-        const envPath = path.resolve(process.cwd(), file)
+        const envPath = path.resolve(/*turbopackIgnore: true*/ process.cwd(), file)
         if (fs.existsSync(envPath)) {
           const lines = fs.readFileSync(envPath, "utf-8").split("\n")
           for (const line of lines) {

@@ -827,34 +827,20 @@ export default function SettingsPage() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
                 <div>
                   <h2 className="text-base font-black text-slate-900 dark:text-white">
-                    Manajemen Pengguna & Peran
+                    Manajemen Staf & Hak Akses
                   </h2>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Kelola akses staf, undang tim lewat Google, atau buat akun PIN kasir.
+                    Kelola peran tim dan buat tautan undangan untuk staf cabang ini.
                   </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <button
                     type="button"
-                    onClick={() => {
-                      setShowInviteForm(!showInviteForm)
-                      setShowAddForm(false)
-                    }}
+                    onClick={() => setShowInviteForm(!showInviteForm)}
                     className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
                   >
                     <Link2 className="w-4 h-4" />
-                    <span>Undang via Google</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowAddForm(!showAddForm)
-                      setShowInviteForm(false)
-                    }}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 active:scale-95 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all border border-slate-200/80 dark:border-slate-700 cursor-pointer"
-                  >
-                    <UserPlus className="w-4 h-4" />
-                    <span>Tambah Akun PIN</span>
+                    <span>Buat Tautan Undangan</span>
                   </button>
                 </div>
               </div>
@@ -1117,96 +1103,6 @@ export default function SettingsPage() {
                 </div>
               )}
 
-              {/* Form: Legacy PIN Account */}
-              {showAddForm && (
-                <form
-                  onSubmit={handleAddAccount}
-                  className="p-4 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-4 animate-in fade-in duration-150 shadow-inner"
-                >
-                  <h3 className="text-xs font-black text-slate-900 dark:text-white flex items-center gap-2">
-                    <UserPlus className="w-4 h-4 text-emerald-500" />
-                    <span>Formulir Pendaftaran Akun Staf Baru (Akses PIN Tradisional)</span>
-                  </h3>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
-                        Nama Lengkap
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={newName}
-                        onChange={(e) => setNewName(e.target.value)}
-                        placeholder="Contoh: Siti Aisyah"
-                        className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
-                        Username Login
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={newUsername}
-                        onChange={(e) => setNewUsername(e.target.value)}
-                        placeholder="Contoh: siti_kasir"
-                        className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 lowercase"
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
-                        PIN / Sandi Akses
-                      </label>
-                      <input
-                        type="password"
-                        required
-                        value={newPin}
-                        onChange={(e) => setNewPin(e.target.value)}
-                        placeholder="4 - 8 digit angka / huruf"
-                        className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 font-mono"
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
-                        Peran (Role)
-                      </label>
-                      <select
-                        value={newRole}
-                        onChange={(e: any) => setNewRole(e.target.value)}
-                        className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
-                      >
-                        <option value="KARYAWAN">Karyawan / Staf Kasir (Scan & Input Saja)</option>
-                        <option value="MANAGER">Manajer (Audit, Persetujuan & Laporan)</option>
-                        <option value="ADMIN">Admin Toko (Akses Penuh Kelola Nota & Staf)</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
-                    <button
-                      type="button"
-                      disabled={submittingAccount}
-                      onClick={() => setShowAddForm(false)}
-                      className="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 cursor-pointer disabled:opacity-50"
-                    >
-                      Batal
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={submittingAccount}
-                      className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black shadow-xs cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
-                    >
-                      {submittingAccount ? "Menyimpan..." : "Simpan Akun"}
-                    </button>
-                  </div>
-                </form>
-              )}
-
               {/* Accounts Table */}
               <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
                 <table className="w-full text-left text-xs">
@@ -1229,7 +1125,7 @@ export default function SettingsPage() {
                     ) : accounts.length === 0 ? (
                       <tr>
                         <td colSpan={5} className="p-8 text-center text-slate-500 dark:text-slate-400">
-                          Belum ada staf terdaftar. Gunakan <strong>&quot;Undang via Google&quot;</strong> untuk menambahkan anggota.
+                          Belum ada staf terdaftar. Klik <strong>&quot;Buat Tautan Undangan&quot;</strong> untuk menambahkan anggota tim.
                         </td>
                       </tr>
                     ) : (
@@ -1291,7 +1187,7 @@ export default function SettingsPage() {
                                     </span>
                                   ) : (
                                     <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
-                                      PIN
+                                      Internal
                                     </span>
                                   )}
                                 </div>
@@ -1301,7 +1197,7 @@ export default function SettingsPage() {
                                   </span>
                                 ) : (
                                   <span className="text-[10px] text-slate-400 block">
-                                    Login via PIN kasir
+                                    Akun Sistem
                                   </span>
                                 )}
                               </div>

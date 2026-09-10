@@ -1,6 +1,6 @@
 import { queryPg, isDatabaseConfigured } from "@/lib/pgDb"
 
-export const DEFAULT_AI_MODEL = "gemini-3.5-flash"
+export const DEFAULT_AI_MODEL = "gemini-2.0-flash"
 
 /**
  * Mengambil Google Gemini API Key aktif untuk seluruh sistem:
@@ -36,9 +36,9 @@ export async function getActiveGeminiModel(): Promise<string> {
       )
       const dbModel = res.rows?.[0]?.value?.trim()
       if (dbModel) {
-        // Hanya normalisasi jika sebelumnya tersimpan model non-existent gemini-2.5-flash
-        if (dbModel === "gemini-2.5-flash") {
-          return "gemini-3.5-flash"
+        // Normalisasi model non-existent ke model resmi yang stabil
+        if (dbModel === "gemini-3.5-flash" || dbModel === "gemini-2.5-flash" || !dbModel.startsWith("gemini-")) {
+          return "gemini-2.0-flash"
         }
         return dbModel
       }

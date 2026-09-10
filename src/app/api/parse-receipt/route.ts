@@ -108,8 +108,8 @@ async function callGeminiRestApi(apiKey: string, modelName: string, contentsPart
       responseMimeType: "application/json",
     }
 
-    // Zero thinking budget untuk model 3.x agar respons instan dan tidak memotong kuota token JSON
-    if (modelName.includes("3.") || modelName.includes("flash")) {
+    // Hanya set thinkingConfig jika model adalah varian thinking eksperimental
+    if (modelName.includes("thinking")) {
       generationConfig.thinkingConfig = {
         thinkingBudget: 0,
       }
@@ -321,19 +321,17 @@ Keluarkan HANYA JSON:
     contentsParts.push({ text: promptText })
 
     const targetModel =
-      configuredModel === "gemini-2.5-flash" || configuredModel === "gemini-2.0-flash"
-        ? "gemini-3.5-flash"
-        : configuredModel || "gemini-3.5-flash"
+      configuredModel && configuredModel.startsWith("gemini-") && !configuredModel.includes("3.")
+        ? configuredModel
+        : "gemini-2.0-flash"
 
     const candidateModels = Array.from(
       new Set([
         targetModel,
-        "gemini-3.5-flash",
-        "gemini-3.8-flash",
-        "gemini-3.7-flash",
-        "gemini-3.1-pro",
         "gemini-2.0-flash",
         "gemini-1.5-flash",
+        "gemini-2.5-flash",
+        "gemini-1.5-pro",
       ])
     )
     let textOutput = ""

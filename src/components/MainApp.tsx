@@ -36,7 +36,6 @@ import {
 
 import { useAppDialog } from "@/components/ui/app-dialog"
 import { ThemeToggle } from "@/lib/theme"
-import { BranchSwitcher } from "@/components/BranchSwitcher"
 
 export interface MainAppProps {
   initialView?: "landing" | "app" | "login" | "register"
@@ -819,12 +818,6 @@ export function MainApp({
                 </p>
               </div>
             </Link>
-
-            <BranchSwitcher
-              currentRole={userRole}
-              businessName={subscription?.studioProfile?.studioName}
-              className="ml-0 sm:ml-1"
-            />
           </div>
 
           {/* Center: Clean Primary Navigation Tabs */}
@@ -864,12 +857,17 @@ export function MainApp({
               <button
                 type="button"
                 onClick={() => {
-                  if (activeTab !== "history") {
+                  const needsSwitch = activeTab !== "history"
+                  if (needsSwitch) {
                     handleTabChange("history")
                   }
-                  setTimeout(() => {
-                    window.dispatchEvent(new CustomEvent("open-approval-modal"))
-                  }, 50)
+                  const dispatch = () => window.dispatchEvent(new CustomEvent("open-approval-modal"))
+                  if (needsSwitch) {
+                    setTimeout(dispatch, 150)
+                    setTimeout(dispatch, 350)
+                  } else {
+                    dispatch()
+                  }
                 }}
                 className={`p-1.5 sm:p-2 rounded-xl text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer relative ${
                   pendingApprovalsCount > 0 ? "text-amber-600 dark:text-amber-400" : ""
@@ -892,12 +890,17 @@ export function MainApp({
             <button
               type="button"
               onClick={() => {
-                if (activeTab !== "history") {
+                const needsSwitch = activeTab !== "history"
+                if (needsSwitch) {
                   handleTabChange("history")
                 }
-                setTimeout(() => {
-                  window.dispatchEvent(new CustomEvent("open-notifications-modal"))
-                }, 50)
+                const dispatch = () => window.dispatchEvent(new CustomEvent("open-notifications-modal"))
+                if (needsSwitch) {
+                  setTimeout(dispatch, 150)
+                  setTimeout(dispatch, 350)
+                } else {
+                  dispatch()
+                }
               }}
               className="p-1.5 sm:p-2 rounded-xl text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer relative"
               title="Pusat Notifikasi Aktivitas"

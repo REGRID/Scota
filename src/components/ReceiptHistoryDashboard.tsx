@@ -1309,7 +1309,9 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
   // Backup & Restore Database Handlers
   const handleExportJsonBackup = async () => {
     try {
-      const res = await fetch("/api/backup")
+      const res = await fetch("/api/backup", {
+        headers: getAuthHeaders(),
+      })
       if (!res.ok) throw new Error("Gagal mengunduh cadangan JSON")
       const blob = await res.blob()
       const downloadUrl = window.URL.createObjectURL(blob)
@@ -1337,7 +1339,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
 
       const res = await fetch("/api/backup", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify(backupData),
       })
 
@@ -1610,7 +1612,9 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
       url.searchParams.set("format", exportConfirmFormat)
       url.searchParams.set("order", "asc")
 
-      const res = await fetch(url.toString())
+      const res = await fetch(url.toString(), {
+        headers: getAuthHeaders(),
+      })
       if (!res.ok) throw new Error("Gagal mengunduh laporan excel/csv")
 
       const blob = await res.blob()
@@ -2067,6 +2071,17 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
 
         {/* Minimalist Action Controls */}
         <div className="flex items-center gap-2 shrink-0">
+          {/* Kelola Data & Ekspor Button */}
+          <button
+            type="button"
+            onClick={() => setShowDataOptionsModal(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold transition-all border border-slate-200 dark:border-slate-700 shadow-2xs active:scale-95 cursor-pointer"
+            title="Kelola Data & Ekspor Excel"
+          >
+            <Database className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+            <span className="hidden xs:inline">Kelola & </span>Ekspor
+          </button>
+
           {/* Print Statement Button (Icon Only) */}
           <button
             type="button"
@@ -2849,15 +2864,15 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
 
         {/* MOBILE QUICK SELECTION CONTROL STRIP (VISIBLE ON HP & TABLET < lg) */}
         {!isInitialLoading && filteredReceipts.length > 0 && (
-          <div className="flex lg:hidden items-center justify-between gap-2 px-3.5 py-2.5 bg-slate-100/90 rounded-xl border border-slate-200/90 text-xs text-slate-700 shadow-2xs">
+          <div className="flex lg:hidden items-center justify-between gap-2 px-3.5 py-2.5 bg-slate-100/90 dark:bg-slate-800/90 rounded-xl border border-slate-200/90 dark:border-slate-700 text-xs text-slate-700 dark:text-slate-200 shadow-2xs">
             <label className="flex items-center gap-2.5 cursor-pointer select-none font-bold">
               <input
                 type="checkbox"
                 checked={isAllSelected}
                 onChange={toggleSelectAll}
-                className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 cursor-pointer shrink-0"
+                className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 dark:border-slate-600 cursor-pointer shrink-0"
               />
-              <span className="text-white text-xs font-black">
+              <span className="text-slate-800 dark:text-white text-xs font-black">
                 {isAllSelected ? "Batal Pilih Semua" : `Pilih Semua (${paginatedReceipts.length} Struk Halaman Ini)`}
               </span>
             </label>
@@ -3204,7 +3219,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
 
       {/* AUTHENTIC BANK STATEMENT (MANDIRI REFERENCE STYLE) A4 PRINT MODAL */}
       {showStatementPrintModal && (
-        <div id="statement-print-modal-overlay" className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+        <div id="statement-print-modal-overlay" className="fixed inset-0 z-[80] bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
           <div className={`bg-white rounded-3xl border border-slate-200 shadow-2xl w-full ${printOrientation === "landscape" || printPaperSize === "A3" ? "max-w-[95vw]" : "max-w-5xl"} max-h-[96vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200`}>
             {/* Modal Control Bar */}
             <div className="p-4 sm:p-5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 bg-slate-900 text-white no-print">
@@ -3491,7 +3506,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
 
       {/* EXPORT CONFIRMATION MODAL */}
       {exportConfirmFormat && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[80] bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-md p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="font-extrabold text-slate-900 text-base flex items-center gap-2">
@@ -3565,7 +3580,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
 
       {/* HIERARCHICAL CATEGORY MANAGEMENT MODAL */}
       {showManageCategoryModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[80] bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-xl p-6 space-y-5 animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col overflow-hidden">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="font-extrabold text-slate-900 text-base sm:text-lg flex items-center gap-2">
@@ -3792,7 +3807,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
 
       {/* CUSTOM DELETE CONFIRMATION MODAL */}
       {deletingReceipt && (
-        <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[80] bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-md p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center shrink-0">
@@ -3963,7 +3978,10 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                             type="button"
                             onClick={() => {
                               setIsLoadingDetailImage(true)
-                              fetch(`/api/receipts/${selectedReceipt.id}?_t=${Date.now()}`, { cache: "no-store" })
+                              fetch(`/api/receipts/${selectedReceipt.id}?_t=${Date.now()}`, {
+                                cache: "no-store",
+                                headers: getAuthHeaders(),
+                              })
                                 .then((res) => (res.ok ? res.json() : null))
                                 .then((data) => {
                                    if (data && data.imageUrl) {
@@ -4208,24 +4226,24 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
               </div>
             </div>
 
-            <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
-              <div className="flex items-center gap-2">
+            <div className="p-3.5 sm:p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+              <div className="flex flex-wrap items-center gap-2">
                 {!isReceiptSettled(selectedReceipt.paymentStatus) && (
                   <button
                     type="button"
                     onClick={() => triggerSettleFlow(selectedReceipt)}
-                    className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs transition-colors border border-emerald-500 shadow-xs"
+                    className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs transition-colors border border-emerald-500 shadow-xs cursor-pointer"
                   >
-                    <CheckCircle2 className="w-4 h-4" /> Tandai Sudah Direimburse / Lunasi
+                    <CheckCircle2 className="w-4 h-4 shrink-0" /> Tandai Sudah Direimburse / Lunasi
                   </button>
                 )}
 
                 <button
                   type="button"
                   onClick={() => triggerDeleteConfirm(selectedReceipt)}
-                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs transition-colors border border-red-200"
+                  className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-red-50 hover:bg-red-100 dark:bg-red-950/40 dark:hover:bg-red-900/60 text-red-600 dark:text-red-400 font-bold text-xs transition-colors border border-red-200 dark:border-red-900/50 cursor-pointer"
                 >
-                  <Trash2 className="w-4 h-4" /> Hapus Nota Ini
+                  <Trash2 className="w-4 h-4 shrink-0" /> Hapus Nota Ini
                 </button>
 
                 {onEditReceipt && (
@@ -4237,7 +4255,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                       let fullR = r
                       if (!fullR.imageUrl) {
                         try {
-                          const res = await fetch(`/api/receipts/${r.id}`)
+                          const res = await fetch(`/api/receipts/${r.id}`, { headers: getAuthHeaders() })
                           if (res.ok) {
                             const fetched = await res.json()
                             if (fetched && fetched.id) fullR = fetched
@@ -4246,9 +4264,9 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                       }
                       onEditReceipt(fullR)
                     }}
-                    className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-xs transition-colors border border-blue-200 cursor-pointer"
+                    className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-400 font-bold text-xs transition-colors border border-blue-200 dark:border-blue-900/50 cursor-pointer"
                   >
-                    <Edit className="w-4 h-4" /> Edit Ulang Data Nota
+                    <Edit className="w-4 h-4 shrink-0" /> Edit Ulang Data Nota
                   </button>
                 )}
               </div>
@@ -4256,7 +4274,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
               <button
                 type="button"
                 onClick={() => setSelectedReceipt(null)}
-                className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs transition-colors"
+                className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white font-medium text-xs transition-colors cursor-pointer text-center"
               >
                 Tutup
               </button>
@@ -4267,7 +4285,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
 
       {/* ITEM BREAKDOWN DRILL-DOWN MODAL */}
       {itemBreakdownModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[80] bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
             {/* Modal Header */}
             <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-900 text-white shrink-0">
@@ -4419,7 +4437,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
 
       {/* DUAL-ADMIN APPROVAL MODAL */}
       {showApprovalModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[80] bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-white text-slate-900 w-full max-w-2xl rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
             {/* Modal Header */}
             <div className="p-5 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800">
@@ -5000,7 +5018,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
 
       {/* KELOLA DATA & EXPORT COMBINED MODAL */}
       {showDataOptionsModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full p-6 space-y-5 animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3.5">
               <div className="flex items-center gap-2.5">
@@ -5108,7 +5126,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
 
       {/* TARGETED SETTLE CONFIRMATION & PAYMENT PROOF UPLOAD MODAL */}
       {showSettleModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+        <div className="fixed inset-0 z-[80] bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
           <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200 space-y-0">
             {/* Modal Header */}
             <div className="p-5 bg-gradient-to-r from-emerald-900 to-slate-900 text-white flex items-center justify-between">
@@ -5250,7 +5268,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
 
       {/* NOTIFICATION CENTER MODAL */}
       {showNotificationsModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+        <div className="fixed inset-0 z-[80] bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
           <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
               <div className="flex items-center gap-2">

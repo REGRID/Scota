@@ -946,7 +946,12 @@ export function IntroductionDashboard({
               return (
                 <div
                   key={idx}
-                  className="bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 text-center space-y-2 hover:border-emerald-500/50 transition-all group shadow-xs hover:shadow-md"
+                  onClick={() => {
+                    const el = document.getElementById("simulasi")
+                    if (el) el.scrollIntoView({ behavior: "smooth" })
+                  }}
+                  className="bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 text-center space-y-2 hover:border-emerald-500/50 hover:-translate-y-0.5 transition-all group shadow-xs hover:shadow-md cursor-pointer select-none"
+                  title={`Coba simulasi scan nota untuk ${b.name}`}
                 >
                   <div className="w-10 h-10 mx-auto rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-emerald-600 dark:text-emerald-400 flex items-center justify-center group-hover:scale-105 transition-transform">
                     <Icon className="w-5 h-5" />

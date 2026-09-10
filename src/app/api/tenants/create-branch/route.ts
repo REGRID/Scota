@@ -37,6 +37,29 @@ export async function POST(req: NextRequest) {
       ownerUserId = t.rows?.[0]?.ownerId || null
     }
 
+    // Check branch limit based on current tenant's subscription tier
+    const { getSubscriptionInfo } = await import("@/lib/subscriptionServer")
+    const { TIER_CONFIG } = await import("@/lib/subscription")
+    const sub = await getSubscriptionInfo(auth.tenantId)
+    const tierConfig = TIER_CONFIG[sub.tier] || TIER_CONFIG.trial
+    const maxBranches = tierConfig.maxBranches || 1
+
+    const existingBranchesRes = await queryPg<{ count: string }>(
+      `SELECT COUNT(*) as count FROM tenants WHERE "ownerId" = $1`,
+      [ownerUserId]
+    )
+    const currentBranchCount = parseInt(existingBranchesRes.rows?.[0]?.count || "1", 10)
+
+    if (currentBranchCount >= maxBranches) {
+      return NextResponse.json(
+        {
+          error: `Batas maksimal cabang (${maxBranches} cabang) untuk paket ${tierConfig.name} telah tercapai. Silakan upgrade ke paket Pro atau Enterprise untuk menambah cabang baru.`,
+          upgradeRequired: true,
+        },
+        { status: 403 }
+      )
+    }
+
     let newTenantId = ""
     let createdBranch: any = null
 
@@ -58,6 +81,11 @@ export async function POST(req: NextRequest) {
          ON CONFLICT ("tenantId") DO NOTHING`,
         [newTenantId]
       )
+
+      // Seed default role templates (Kasir, Karyawan, Admin) and tenant features (Bab 5 & Spec 4)
+      // Note: Does NOT create dummy staff; staff list starts completely empty (0 members)
+      const { seedDefaultRolesForTenant } = await import("@/lib/dynamicRoles")
+      await seedDefaultRolesForTenant(newTenantId, client)
     })
 
     return NextResponse.json(

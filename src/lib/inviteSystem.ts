@@ -5,6 +5,9 @@ export interface InviteLinkRecord {
   id: string
   tenantId: string
   role: string
+  roleId?: string | null
+  roleName?: string | null
+  roleScope?: "SINGLE_TENANT" | "MULTI_TENANT"
   token: string
   createdBy: string | null
   maxUses: number | null
@@ -15,14 +18,15 @@ export interface InviteLinkRecord {
   updatedAt: string
 }
 
-export const ALLOWED_INVITE_ROLES = ["KARYAWAN", "MANAGER", "ADMIN"]
+export const ALLOWED_INVITE_ROLES = ["KARYAWAN", "KASIR", "MANAGER", "ADMIN"]
 
 /**
  * Generate a new invite link for a tenant with predetermined role and usage constraints.
  */
 export async function createInviteLink(params: {
   tenantId: string
-  role: string
+  role?: string
+  roleId?: string | null
   createdByUserId?: string | null
   maxUses?: number | null
   expiresInDays?: number | null
@@ -32,9 +36,29 @@ export async function createInviteLink(params: {
       return { success: false, error: "Database belum terkonfigurasi." }
     }
 
-    const cleanRole = (params.role || "KARYAWAN").trim().toUpperCase()
-    if (!ALLOWED_INVITE_ROLES.includes(cleanRole)) {
-      return { success: false, error: `Role tidak valid. Role yang diizinkan: ${ALLOWED_INVITE_ROLES.join(", ")}.` }
+    let roleName = (params.role || "KARYAWAN").trim()
+    let roleId = params.roleId || null
+
+    // If roleId is supplied, lookup role details from roles table
+    if (roleId) {
+      const roleRes = await queryPg<{ id: string; name: string; scope: string; requiresApproval: boolean }>(
+        `SELECT id, name, scope, "requiresApproval" FROM roles WHERE id = $1 AND "tenantId" = $2`,
+        [roleId, params.tenantId]
+      )
+      if (!roleRes.rows?.[0]) {
+        return { success: false, error: "Peran yang dipilih tidak ditemukan pada cabang ini." }
+      }
+      roleName = roleRes.rows[0].name
+    } else {
+      // If only role string is provided, try to find matching role template
+      const matchedRole = await queryPg<{ id: string; name: string }>(
+        `SELECT id, name FROM roles WHERE "tenantId" = $1 AND LOWER(name) = LOWER($2) LIMIT 1`,
+        [params.tenantId, roleName]
+      )
+      if (matchedRole.rows?.[0]) {
+        roleId = matchedRole.rows[0].id
+        roleName = matchedRole.rows[0].name
+      }
     }
 
     const token = crypto.randomBytes(16).toString("hex")
@@ -47,11 +71,11 @@ export async function createInviteLink(params: {
 
     const res = await queryPg<InviteLinkRecord>(
       `INSERT INTO invite_links (
-        "tenantId", role, token, "createdBy", "maxUses", "usedCount", "expiresAt", status, "createdAt", "updatedAt"
+        "tenantId", role, "roleId", token, "createdBy", "maxUses", "usedCount", "expiresAt", status, "createdAt", "updatedAt"
       )
-      VALUES ($1, $2, $3, $4, $5, 0, $6, 'ACTIVE', NOW(), NOW())
-      RETURNING id, "tenantId", role, token, "createdBy", "maxUses", "usedCount", "expiresAt", status, "createdAt", "updatedAt"`,
-      [params.tenantId, cleanRole, token, params.createdByUserId || null, maxUses, expiresAt]
+      VALUES ($1, $2, $3, $4, $5, $6, 0, $7, 'ACTIVE', NOW(), NOW())
+      RETURNING id, "tenantId", role, "roleId", token, "createdBy", "maxUses", "usedCount", "expiresAt", status, "createdAt", "updatedAt"`,
+      [params.tenantId, roleName, roleId, token, params.createdByUserId || null, maxUses, expiresAt]
     )
 
     const invite = res.rows[0]
@@ -219,6 +243,8 @@ export async function acceptInvite(params: {
   tenantId?: string
   role?: string
   businessName?: string
+  status?: string
+  isPendingApproval?: boolean
 }> {
   try {
     if (!isDatabaseConfigured) {
@@ -234,8 +260,8 @@ export async function acceptInvite(params: {
       // 1. Lock and validate invite row
       const invRes = await client.query(
         `SELECT 
-          i.id, i."tenantId", i.role, i."maxUses", i."usedCount", i."expiresAt", i.status,
-          t."businessName"
+          i.id, i."tenantId", i.role, i."roleId", i."maxUses", i."usedCount", i."expiresAt", i.status,
+          t."businessName", i."createdBy"
          FROM invite_links i
          JOIN tenants t ON t.id = i."tenantId"
          WHERE i.token = $1
@@ -276,64 +302,82 @@ export async function acceptInvite(params: {
       )
       const userId = userRes.rows[0].id
 
-      // 3. Mutual Exclusivity Check (Prinsip #6):
-      // Check A: Is this user already a staff member in ANY tenant?
-      const existingMemberRes = await client.query(
-        `SELECT m.role, t."businessName"
-         FROM memberships m
-         JOIN tenants t ON t.id = m."tenantId"
-         WHERE m."userId" = $1
-         LIMIT 1`,
-        [userId]
-      )
-      if (existingMemberRes.rows?.[0]) {
-        const m = existingMemberRes.rows[0]
-        return {
-          success: false,
-          code: "ALREADY_STAFF",
-          error: `Akun ini (${cleanEmail}) sudah terdaftar sebagai ${m.role} di toko "${m.businessName}". Satu akun staf hanya bisa terhubung ke satu toko. Hubungi pemilik toko lama jika Anda ingin berpindah.`,
+      // 3. Inspect role details (scope & approval requirements)
+      let roleScope: "SINGLE_TENANT" | "MULTI_TENANT" = "SINGLE_TENANT"
+      let requiresApproval = invite.role.toUpperCase() === "ADMIN"
+      let resolvedRoleId = invite.roleId || null
+
+      if (invite.roleId) {
+        const rRes = await client.query(
+          `SELECT id, name, scope, "requiresApproval" FROM roles WHERE id = $1`,
+          [invite.roleId]
+        )
+        const roleData = rRes.rows?.[0] as { id: string; name: string; scope: "SINGLE_TENANT" | "MULTI_TENANT"; requiresApproval: boolean } | undefined
+        if (roleData) {
+          roleScope = roleData.scope
+          requiresApproval = !!roleData.requiresApproval
         }
       }
 
-      // Check B: Is this user an OWNER of ANY tenant?
-      const existingOwnerRes = await client.query(
-        `SELECT "businessName"
-         FROM tenants
-         WHERE "ownerId" = $1
-         LIMIT 1`,
-        [userId]
+      // 4. Centralized Cross-Role Lock Validation (Bab 4.1 & Bab 11.5)
+      const { cekBolehAmbilPeranBaru } = await import("@/lib/roleLockGuard")
+      const lockCheck = await cekBolehAmbilPeranBaru(
+        userId,
+        roleScope === "MULTI_TENANT" ? "MULTI_TENANT" : "SINGLE_TENANT",
+        invite.tenantId
       )
-      if (existingOwnerRes.rows?.[0]) {
-        const o = existingOwnerRes.rows[0]
+
+      if (!lockCheck.allowed) {
         return {
           success: false,
-          code: "IS_OWNER",
-          error: `Akun ini (${cleanEmail}) terdaftar sebagai pemilik toko "${o.businessName}". Akun pemilik bisnis tidak dapat didaftarkan sebagai staf di toko lain.`,
+          code: lockCheck.currentRoleType || "LOCKED",
+          error: lockCheck.reason || "Akun Anda tidak dapat mengambil peran ini.",
         }
       }
 
-      // 4. Create membership record
-      await client.query(
-        `INSERT INTO memberships ("tenantId", "userId", role, status, "joinedAt", "updatedAt")
-         VALUES ($1, $2, $3, 'ACTIVE', NOW(), NOW())`,
-        [invite.tenantId, userId, invite.role]
-      )
+      // 5. Determine initial status (Bab 9: requiresApproval)
+      const initialStatus = requiresApproval ? "PENDING_APPROVAL" : "ACTIVE"
+      const legacyStatus = requiresApproval ? "pending" : "active"
 
-      // 5. Dual-sync with admin_accounts for full backward-compatibility with receipts/logs
+      // 6. Bind to memberships OR tenant_access_grants depending on role scope (Bab 3 & 4.C)
+      if (roleScope === "MULTI_TENANT") {
+        await client.query(
+          `INSERT INTO tenant_access_grants ("tenantId", "userId", "roleId", status, "grantedBy", "createdAt", "updatedAt")
+           VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+           ON CONFLICT ("tenantId", "userId") DO UPDATE 
+           SET "roleId" = EXCLUDED."roleId", status = EXCLUDED.status, "updatedAt" = NOW()`,
+          [invite.tenantId, userId, resolvedRoleId, initialStatus, invite.createdBy]
+        )
+      } else {
+        await client.query(
+          `INSERT INTO memberships ("tenantId", "userId", role, "roleId", status, "joinedAt", "updatedAt")
+           VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+           ON CONFLICT ("userId") DO UPDATE 
+           SET "tenantId" = EXCLUDED."tenantId", 
+               role = EXCLUDED.role, 
+               "roleId" = EXCLUDED."roleId", 
+               status = EXCLUDED.status, 
+               "updatedAt" = NOW()`,
+          [invite.tenantId, userId, invite.role, resolvedRoleId, initialStatus]
+        )
+      }
+
+      // 7. Dual-sync with admin_accounts for full backward-compatibility with receipts/logs
       const legacyUsername = `staff_${clerkUser.clerkId.replace(/[^a-zA-Z0-9]/g, "").slice(-8)}`
       await client.query(
         `INSERT INTO admin_accounts (
           username, "clerkId", email, "fullName", role, "tenantId", status, password, "createdAt", "updatedAt"
         )
-        VALUES ($1, $2, $3, $4, $5, $6, 'active', 'oauth_managed', NOW(), NOW())
+        VALUES ($1, $2, $3, $4, $5, $6, $7, 'oauth_managed', NOW(), NOW())
         ON CONFLICT ("clerkId") DO UPDATE 
         SET role = EXCLUDED.role,
             "tenantId" = EXCLUDED."tenantId",
+            status = EXCLUDED.status,
             "updatedAt" = NOW()`,
-        [legacyUsername, clerkUser.clerkId, cleanEmail, cleanName, invite.role, invite.tenantId]
+        [legacyUsername, clerkUser.clerkId, cleanEmail, cleanName, invite.role, invite.tenantId, legacyStatus]
       )
 
-      // 6. Increment invite link used count & check expiry
+      // 8. Increment invite link used count & check expiry
       const newUsedCount = invite.usedCount + 1
       const isNowExpired = invite.maxUses !== null && newUsedCount >= invite.maxUses
       await client.query(
@@ -345,7 +389,7 @@ export async function acceptInvite(params: {
         [newUsedCount, isNowExpired, invite.id]
       )
 
-      // 7. Audit log in invite_usages
+      // 9. Audit log in invite_usages
       await client.query(
         `INSERT INTO invite_usages ("inviteLinkId", "userId", "usedAt")
          VALUES ($1, $2, NOW())`,
@@ -357,6 +401,8 @@ export async function acceptInvite(params: {
         tenantId: invite.tenantId,
         role: invite.role,
         businessName: invite.businessName,
+        status: initialStatus,
+        isPendingApproval: requiresApproval,
       }
     })
   } catch (err: any) {

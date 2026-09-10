@@ -21,12 +21,13 @@ export async function POST(req: NextRequest) {
     if (!auth.ok) return auth.response
 
     const body = await req.json().catch(() => ({}))
-    const rawRole = (body.role || "KARYAWAN").trim().toUpperCase()
+    const rawRole = (body.role || "KARYAWAN").trim()
+    const roleId = body.roleId ? String(body.roleId).trim() : null
     const maxUses = body.maxUses ? parseInt(body.maxUses, 10) : null
     const expiresInDays = body.expiresInDays ? parseInt(body.expiresInDays, 10) : 3
 
     // Strict policy: Only OWNER can generate an invite for role ADMIN
-    if (rawRole === "ADMIN" && auth.userRole !== "OWNER" && auth.userRole !== "SUPERADMIN") {
+    if (rawRole.toUpperCase() === "ADMIN" && auth.userRole !== "OWNER" && auth.userRole !== "SUPERADMIN") {
       return NextResponse.json(
         { error: "Hanya Owner yang dapat membuat link undangan untuk peran Admin." },
         { status: 403 }
@@ -36,6 +37,8 @@ export async function POST(req: NextRequest) {
     const result = await createInviteLink({
       tenantId: auth.tenantId,
       role: rawRole,
+      roleId,
+      createdByUserId: null,
       maxUses,
       expiresInDays,
     })

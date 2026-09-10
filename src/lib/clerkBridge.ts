@@ -43,8 +43,11 @@ export async function provisionTenantForClerkUser(clerkId: string): Promise<Sess
     }
 
     // 1. Fast-path check in admin_accounts
-    const existing = await queryPg<{ username: string; role: string; tenantId: string; fullName: string }>(
-      `SELECT username, role, "tenantId", "fullName" FROM admin_accounts WHERE "clerkId" = $1 OR (email = $2 AND $2 != '')`,
+    const existing = await queryPg<{ username: string; role: string; tenantId: string; fullName: string; onboardingCompleted?: boolean }>(
+      `SELECT a.username, a.role, a."tenantId", a."fullName", COALESCE(t."onboardingCompleted", false) AS "onboardingCompleted"
+       FROM admin_accounts a
+       LEFT JOIN tenants t ON t.id = a."tenantId"
+       WHERE a."clerkId" = $1 OR (a.email = $2 AND $2 != '')`,
       [clerkId, email]
     )
 
@@ -56,6 +59,7 @@ export async function provisionTenantForClerkUser(clerkId: string): Promise<Sess
         tenantId: a.tenantId,
         staffName: a.fullName || fullName,
         fullName: a.fullName || fullName,
+        onboardingCompleted: Boolean(a.onboardingCompleted),
       }
     }
 
@@ -64,8 +68,9 @@ export async function provisionTenantForClerkUser(clerkId: string): Promise<Sess
       role: string
       tenantId: string
       businessName: string
+      onboardingCompleted?: boolean
     }>(
-      `SELECT m.role, m."tenantId", t."businessName"
+      `SELECT m.role, m."tenantId", t."businessName", COALESCE(u."onboardingCompleted", false) AS "onboardingCompleted"
        FROM memberships m
        JOIN users u ON u.id = m."userId"
        JOIN tenants t ON t.id = m."tenantId"
@@ -83,6 +88,7 @@ export async function provisionTenantForClerkUser(clerkId: string): Promise<Sess
         staffName: fullName,
         fullName,
         businessName: sm.businessName,
+        onboardingCompleted: Boolean(sm.onboardingCompleted),
       }
     }
 
@@ -90,8 +96,9 @@ export async function provisionTenantForClerkUser(clerkId: string): Promise<Sess
     const existingOwnerTenant = await queryPg<{
       id: string
       businessName: string
+      onboardingCompleted?: boolean
     }>(
-      `SELECT t.id, t."businessName"
+      `SELECT t.id, t."businessName", COALESCE(t."onboardingCompleted", false) AS "onboardingCompleted"
        FROM tenants t
        JOIN users u ON u.id = t."ownerId"
        WHERE (u."clerkId" = $1 OR (u.email = $2 AND $2 != ''))
@@ -109,6 +116,7 @@ export async function provisionTenantForClerkUser(clerkId: string): Promise<Sess
         staffName: fullName,
         fullName,
         businessName: ot.businessName,
+        onboardingCompleted: Boolean(ot.onboardingCompleted),
       }
     }
 
@@ -164,6 +172,7 @@ export async function provisionTenantForClerkUser(clerkId: string): Promise<Sess
       tenantId,
       staffName: fullName,
       fullName,
+      onboardingCompleted: false,
     }
   } catch (error) {
     console.error("[ClerkBridge] Error in provisionTenantForClerkUser:", error)

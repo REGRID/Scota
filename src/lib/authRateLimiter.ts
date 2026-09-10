@@ -1,6 +1,6 @@
 import { queryPg, isDatabaseConfigured } from "@/lib/pgDb"
 
-export type AuthActionType = "login" | "register" | "otp_request" | "otp_verify"
+export type AuthActionType = "login" | "register" | "otp_request" | "otp_verify" | "invite_check"
 
 export interface AuthRateLimitConfig {
   maxAttempts: number     // jumlah percobaan maksimal dalam satu jendela
@@ -15,10 +15,11 @@ export interface AuthRateLimitResult {
 }
 
 export const AUTH_RATE_LIMIT_CONFIGS: Record<AuthActionType, AuthRateLimitConfig> = {
-  login:       { maxAttempts: 5, windowMinutes: 15, lockoutMinutes: 15 },
-  register:    { maxAttempts: 3, windowMinutes: 60, lockoutMinutes: 60 },
-  otp_request: { maxAttempts: 3, windowMinutes: 60, lockoutMinutes: 60 },
-  otp_verify:  { maxAttempts: 5, windowMinutes: 10, lockoutMinutes: 30 },
+  login:        { maxAttempts: 5, windowMinutes: 15, lockoutMinutes: 15 },
+  register:     { maxAttempts: 3, windowMinutes: 60, lockoutMinutes: 60 },
+  otp_request:  { maxAttempts: 3, windowMinutes: 60, lockoutMinutes: 60 },
+  otp_verify:   { maxAttempts: 5, windowMinutes: 10, lockoutMinutes: 30 },
+  invite_check: { maxAttempts: 15, windowMinutes: 1, lockoutMinutes: 15 },
 }
 
 // In-memory fallback jika database sedang offline/unreachable

@@ -86,7 +86,11 @@ export function SubscriptionBanner({
             <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 truncate">
               <Sparkles className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
               <span className="truncate text-[11.5px]">
-                Mode <strong>{tierName}</strong> aktif ({daysRemaining} hari masa percobaan).
+                {isTrial ? (
+                  <>Masa Uji Coba <strong>Trial 14 Hari</strong> aktif ({daysRemaining} hari tersisa).</>
+                ) : (
+                  <>Paket <strong>{tierName}</strong> aktif ({daysRemaining} hari tersisa).</>
+                )}
               </span>
             </div>
           )}

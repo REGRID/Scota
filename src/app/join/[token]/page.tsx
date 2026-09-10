@@ -3,9 +3,9 @@
 import React, { useState, useEffect, use } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { useUser, SignIn } from "@clerk/nextjs"
+import { useUser, useClerk, SignIn } from "@clerk/nextjs"
 import { dark } from "@clerk/themes"
-import { ShieldCheck, Store, UserCheck, AlertTriangle, ArrowRight, ArrowLeft, Loader2, Sparkles, CheckCircle2 } from "lucide-react"
+import { ShieldCheck, Store, UserCheck, AlertTriangle, ArrowRight, ArrowLeft, Loader2, Sparkles, CheckCircle2, LogOut, User } from "lucide-react"
 import { useTheme, ThemeToggle } from "@/lib/theme"
 
 interface JoinPageProps {
@@ -18,6 +18,7 @@ export default function JoinTenantPage({ params }: JoinPageProps) {
   const { theme } = useTheme()
   const isDark = theme === "dark"
   const { isLoaded: isClerkLoaded, isSignedIn: isClerkSignedIn, user: clerkUser } = useUser()
+  const { signOut } = useClerk()
 
   const [loading, setLoading] = useState(true)
   const [valid, setValid] = useState<boolean | null>(null)
@@ -30,6 +31,7 @@ export default function JoinTenantPage({ params }: JoinPageProps) {
   } | null>(null)
 
   const [accepting, setAccepting] = useState(false)
+  const [switchingAccount, setSwitchingAccount] = useState(false)
   const [acceptError, setAcceptError] = useState<string | null>(null)
   const [acceptedSuccess, setAcceptedSuccess] = useState<string | null>(null)
 
@@ -74,49 +76,49 @@ export default function JoinTenantPage({ params }: JoinPageProps) {
     }
   }, [token])
 
-  // 2. Auto-Accept Invite when Clerk user is loaded and signed in
-  useEffect(() => {
-    let isMounted = true
+  // 2. Handle switching Google/Clerk accounts (Bab 11.3 & Bab 4.C)
+  const handleSignOutAndSwitch = async () => {
+    try {
+      setSwitchingAccount(true)
+      setAcceptError(null)
+      await signOut({ redirectUrl: `/join/${encodeURIComponent(token)}` })
+    } catch (err) {
+      console.error("Gagal keluar akun:", err)
+    } finally {
+      setSwitchingAccount(false)
+    }
+  }
 
-    async function triggerAccept() {
-      if (!isClerkLoaded || !isClerkSignedIn || !clerkUser || !valid || accepting || acceptedSuccess || acceptError) {
-        return
-      }
+  // 3. User-confirmed Accept Invite (atomic check & bind)
+  const handleAcceptInvite = async () => {
+    if (!valid || accepting || acceptedSuccess) return
 
-      try {
-        setAccepting(true)
-        setAcceptError(null)
+    try {
+      setAccepting(true)
+      setAcceptError(null)
 
-        const res = await fetch(`/api/invites/${encodeURIComponent(token)}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-        })
+      const res = await fetch(`/api/invites/${encodeURIComponent(token)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      })
 
-        const data = await res.json()
-        if (!isMounted) return
+      const data = await res.json()
 
-        if (!res.ok || !data.success) {
-          setAcceptError(data.error || "Gagal memproses pendaftaran undangan.")
-          setAccepting(false)
-        } else {
-          setAcceptedSuccess(data.message || "Undangan berhasil diterima! Mengalihkan...")
-          setTimeout(() => {
-            router.replace("/dashboard")
-          }, 1500)
-        }
-      } catch (err: any) {
-        if (!isMounted) return
-        setAcceptError(err.message || "Terjadi kesalahan sistem saat menerima undangan.")
+      if (!res.ok || !data.success) {
+        setAcceptError(data.error || "Gagal memproses pendaftaran undangan.")
         setAccepting(false)
+      } else {
+        setAcceptedSuccess(data.message || "Undangan berhasil diterima! Mengalihkan...")
+        const targetUrl = data.redirectUrl || "/dashboard"
+        setTimeout(() => {
+          router.replace(targetUrl)
+        }, 1500)
       }
+    } catch (err: any) {
+      setAcceptError(err.message || "Terjadi kesalahan sistem saat menerima undangan.")
+      setAccepting(false)
     }
-
-    triggerAccept()
-
-    return () => {
-      isMounted = false
-    }
-  }, [isClerkLoaded, isClerkSignedIn, clerkUser, valid, token, accepting, acceptedSuccess, acceptError, router])
+  }
 
   const clerkAppearance = {
     baseTheme: isDark ? dark : undefined,
@@ -251,28 +253,48 @@ export default function JoinTenantPage({ params }: JoinPageProps) {
                 </p>
               </div>
 
-              {/* Error during accept (e.g. Anti-overlap violation) */}
+              {/* Error during accept (e.g. Anti-overlap violation - Bab 2 Prinsip #6) */}
               {acceptError && (
-                <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-900 text-rose-700 dark:text-rose-300 text-xs space-y-1.5 animate-in fade-in duration-200">
+                <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-900 text-rose-700 dark:text-rose-300 text-xs space-y-3 animate-in fade-in duration-200">
                   <div className="flex items-center gap-2 font-bold">
                     <AlertTriangle className="w-4 h-4 shrink-0 text-rose-500" />
-                    <span>Pendaftaran Ditolak</span>
+                    <span>Pendaftaran Tidak Dapat Diproses</span>
                   </div>
                   <p className="text-[11px] leading-relaxed pl-6">
                     {acceptError}
                   </p>
+                  <div className="pt-1 flex items-center gap-2 pl-6">
+                    <button
+                      type="button"
+                      onClick={handleSignOutAndSwitch}
+                      disabled={switchingAccount}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-100 hover:bg-rose-200 dark:bg-rose-900/60 dark:hover:bg-rose-900 text-[11px] font-bold text-rose-900 dark:text-rose-100 transition-colors"
+                    >
+                      {switchingAccount ? <Loader2 className="w-3 h-3 animate-spin" /> : <LogOut className="w-3 h-3" />}
+                      <span>Ganti Akun Google Lain</span>
+                    </button>
+                    <Link
+                      href="/"
+                      className="inline-flex items-center px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-[11px] font-semibold text-slate-700 dark:text-slate-300 transition-colors"
+                    >
+                      Beranda
+                    </Link>
+                  </div>
                 </div>
               )}
 
               {/* Success Acceptance Banner */}
               {acceptedSuccess && (
-                <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-900 text-emerald-700 dark:text-emerald-300 text-xs space-y-1 animate-in fade-in duration-200 text-center">
-                  <CheckCircle2 className="w-5 h-5 text-emerald-500 mx-auto" />
-                  <p className="font-bold">{acceptedSuccess}</p>
+                <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-900 text-emerald-700 dark:text-emerald-300 text-xs space-y-1.5 animate-in fade-in duration-200 text-center">
+                  <CheckCircle2 className="w-6 h-6 text-emerald-500 mx-auto" />
+                  <p className="font-bold text-sm">{acceptedSuccess}</p>
+                  <p className="text-[11px] text-emerald-600 dark:text-emerald-400">
+                    Menyiapkan ruang kerja toko Anda...
+                  </p>
                 </div>
               )}
 
-              {/* Sign in with Google (Clerk) */}
+              {/* Sign in with Google (Clerk) - When user is not logged in */}
               {!isClerkSignedIn && (
                 <div className="pt-1">
                   <p className="text-xs text-center text-slate-500 dark:text-slate-400 mb-3">
@@ -286,16 +308,72 @@ export default function JoinTenantPage({ params }: JoinPageProps) {
                 </div>
               )}
 
-              {/* When Clerk is already signed in, show processing indicator */}
-              {isClerkSignedIn && accepting && (
-                <div className="p-6 rounded-2xl bg-slate-50 dark:bg-slate-950 text-center space-y-2">
-                  <Loader2 className="w-6 h-6 text-emerald-500 animate-spin mx-auto" />
-                  <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                    Menghubungkan akun Google Anda ke {inviteData.businessName}...
-                  </p>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Memverifikasi kepatuhan role dan isolasi tenant.
-                  </p>
+              {/* When Clerk is already signed in - Explicit identity verification & Ganti Akun button (Bab 11.3 & Bab 4.C) */}
+              {isClerkSignedIn && !acceptedSuccess && !acceptError && (
+                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-3.5 animate-in fade-in duration-200">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      {clerkUser?.imageUrl ? (
+                        <img
+                          src={clerkUser.imageUrl}
+                          alt={clerkUser.fullName || "User"}
+                          className="w-10 h-10 rounded-full border border-slate-200 dark:border-slate-700 object-cover shrink-0"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold shrink-0">
+                          <User className="w-5 h-5" />
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                          Masuk sebagai:
+                        </p>
+                        <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                          {clerkUser?.fullName || clerkUser?.username || "Pengguna Google"}
+                        </p>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                          {clerkUser?.primaryEmailAddress?.emailAddress || ""}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Tombol "Bukan Anda? Ganti Akun" (Bab 11.3) */}
+                    <button
+                      type="button"
+                      onClick={handleSignOutAndSwitch}
+                      disabled={switchingAccount || accepting}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800 text-[11px] font-semibold text-slate-700 dark:text-slate-300 transition-colors shrink-0 shadow-xs"
+                      title="Keluar dari akun ini dan masuk dengan akun Google lain"
+                    >
+                      {switchingAccount ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <LogOut className="w-3.5 h-3.5 text-rose-500" />
+                      )}
+                      <span>Ganti Akun</span>
+                    </button>
+                  </div>
+
+                  {/* Action button to confirm join */}
+                  <button
+                    type="button"
+                    onClick={handleAcceptInvite}
+                    disabled={accepting || switchingAccount}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-600/20 transition-all disabled:opacity-50"
+                  >
+                    {accepting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Menghubungkan ke Toko...</span>
+                      </>
+                    ) : (
+                      <>
+                        <UserCheck className="w-4 h-4" />
+                        <span>Gabung sebagai {inviteData.role}</span>
+                        <ArrowRight className="w-4 h-4 ml-0.5" />
+                      </>
+                    )}
+                  </button>
                 </div>
               )}
             </div>

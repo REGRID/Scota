@@ -54,8 +54,9 @@ export async function getSession(req: NextRequest): Promise<SessionPayload | nul
       tenantId: string
       businessName: string
       name: string
+      onboardingCompleted: boolean
     }>(
-      `SELECT m.role, m."tenantId", t."businessName", u.name
+      `SELECT m.role, m."tenantId", t."businessName", u.name, COALESCE(u."onboardingCompleted", false) AS "onboardingCompleted"
        FROM memberships m
        JOIN tenants t ON t.id = m."tenantId"
        JOIN users u ON u.id = m."userId"
@@ -73,6 +74,7 @@ export async function getSession(req: NextRequest): Promise<SessionPayload | nul
         staffName: m.name,
         fullName: m.name,
         businessName: m.businessName,
+        onboardingCompleted: Boolean(m.onboardingCompleted),
       }
     }
 
@@ -81,8 +83,9 @@ export async function getSession(req: NextRequest): Promise<SessionPayload | nul
       id: string
       businessName: string
       name: string
+      onboardingCompleted: boolean
     }>(
-      `SELECT t.id, t."businessName", u.name
+      `SELECT t.id, t."businessName", u.name, COALESCE(t."onboardingCompleted", false) AS "onboardingCompleted"
        FROM tenants t
        JOIN users u ON u.id = t."ownerId"
        WHERE u."clerkId" = $1
@@ -100,6 +103,7 @@ export async function getSession(req: NextRequest): Promise<SessionPayload | nul
         staffName: o.name,
         fullName: o.name,
         businessName: o.businessName,
+        onboardingCompleted: Boolean(o.onboardingCompleted),
       }
     }
 
@@ -111,8 +115,9 @@ export async function getSession(req: NextRequest): Promise<SessionPayload | nul
       fullName: string
       email?: string
       businessName?: string
+      onboardingCompleted: boolean
     }>(
-      `SELECT a.username, a.role, a."tenantId", a."fullName", a.email, t."businessName" 
+      `SELECT a.username, a.role, a."tenantId", a."fullName", a.email, t."businessName", COALESCE(t."onboardingCompleted", false) AS "onboardingCompleted" 
        FROM admin_accounts a 
        LEFT JOIN tenants t ON t.id = a."tenantId" 
        WHERE a."clerkId" = $1`,
@@ -129,6 +134,7 @@ export async function getSession(req: NextRequest): Promise<SessionPayload | nul
         fullName: account.fullName,
         email: account.email,
         businessName: account.businessName || undefined,
+        onboardingCompleted: Boolean(account.onboardingCompleted),
       }
     }
 

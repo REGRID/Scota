@@ -26,6 +26,7 @@ export default function SuperadminPlansPage() {
     priceYearly: 0,
     monthlyScanLimit: 0,
     maxUsers: 0,
+    maxBranches: 1,
     features: [],
   })
 

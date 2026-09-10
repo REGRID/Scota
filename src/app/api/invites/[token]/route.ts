@@ -2,18 +2,32 @@ import { NextRequest, NextResponse } from "next/server"
 import { currentUser } from "@clerk/nextjs/server"
 import { validateInviteToken, acceptInvite } from "@/lib/inviteSystem"
 import { createSessionToken } from "@/lib/session"
+import { checkAuthRateLimit, recordAuthAttempt } from "@/lib/authRateLimiter"
 
 export async function GET(
   req: NextRequest,
   context: { params: Promise<{ token: string }> }
 ) {
   try {
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "127.0.0.1"
+    const rateCheck = await checkAuthRateLimit(ip, "invite_check")
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        { valid: false, reason: "Terlalu banyak permintaan pemeriksaan undangan dari perangkat/IP ini. Silakan coba beberapa saat lagi." },
+        { status: 429 }
+      )
+    }
+
     const { token } = await context.params
     if (!token) {
       return NextResponse.json({ valid: false, reason: "Token undangan tidak ditemukan." }, { status: 400 })
     }
 
     const check = await validateInviteToken(token)
+    if (!check.valid) {
+      await recordAuthAttempt(ip, "invite_check", false)
+    }
+
     return NextResponse.json(check)
   } catch (error: any) {
     console.error("GET /api/invites/[token] error:", error)
@@ -75,35 +89,43 @@ export async function POST(
       )
     }
 
-    // 3. Issue session token for immediate seamless access
-    const sessionToken = await createSessionToken({
-      username: `staff_${user.id.replace(/[^a-zA-Z0-9]/g, "").slice(-8)}`,
-      role: (result.role || "KARYAWAN") as any,
-      tenantId: result.tenantId,
-      staffName: fullName,
-      fullName,
-      businessName: result.businessName || "Bisnis Scota",
-    })
+    // 3. Issue session token if active, or route to pending approval for sensitive roles (Bab 9)
+    const isPending = result.status === "PENDING_APPROVAL"
+    const redirectUrl = isPending ? "/pending-approval" : "/dashboard"
+    const message = isPending
+      ? `Permintaan bergabung Anda sebagai ${result.role} di ${result.businessName} telah terkirim dan sedang menunggu persetujuan dari pemilik toko.`
+      : `Selamat datang di ${result.businessName}! Anda sekarang terdaftar sebagai ${result.role}.`
 
     const response = NextResponse.json({
       success: true,
-      message: `Selamat datang di ${result.businessName}! Anda sekarang terdaftar sebagai ${result.role}.`,
+      message,
       tenantId: result.tenantId,
       role: result.role,
+      status: result.status,
       businessName: result.businessName,
-      redirectUrl: "/dashboard",
+      redirectUrl,
     })
 
-    // Set session cookie
-    response.cookies.set({
-      name: "nota_admin_session",
-      value: sessionToken,
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 30, // 30 days
-    })
+    if (!isPending) {
+      const sessionToken = await createSessionToken({
+        username: `staff_${user.id.replace(/[^a-zA-Z0-9]/g, "").slice(-8)}`,
+        role: (result.role || "KARYAWAN") as any,
+        tenantId: result.tenantId,
+        staffName: fullName,
+        fullName,
+        businessName: result.businessName || "Bisnis Scota",
+      })
+
+      response.cookies.set({
+        name: "nota_admin_session",
+        value: sessionToken,
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: 60 * 60 * 24 * 30, // 30 days
+      })
+    }
 
     return response
   } catch (error: any) {

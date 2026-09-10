@@ -7,6 +7,7 @@ import { getSession } from "@/lib/authHelper"
 import { queryPg } from "@/lib/pgDb"
 import { getOrCreateDemoTenant, issueDemoSession, DEMO_SCAN_LIMIT, DEMO_RECEIPT_LIMIT } from "@/lib/demoTenant"
 import { invalidateReceiptsListCache } from "@/app/api/receipts/route"
+import { getSubscriptionInfo } from "@/lib/subscriptionServer"
 
 import { getActiveGeminiApiKey, getActiveGeminiModel } from "@/lib/aiConfig"
 
@@ -200,6 +201,35 @@ export async function POST(req: NextRequest) {
           {
             error: "RECEIPT_LIMIT_EXCEEDED",
             message: "Batas maksimal 3 nota tersimpan untuk mode demo telah tercapai. Silakan daftar akun bisnis Scota untuk menyimpan nota tanpa batas.",
+            upsell: true,
+            remaining: 0,
+          },
+          { status: 429 }
+        )
+      }
+    } else if (isBusiness && session?.tenantId) {
+      // Validasi langganan & kuota scan bulanan akun bisnis (SSOT)
+      const businessSub = await getSubscriptionInfo(session.tenantId)
+
+      if (businessSub.status === "expired") {
+        return NextResponse.json(
+          {
+            error: "SUBSCRIPTION_EXPIRED",
+            message: "Masa aktif paket langganan Anda telah berakhir. Silakan perpanjang paket untuk melanjutkan pemindaian nota.",
+            upsell: true,
+            remaining: 0,
+          },
+          { status: 403 }
+        )
+      }
+
+      const limit = businessSub.monthlyScanLimit || 30
+      const used = businessSub.usedScansThisMonth || 0
+      if (limit < 99999 && used >= limit) {
+        return NextResponse.json(
+          {
+            error: "QUOTA_EXCEEDED",
+            message: `Batas kuota pemindaian bulanan (${limit} nota) untuk paket Anda telah tercapai. Silakan upgrade paket untuk menambah kuota.`,
             upsell: true,
             remaining: 0,
           },
@@ -471,8 +501,29 @@ Keluarkan HANYA JSON:
       }
 
       remainingQuota = Math.max(0, DEMO_SCAN_LIMIT - (currentDemoScans + 1))
+    } else if (session?.tenantId) {
+      // Business user scan: update real usage count in subscriptions table
+      try {
+        const updateRes = await queryPg<{ usedScansThisMonth: number; monthlyScanLimit: number }>(
+          `UPDATE subscriptions 
+           SET "usedScansThisMonth" = COALESCE("usedScansThisMonth", 0) + 1, "updatedAt" = NOW()
+           WHERE "tenantId" = $1
+           RETURNING "usedScansThisMonth", "monthlyScanLimit"`,
+          [session.tenantId]
+        )
+        const row = updateRes.rows?.[0]
+        if (row) {
+          const limit = row.monthlyScanLimit || 30
+          const used = row.usedScansThisMonth || 1
+          remainingQuota = limit >= 99999 ? 99999 : Math.max(0, limit - used)
+        } else {
+          remainingQuota = 999
+        }
+      } catch (subErr) {
+        console.warn("Gagal update usedScansThisMonth:", subErr)
+        remainingQuota = 999
+      }
     } else {
-      // Business user scan
       remainingQuota = 999
     }
 

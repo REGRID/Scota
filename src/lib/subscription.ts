@@ -39,6 +39,7 @@ export interface TierConfig {
   priceMonthly: number
   priceYearly: number
   maxUsers: number
+  maxBranches: number
   features: string[]
 }
 
@@ -60,6 +61,7 @@ export const TIER_CONFIG: Record<SubscriptionTier, TierConfig> = {
     priceMonthly: 0,
     priceYearly: 0,
     maxUsers: 2,
+    maxBranches: 1,
     features: [
       "30 Scan Nota AI / bulan",
       "Katalog Kategori Otomatis",
@@ -73,6 +75,7 @@ export const TIER_CONFIG: Record<SubscriptionTier, TierConfig> = {
     priceMonthly: 79000,
     priceYearly: 790000,
     maxUsers: 3,
+    maxBranches: 1,
     features: [
       "150 Scan Nota AI / bulan",
       "Kustomisasi Nama & Logo Usaha",
@@ -87,6 +90,7 @@ export const TIER_CONFIG: Record<SubscriptionTier, TierConfig> = {
     priceMonthly: 199000,
     priceYearly: 1990000,
     maxUsers: 10,
+    maxBranches: 5,
     features: [
       "600 Scan Nota AI / bulan",
       "AI Vision Multi-Foto & Faktur Panjang",
@@ -102,6 +106,7 @@ export const TIER_CONFIG: Record<SubscriptionTier, TierConfig> = {
     priceMonthly: 499000,
     priceYearly: 4990000,
     maxUsers: 99,
+    maxBranches: 99,
     features: [
       "Unlimited Scan Nota AI",
       "Dukungan Multi-Cabang & Multi-Usaha",

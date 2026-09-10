@@ -54,6 +54,7 @@ export function MainApp({
 
   // Admin Auth Gate State
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
+  const [isOnboardingCompleted, setIsOnboardingCompleted] = useState<boolean | null>(null)
   const [adminUser, setAdminUser] = useState<string>("admin")
   const [userRole, setUserRole] = useState<string>("ADMIN")
   const [staffName, setStaffName] = useState<string>("Staf")
@@ -72,7 +73,7 @@ export function MainApp({
     } else if (pathname === "/login" || pathname === "/signin") {
       setShowLanding(false)
       setAuthInitialMode("login")
-    } else if (pathname === "/register" || pathname === "/signup") {
+    } else if (pathname === "/register" || pathname === "/signup" || pathname === "/daftar") {
       setShowLanding(false)
       setAuthInitialMode("register")
     } else if (pathname === "/scan") {
@@ -97,7 +98,7 @@ export function MainApp({
       } else if (path === "/login" || path === "/signin") {
         setShowLanding(false)
         setAuthInitialMode("login")
-      } else if (path === "/register" || path === "/signup") {
+      } else if (path === "/register" || path === "/signup" || path === "/daftar") {
         setShowLanding(false)
         setAuthInitialMode("register")
       } else if (path === "/scan") {
@@ -307,6 +308,19 @@ export function MainApp({
             if (data.user?.username) setAdminUser(data.user.username)
             if (data.user?.role) setUserRole(data.user.role)
             if (data.user?.staffName) setStaffName(data.user.staffName)
+
+            const completed = data.user?.onboardingCompleted ?? true
+            setIsOnboardingCompleted(completed)
+
+            // Auto-redirect new OWNER who hasn't completed onboarding to /onboarding
+            if (!completed && data.user?.role === "OWNER") {
+              const skipped = typeof window !== "undefined" && localStorage.getItem("nota_seen_onboarding") === "true"
+              if (!skipped && pathname !== "/onboarding") {
+                router.replace("/onboarding")
+                return
+              }
+            }
+
             if (initialView !== "landing" && pathname !== "/") setShowLanding(false)
             return
           }
@@ -341,14 +355,21 @@ export function MainApp({
     }
 
     checkSession()
-  }, [isClerkLoaded, isClerkSignedIn, clerkUser, initialView, pathname])
+  }, [isClerkLoaded, isClerkSignedIn, clerkUser, initialView, pathname, router])
 
-  // Auto-redirect from /login or /register to /dashboard when already authenticated
+  // Auto-redirect from /login or /register to /dashboard (or /onboarding) when already authenticated
   useEffect(() => {
     if ((initialView === "register" || initialView === "login") && isAuthenticated === true) {
+      if (isOnboardingCompleted === false && userRole === "OWNER") {
+        const skipped = typeof window !== "undefined" && localStorage.getItem("nota_seen_onboarding") === "true"
+        if (!skipped) {
+          router.replace("/onboarding")
+          return
+        }
+      }
       router.replace("/dashboard")
     }
-  }, [initialView, isAuthenticated, router])
+  }, [initialView, isAuthenticated, isOnboardingCompleted, userRole, router])
 
   // Browser Close / Refresh Warning Protection during Scan & Verification
   useEffect(() => {
@@ -1002,24 +1023,6 @@ export function MainApp({
                       </div>
                     </div>
 
-                    {/* Clerk Profile & Security Button */}
-                    {isClerkSignedIn && openUserProfile && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowProfileMenu(false)
-                          openUserProfile()
-                        }}
-                        className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                      >
-                        <span className="flex items-center gap-2.5">
-                          <User className="w-4 h-4 text-emerald-500" />
-                          <span>Profil Akun & Keamanan</span>
-                        </span>
-                        <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-                      </button>
-                    )}
-
                     <Link
                       href="/pricing"
                       onClick={() => setShowProfileMenu(false)}
@@ -1041,7 +1044,7 @@ export function MainApp({
                         className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                       >
                         <Settings className="w-4 h-4 text-slate-400" />
-                        <span>Pengaturan & Notifikasi</span>
+                        <span>Setting</span>
                       </Link>
 
                       <button

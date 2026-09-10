@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
       fullName: session.fullName || session.name || session.username,
       businessName: session.businessName,
       email: session.email,
+      onboardingCompleted: session.onboardingCompleted ?? false,
     })
 
     const response = NextResponse.json({
@@ -31,6 +32,7 @@ export async function GET(req: NextRequest) {
         tenantId: session.tenantId,
         businessName: session.businessName || "Bisnis Saya",
         email: session.email,
+        onboardingCompleted: session.onboardingCompleted ?? false,
       },
     })
 

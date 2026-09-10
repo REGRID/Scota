@@ -118,10 +118,11 @@ export async function POST(req: NextRequest) {
 
     // 4.1 Update or insert into subscriptions table (canonical subscription store)
     await queryPg(
-      `INSERT INTO subscriptions ("tenantId", tier, "validUntil", "monthlyScanLimit", "usedScansThisMonth", "updatedAt")
-       VALUES ($1, $2, NOW() + ($3 || ' days')::interval, $4, 0, NOW())
+      `INSERT INTO subscriptions ("tenantId", tier, status, "validUntil", "monthlyScanLimit", "usedScansThisMonth", "updatedAt")
+       VALUES ($1, $2, 'active', NOW() + ($3 || ' days')::interval, $4, 0, NOW())
        ON CONFLICT ("tenantId")
        DO UPDATE SET tier = EXCLUDED.tier,
+                     status = 'active',
                      "validUntil" = GREATEST(COALESCE(subscriptions."validUntil", NOW()), NOW()) + ($3 || ' days')::interval,
                      "monthlyScanLimit" = EXCLUDED."monthlyScanLimit",
                      "updatedAt" = NOW()`,

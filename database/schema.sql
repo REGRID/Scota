@@ -34,6 +34,11 @@ ALTER TABLE tenants ADD COLUMN IF NOT EXISTS "demoGoogleId" TEXT;
 ALTER TABLE tenants ADD COLUMN IF NOT EXISTS "demoEmail" TEXT;
 ALTER TABLE tenants ADD COLUMN IF NOT EXISTS "demoScanCount" INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE tenants ADD COLUMN IF NOT EXISTS "schemaMigrated" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS "businessType" TEXT DEFAULT 'Toko & Ritel';
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS "estimatedDailyTransactions" TEXT;
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS "onboardingCompleted" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS "phone" TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS "onboardingCompleted" BOOLEAN NOT NULL DEFAULT false;
 
 -- Table: tenant_migration_log (Multi-Tenant Schema Migration History & Audit Trail)
 CREATE TABLE IF NOT EXISTS tenant_migration_log (
@@ -414,5 +419,18 @@ CREATE TABLE IF NOT EXISTS invite_usages (
 CREATE INDEX IF NOT EXISTS idx_invite_usages_link ON invite_usages("inviteLinkId");
 CREATE INDEX IF NOT EXISTS idx_invite_usages_user ON invite_usages("userId");
 
+-- 19. Staff Archival / Employment History (Bab 3 & Bab 4.D)
+CREATE TABLE IF NOT EXISTS membership_history (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    "tenantId" UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    "userId" UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role TEXT NOT NULL,
+    "joinedAt" TIMESTAMPTZ NOT NULL DEFAULT now(),
+    "leftAt" TIMESTAMPTZ NOT NULL DEFAULT now(),
+    "leftReason" TEXT NOT NULL DEFAULT 'REMOVED_BY_OWNER',
+    "removedBy" UUID REFERENCES users(id) ON DELETE SET NULL,
+    "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 
-
+CREATE INDEX IF NOT EXISTS idx_membership_history_tenant ON membership_history("tenantId");
+CREATE INDEX IF NOT EXISTS idx_membership_history_user ON membership_history("userId");

@@ -437,7 +437,7 @@ function SuperadminTenantsContent() {
 
                       {/* Status */}
                       <td className="py-3.5 px-4">
-                        <StatusBadge status={t.status} />
+                        <StatusBadge status={t.status} validUntil={t.validUntil} />
                       </td>
 
                       {/* Tier */}
@@ -511,7 +511,7 @@ function SuperadminTenantsContent() {
                             type="button"
                             onClick={() => {
                               setEditingTenant(t)
-                              setNewTier(t.tier)
+                              setNewTier(t.tier === "trial" ? "pro" : t.tier)
                             }}
                             className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-all cursor-pointer"
                             title="Upgrade / Perpanjang Paket"
@@ -528,10 +528,9 @@ function SuperadminTenantsContent() {
                           >
                             <Key className="w-4 h-4 text-amber-400" />
                           </button>
-
+                          {/* When suspended: show Unlock (Open) and Trash2 (Delete). When active: only show Suspend */}
                           {t.status === "suspended" ? (
                             <>
-                              {/* Option 1: Open / Buka Suspend / Aktifkan Kembali */}
                               <button
                                 type="button"
                                 onClick={() => setSuspendTarget(t)}
@@ -541,7 +540,6 @@ function SuperadminTenantsContent() {
                                 <Unlock className="w-4 h-4 text-emerald-400" />
                               </button>
 
-                              {/* Option 2: Delete / Hapus Tenant Permanen */}
                               <button
                                 type="button"
                                 onClick={() => setDeleteTarget(t)}
@@ -552,12 +550,11 @@ function SuperadminTenantsContent() {
                               </button>
                             </>
                           ) : (
-                            /* Normal Suspend Action */
                             <button
                               type="button"
                               onClick={() => setSuspendTarget(t)}
                               className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-all cursor-pointer"
-                              title="Tangguhkan / Suspend Tenant"
+                              title="Tangguhkan / Suspend Tenant (Wajib disuspend sebelum dihapus)"
                             >
                               <ShieldAlert className="w-4 h-4 text-rose-400" />
                             </button>
@@ -655,6 +652,26 @@ function SuperadminTenantsContent() {
                   <option value={180}>+ 180 Hari (6 Bulan)</option>
                   <option value={365}>+ 365 Hari (1 Tahun)</option>
                 </select>
+              </div>
+
+              {/* Preview Ringkasan Paket Baru */}
+              <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 space-y-1.5 text-xs animate-in fade-in duration-150">
+                <div className="flex justify-between items-center text-slate-400">
+                  <span>Paket yang akan aktif:</span>
+                  <span className="font-black text-emerald-400 uppercase tracking-wider">{newTier}</span>
+                </div>
+                <div className="flex justify-between items-center text-slate-400">
+                  <span>Status akun setelah simpan:</span>
+                  <span className={`font-bold ${newTier === "trial" ? "text-sky-400" : "text-emerald-400"}`}>
+                    {newTier === "trial" ? "Trial" : "Aktif (Berbayar)"}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-slate-400">
+                  <span>Limit OCR bulanan:</span>
+                  <span className="font-mono text-slate-200">
+                    {newTier === "enterprise" ? "Unlimited (Tanpa Batas)" : `${TIER_CONFIG[newTier]?.monthlyScanLimit || 30} nota / bulan`}
+                  </span>
+                </div>
               </div>
 
               <div className="flex justify-end gap-3 pt-3 border-t border-slate-800">

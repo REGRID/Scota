@@ -15,10 +15,11 @@ export type CommonStatus =
 
 interface StatusBadgeProps {
   status: CommonStatus
+  validUntil?: string
   className?: string
 }
 
-export function StatusBadge({ status, className = "" }: StatusBadgeProps) {
+export function StatusBadge({ status, validUntil, className = "" }: StatusBadgeProps) {
   const normalized = (status || "").toLowerCase().trim()
 
   let style = "bg-slate-800 text-slate-400 border-slate-700"
@@ -33,7 +34,12 @@ export function StatusBadge({ status, className = "" }: StatusBadgeProps) {
       break
     case "trial":
       style = "bg-sky-500/10 text-sky-400 border-sky-500/30"
-      label = "Trial 14 Hari"
+      if (validUntil) {
+        const daysLeft = Math.max(0, Math.ceil((new Date(validUntil).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+        label = daysLeft > 0 ? `Trial (${daysLeft} Hari)` : "Trial Berakhir"
+      } else {
+        label = "Trial"
+      }
       break
     case "expired":
     case "kadaluarsa":

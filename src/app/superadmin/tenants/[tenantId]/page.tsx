@@ -105,7 +105,7 @@ export default function TenantDetailPage({ params }: TenantDetailPageProps) {
       const json = await res.json()
       if (json.success && json.data) {
         setData(json.data)
-        setNewTier(json.data.tenant.tier)
+        setNewTier(json.data.tenant.tier === "trial" ? "pro" : json.data.tenant.tier)
         if (json.data.tenant.approvalWorkflow) {
           try {
             const parsed = typeof json.data.tenant.approvalWorkflow === "string"
@@ -407,7 +407,7 @@ export default function TenantDetailPage({ params }: TenantDetailPageProps) {
               <h1 className="text-xl sm:text-2xl font-black text-white">
                 {tenant?.businessName || tenant?.fullName}
               </h1>
-              <StatusBadge status={tenant?.status} />
+              <StatusBadge status={tenant?.status} validUntil={tenant?.validUntil} />
               <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                 {tierCfg.name}
               </span>
@@ -447,6 +447,7 @@ export default function TenantDetailPage({ params }: TenantDetailPageProps) {
             <span>Reset Pass</span>
           </button>
 
+          {/* Action Buttons: Delete is only unlocked after tenant is suspended */}
           {tenant?.status === "suspended" ? (
             <>
               <button
@@ -463,7 +464,7 @@ export default function TenantDetailPage({ params }: TenantDetailPageProps) {
                 type="button"
                 onClick={() => setShowDeleteDialog(true)}
                 className="px-3.5 py-2.5 rounded-2xl border border-rose-500/40 bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm shadow-rose-500/10"
-                title="Hapus Tenant dan Seluruh Datanya Secara Permanen"
+                title="Hapus Tenant Permanen (Hanya untuk tenant yang disuspend)"
               >
                 <Trash2 className="w-4 h-4" />
                 <span>Hapus Tenant</span>
@@ -474,6 +475,7 @@ export default function TenantDetailPage({ params }: TenantDetailPageProps) {
               type="button"
               onClick={() => setShowSuspendDialog(true)}
               className="px-3.5 py-2.5 rounded-2xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+              title="Tangguhkan / Suspend Tenant (Wajib disuspend sebelum dihapus)"
             >
               <ShieldAlert className="w-4 h-4" />
               <span>Suspend</span>
@@ -1016,6 +1018,26 @@ export default function TenantDetailPage({ params }: TenantDetailPageProps) {
                   <option value={180}>+ 180 Hari (6 Bulan)</option>
                   <option value={365}>+ 365 Hari (1 Tahun)</option>
                 </select>
+              </div>
+
+              {/* Preview Ringkasan Paket Baru */}
+              <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 space-y-1.5 text-xs animate-in fade-in duration-150">
+                <div className="flex justify-between items-center text-slate-400">
+                  <span>Paket yang akan aktif:</span>
+                  <span className="font-black text-emerald-400 uppercase tracking-wider">{newTier}</span>
+                </div>
+                <div className="flex justify-between items-center text-slate-400">
+                  <span>Status akun setelah simpan:</span>
+                  <span className={`font-bold ${newTier === "trial" ? "text-sky-400" : "text-emerald-400"}`}>
+                    {newTier === "trial" ? "Trial" : "Aktif (Berbayar)"}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-slate-400">
+                  <span>Limit OCR bulanan:</span>
+                  <span className="font-mono text-slate-200">
+                    {newTier === "enterprise" ? "Unlimited (Tanpa Batas)" : `${TIER_CONFIG[newTier]?.monthlyScanLimit || 30} nota / bulan`}
+                  </span>
+                </div>
               </div>
 
               <div className="flex justify-end gap-3 pt-3 border-t border-slate-800">

@@ -317,7 +317,7 @@ export async function getAllTenants(): Promise<TenantSummary[]> {
     const r = (t.role || "").toUpperCase()
     if (u === masterSuperadminUser || u === "superadmin" || u === "developer") return false
     if (u === masterSuperadminEmail) return false
-    if (t.tenantId === DEFAULT_TENANT_ID && (u === "superadmin" || r === "SUPERADMIN")) return false
+    if (t.tenantId === DEFAULT_TENANT_ID || t.id === DEFAULT_TENANT_ID) return false
     return true
   })
 }
@@ -419,7 +419,7 @@ export async function resolveTenantEntity(
   if (!cleanId && !cleanExplicit) return null
 
   // 1. If explicit tenantId is provided and valid
-  if (cleanExplicit && cleanExplicit !== DEFAULT_TENANT_ID) {
+  if (cleanExplicit) {
     const tRes = await queryPg<{ id: string; ownerId?: string }>(
       `SELECT id, "ownerId" FROM tenants WHERE id = $1 LIMIT 1`,
       [cleanExplicit]
@@ -468,6 +468,20 @@ export async function resolveTenantEntity(
     }
   }
 
+  // 2b. Try match cleanId with prefix "tenant_" (e.g. tenant_00000000 or tenant_c53954a8)
+  if (cleanId.startsWith("tenant_")) {
+    const prefix = cleanId.replace("tenant_", "")
+    if (prefix) {
+      const tRes = await queryPg<{ id: string; ownerId?: string }>(
+        `SELECT id, "ownerId" FROM tenants WHERE id::text LIKE $1 LIMIT 1`,
+        [prefix + "%"]
+      )
+      if (tRes.rows?.[0]) {
+        return resolveTenantEntity(cleanId, tRes.rows[0].id)
+      }
+    }
+  }
+
   // 3. Try match cleanId in admin_accounts (by username, email, clerkId)
   const accRes = await queryPg<{ tenantId: string; username: string; email?: string; clerkId?: string }>(
     `SELECT "tenantId", username, email, "clerkId" FROM admin_accounts 
@@ -502,13 +516,15 @@ export async function resolveTenantEntity(
     }
   }
 
-  // 5. Try match cleanId in subscriptions table
-  const subRes = await queryPg<{ tenantId: string }>(
-    `SELECT "tenantId" FROM subscriptions WHERE "tenantId" = $1 LIMIT 1`,
-    [cleanId]
-  )
-  if (subRes.rows?.[0]?.tenantId) {
-    return resolveTenantEntity(cleanId, subRes.rows[0].tenantId)
+  // 5. Try match cleanId in subscriptions table (only if valid UUID)
+  if (isUuid) {
+    const subRes = await queryPg<{ tenantId: string }>(
+      `SELECT "tenantId" FROM subscriptions WHERE "tenantId" = $1 LIMIT 1`,
+      [cleanId]
+    )
+    if (subRes.rows?.[0]?.tenantId) {
+      return resolveTenantEntity(cleanId, subRes.rows[0].tenantId)
+    }
   }
 
   return null
@@ -747,11 +763,19 @@ export async function deleteTenant(
 
     const { tenantId, clerkIds, ownerUserId } = resolved
 
-    if (tenantId === DEFAULT_TENANT_ID) {
-      return { success: false, message: "Tenant sistem utama tidak dapat dihapus." }
-    }
-
     if (isDatabaseConfigured) {
+      // Safety guard: tenant must be suspended before deletion to prevent accidental clicks
+      const statusRes = await queryPg<{ status: string }>(
+        `SELECT status FROM tenants WHERE id = $1 LIMIT 1`,
+        [tenantId]
+      )
+      if (statusRes.rows?.[0] && statusRes.rows[0].status !== "suspended") {
+        return {
+          success: false,
+          message: "Tenant harus disuspend terlebih dahulu sebelum dapat dihapus permanen untuk mencegah kesalahan penghapusan data.",
+        }
+      }
+
       await withTransactionPg(async (client) => {
         // 1. Hapus receipt_items dan receipts jika ada
         const checkReceiptItems = await client.query(

@@ -17,9 +17,11 @@ import { OnboardingWelcomeModal } from "@/components/OnboardingWelcomeModal"
 import { createSampleReceiptDataUrl } from "@/lib/sampleReceipt"
 import { SubscriptionInfo, SubscriptionTier } from "@/lib/subscription"
 import { ParsedReceiptResult } from "@/app/api/parse-receipt/route"
+import { ExecutiveSummaryDashboard } from "@/components/ExecutiveSummaryDashboard"
 import {
   Camera,
   History,
+  BarChart3,
   ShieldCheck,
   ShieldAlert,
   CheckCircle2,
@@ -40,7 +42,7 @@ import { ThemeToggle } from "@/lib/theme"
 
 export interface MainAppProps {
   initialView?: "landing" | "app" | "login" | "register"
-  initialTab?: "scan" | "history"
+  initialTab?: "overview" | "scan" | "history"
 }
 
 export function MainApp({
@@ -63,14 +65,28 @@ export function MainApp({
     initialView === "register" ? "register" : "login"
   )
   const [authInitialTier, setAuthInitialTier] = useState<SubscriptionTier>("trial")
-  const [showLanding, setShowLanding] = useState<boolean>(initialView === "landing")
-  const [activeTab, setActiveTab] = useState<"scan" | "history">(initialTab)
+  const [showLanding, setShowLanding] = useState<boolean>(() => {
+    if (initialView !== "landing") return false
+    if (typeof window !== "undefined") {
+      const hasToken = Boolean(localStorage.getItem("nota_admin_token") || localStorage.getItem("nota_admin_user"))
+      const isExplicitLanding = new URLSearchParams(window.location.search).get("view") === "landing"
+      if (hasToken && !isExplicitLanding) return false
+    }
+    return true
+  })
+  const [activeTab, setActiveTab] = useState<"overview" | "scan" | "history">(initialTab || "overview")
   const [showProfileMenu, setShowProfileMenu] = useState<boolean>(false)
 
   // Sync state based on pathname, initialView, or initialTab
   useEffect(() => {
     if (pathname === "/") {
-      setShowLanding(true)
+      const isExplicitLanding = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("view") === "landing"
+      if ((isAuthenticated === true || isClerkSignedIn) && !isExplicitLanding) {
+        setShowLanding(false)
+        setActiveTab("overview")
+      } else if (isAuthenticated === false) {
+        setShowLanding(true)
+      }
     } else if (pathname === "/login" || pathname === "/signin") {
       setShowLanding(false)
       setAuthInitialMode("login")
@@ -83,11 +99,11 @@ export function MainApp({
     } else if (pathname === "/history") {
       setShowLanding(false)
       setActiveTab("history")
-    } else if (pathname === "/dashboard" || pathname === "/app") {
+    } else if (pathname === "/dashboard" || pathname === "/app" || pathname === "/overview") {
       setShowLanding(false)
-      setActiveTab("scan")
+      setActiveTab("overview")
     }
-  }, [pathname])
+  }, [pathname, isAuthenticated, isClerkSignedIn])
 
   // Listen to browser Back/Forward navigation (popstate)
   useEffect(() => {
@@ -95,7 +111,13 @@ export function MainApp({
       if (typeof window === "undefined") return
       const path = window.location.pathname
       if (path === "/") {
-        setShowLanding(true)
+        const isExplicitLanding = new URLSearchParams(window.location.search).get("view") === "landing"
+        if ((isAuthenticated === true || isClerkSignedIn) && !isExplicitLanding) {
+          setShowLanding(false)
+          setActiveTab("overview")
+        } else if (isAuthenticated === false) {
+          setShowLanding(true)
+        }
       } else if (path === "/login" || path === "/signin") {
         setShowLanding(false)
         setAuthInitialMode("login")
@@ -108,22 +130,22 @@ export function MainApp({
       } else if (path === "/history") {
         setShowLanding(false)
         setActiveTab("history")
-      } else if (path === "/dashboard" || path === "/app") {
+      } else if (path === "/dashboard" || path === "/app" || path === "/overview") {
         setShowLanding(false)
-        setActiveTab("scan")
+        setActiveTab("overview")
       }
     }
 
     window.addEventListener("popstate", handlePopState)
     return () => window.removeEventListener("popstate", handlePopState)
-  }, [])
+  }, [isAuthenticated, isClerkSignedIn])
 
-  const handleTabChange = (tab: "scan" | "history") => {
+  const handleTabChange = (tab: "overview" | "scan" | "history") => {
     if (isProcessing) return
     setImagePreviewUrl(null)
     setActiveTab(tab)
     if (typeof window !== "undefined") {
-      const targetPath = `/${tab}`
+      const targetPath = tab === "overview" ? "/dashboard" : `/${tab}`
       if (window.location.pathname !== targetPath) {
         window.history.pushState(null, "", targetPath)
       }
@@ -291,7 +313,7 @@ export function MainApp({
       setAdminUser(localUser)
       const key = `nota_active_tab_${localUser.toLowerCase()}`
       const savedTab = localStorage.getItem(key) || localStorage.getItem("nota_active_tab")
-      if (savedTab === "scan" || savedTab === "history") setActiveTab(savedTab as "scan" | "history")
+      if (savedTab === "scan" || savedTab === "history" || savedTab === "overview") setActiveTab(savedTab as any)
     }
 
     if (!isClerkLoaded) return
@@ -322,7 +344,13 @@ export function MainApp({
               }
             }
 
-            if (initialView !== "landing" && pathname !== "/") setShowLanding(false)
+            const isExplicitLanding = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("view") === "landing"
+            if (!isExplicitLanding) {
+              setShowLanding(false)
+              if (pathname === "/" || pathname === "/dashboard") {
+                setActiveTab("overview")
+              }
+            }
             return
           }
         }
@@ -350,8 +378,12 @@ export function MainApp({
         localStorage.setItem("nota_staff_name", displayStaff)
       }
       setIsAuthenticated(true)
-      if (initialView !== "landing" && pathname !== "/") {
+      const isExplicitLanding = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("view") === "landing"
+      if (!isExplicitLanding) {
         setShowLanding(false)
+        if (pathname === "/" || pathname === "/dashboard") {
+          setActiveTab("overview")
+        }
       }
     }
 
@@ -917,8 +949,22 @@ export function MainApp({
             <button
               type="button"
               disabled={isProcessing}
+              onClick={() => handleTabChange("overview")}
+              className={`flex items-center gap-1 sm:gap-1.5 px-2 py-1 sm:px-3 sm:py-2 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold transition-all cursor-pointer ${
+                activeTab === "overview" && !imagePreviewUrl
+                  ? "bg-emerald-500 text-slate-950 font-black shadow-xs"
+                  : "text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
+              } ${isProcessing ? "opacity-40 cursor-not-allowed pointer-events-none" : ""}`}
+            >
+              <BarChart3 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span>Ringkasan</span>
+            </button>
+
+            <button
+              type="button"
+              disabled={isProcessing}
               onClick={() => handleTabChange("scan")}
-              className={`flex items-center gap-1 sm:gap-1.5 px-2 py-1 sm:px-4 sm:py-2 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold transition-all cursor-pointer ${
+              className={`flex items-center gap-1 sm:gap-1.5 px-2 py-1 sm:px-3 sm:py-2 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold transition-all cursor-pointer ${
                 activeTab === "scan" && !imagePreviewUrl
                   ? "bg-emerald-500 text-slate-950 font-black shadow-xs"
                   : "text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
@@ -932,7 +978,7 @@ export function MainApp({
               type="button"
               disabled={isProcessing}
               onClick={() => handleTabChange("history")}
-              className={`flex items-center gap-1 sm:gap-1.5 px-2 py-1 sm:px-4 sm:py-2 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold transition-all cursor-pointer ${
+              className={`flex items-center gap-1 sm:gap-1.5 px-2 py-1 sm:px-3 sm:py-2 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold transition-all cursor-pointer ${
                 activeTab === "history" && !imagePreviewUrl
                   ? "bg-emerald-500 text-slate-950 font-black shadow-xs"
                   : "text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
@@ -1193,6 +1239,17 @@ export function MainApp({
           </div>
         ) : (
           <>
+            {/* Overview / Ringkasan Eksekutif Tab */}
+            {activeTab === "overview" && (
+              <ExecutiveSummaryDashboard
+                onNavigateTab={handleTabChange}
+                onQuickScan={handleImageSelected}
+                adminUser={adminUser}
+                userRole={userRole}
+                subscription={subscription}
+              />
+            )}
+
             {/* Scan Tab */}
             {activeTab === "scan" && (
               <div className="space-y-6">

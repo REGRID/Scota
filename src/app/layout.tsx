@@ -1,7 +1,8 @@
 import { ClerkProvider } from "@clerk/nextjs";
 import { shadcn } from "@clerk/ui/themes";
 import type { Metadata, Viewport } from "next"
-import { Plus_Jakarta_Sans, Geist_Mono } from "next/font/google"
+import { Plus_Jakarta_Sans, Outfit, JetBrains_Mono } from "next/font/google"
+import localFont from "next/font/local"
 import "./globals.css"
 import { Toaster } from "sonner"
 
@@ -13,8 +14,48 @@ const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ["latin"],
   variable: "--font-sans",
   weight: ["400", "500", "600", "700", "800"],
+  display: "swap",
 })
-const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" })
+
+const outfit = Outfit({
+  subsets: ["latin"],
+  variable: "--font-heading",
+  weight: ["500", "600", "700", "800", "900"],
+  display: "swap",
+})
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono",
+  display: "swap",
+})
+
+const clashDisplay = localFont({
+  src: [
+    {
+      path: "../../public/fonts/clash-display/ClashDisplay-Regular.woff2",
+      weight: "400",
+      style: "normal",
+    },
+    {
+      path: "../../public/fonts/clash-display/ClashDisplay-Medium.woff2",
+      weight: "500",
+      style: "normal",
+    },
+    {
+      path: "../../public/fonts/clash-display/ClashDisplay-Semibold.woff2",
+      weight: "600",
+      style: "normal",
+    },
+    {
+      path: "../../public/fonts/clash-display/ClashDisplay-Bold.woff2",
+      weight: "700",
+      style: "normal",
+    },
+  ],
+  variable: "--font-clash",
+  display: "swap",
+})
 
 export const viewport: Viewport = {
   themeColor: "#0f172a",
@@ -94,7 +135,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="id" className={`${plusJakartaSans.variable} ${geistMono.variable} dark max-w-full overflow-x-clip`} suppressHydrationWarning>
+    <html lang="id" className={`${plusJakartaSans.variable} ${outfit.variable} ${jetbrainsMono.variable} ${clashDisplay.variable} dark max-w-full overflow-x-clip`} suppressHydrationWarning>
       <head>
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />

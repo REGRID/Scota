@@ -21,3 +21,16 @@ jobs:
             cd /var/www/scota
             chmod +x deploy.sh
             bash deploy.sh
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Verify superadmin page protection (regression guard)
+        run: node scripts/test-superadmin-page-protected.js
+        env:
+          TEST_BASE_URL: https://scota.web.id

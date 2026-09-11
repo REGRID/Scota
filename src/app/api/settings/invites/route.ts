@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
-import { requireRole } from "@/lib/roleGuard"
+import { requirePermission } from "@/lib/roleGuard"
 import { createInviteLink, getTenantInvites } from "@/lib/inviteSystem"
 
 export async function GET(req: NextRequest) {
   try {
-    const auth = await requireRole(req, ["OWNER", "ADMIN"])
+    const auth = await requirePermission(req, "manage_staff")
     if (!auth.ok) return auth.response
 
     const invites = await getTenantInvites(auth.tenantId)
@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const auth = await requireRole(req, ["OWNER", "ADMIN"])
+    const auth = await requirePermission(req, "manage_staff")
     if (!auth.ok) return auth.response
 
     const body = await req.json().catch(() => ({}))
@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
     const expiresInDays = body.expiresInDays ? parseInt(body.expiresInDays, 10) : 3
 
     // Strict policy: Only OWNER can generate an invite for role ADMIN
-    if (rawRole.toUpperCase() === "ADMIN" && auth.userRole !== "OWNER" && auth.userRole !== "SUPERADMIN") {
+    if (rawRole.toUpperCase() === "ADMIN" && auth.userRole !== "OWNER" && auth.userRole !== "DEVELOPER") {
       return NextResponse.json(
         { error: "Hanya Owner yang dapat membuat link undangan untuk peran Admin." },
         { status: 403 }

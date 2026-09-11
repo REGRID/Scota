@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { requireRole } from "@/lib/roleGuard"
+import { requirePermission } from "@/lib/roleGuard"
 import { queryPg, withTransactionPg, isDatabaseConfigured } from "@/lib/pgDb"
 import { hashPassword } from "@/lib/password"
 
@@ -7,7 +7,7 @@ const ALLOWED_STAFF_ROLES = ["KARYAWAN", "KASIR", "MANAGER", "ADMIN"]
 
 export async function GET(req: NextRequest) {
   try {
-    const auth = await requireRole(req, ["OWNER", "ADMIN"])
+    const auth = await requirePermission(req, "manage_staff")
     if (!auth.ok) return auth.response
 
     if (!isDatabaseConfigured) {
@@ -185,7 +185,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const auth = await requireRole(req, ["OWNER", "ADMIN"])
+    const auth = await requirePermission(req, "manage_staff")
     if (!auth.ok) return auth.response
 
     if (!isDatabaseConfigured) {
@@ -221,9 +221,16 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    if (!ALLOWED_STAFF_ROLES.includes(rawRole)) {
+    // Resolve dynamic role or check allowed standard roles
+    const roleCheckRes = await queryPg<{ id: string; name: string }>(
+      `SELECT id, name FROM roles WHERE ("tenantId" = $1 OR "isSystemDefault" = true) AND UPPER(name) = $2 LIMIT 1`,
+      [auth.tenantId, rawRole]
+    )
+    const matchedRoleId = roleCheckRes.rows?.[0]?.id || null
+
+    if (!matchedRoleId && !ALLOWED_STAFF_ROLES.includes(rawRole)) {
       return NextResponse.json(
-        { error: `Role tidak valid. Role yang diizinkan untuk staf: ${ALLOWED_STAFF_ROLES.join(", ")}.` },
+        { error: `Role tidak valid. Role yang diizinkan untuk staf: ${ALLOWED_STAFF_ROLES.join(", ")} atau peran kustom yang terdaftar.` },
         { status: 400 }
       )
     }
@@ -308,7 +315,7 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
-    const auth = await requireRole(req, ["OWNER", "ADMIN"])
+    const auth = await requirePermission(req, "manage_staff")
     if (!auth.ok) return auth.response
 
     if (!isDatabaseConfigured) {
@@ -342,24 +349,62 @@ export async function DELETE(req: NextRequest) {
       )
     }
 
-    // Find target account
-    const findRes = await queryPg<{ id: string; username: string; role: string; tenantId: string; email: string | null; clerkId: string | null }>(
-      targetId
-        ? `SELECT id, username, role, "tenantId", email, "clerkId" FROM admin_accounts WHERE id = $1 AND "tenantId" = $2`
-        : `SELECT id, username, role, "tenantId", email, "clerkId" FROM admin_accounts WHERE LOWER(username) = $1 AND "tenantId" = $2`,
-      targetId ? [targetId, auth.tenantId] : [targetUsername!.toLowerCase(), auth.tenantId]
-    )
+    // 1. Locate target account across memberships, tenant_access_grants, or admin_accounts
+    let targetRole: string | null = null
+    let targetUsernameVal: string | null = null
 
-    const targetAccount = findRes.rows?.[0]
-    if (!targetAccount) {
+    if (targetId) {
+      const memCheck = await queryPg<{ id: string; role: string; name: string }>(
+        `SELECT m.id, COALESCE(r.name, m.role) as role, u.name
+         FROM memberships m
+         JOIN users u ON u.id = m."userId"
+         LEFT JOIN roles r ON r.id = m."roleId"
+         WHERE m.id = $1 AND m."tenantId" = $2`,
+        [targetId, auth.tenantId]
+      )
+      if (memCheck.rows?.[0]) {
+        targetRole = memCheck.rows[0].role
+        targetUsernameVal = memCheck.rows[0].name
+      }
+
+      if (!targetRole) {
+        const grantCheck = await queryPg<{ id: string; role: string; name: string }>(
+          `SELECT g.id, COALESCE(r.name, 'STAFF') as role, u.name
+           FROM tenant_access_grants g
+           JOIN users u ON u.id = g."userId"
+           LEFT JOIN roles r ON r.id = g."roleId"
+           WHERE g.id = $1 AND g."tenantId" = $2`,
+          [targetId, auth.tenantId]
+        )
+        if (grantCheck.rows?.[0]) {
+          targetRole = grantCheck.rows[0].role
+          targetUsernameVal = grantCheck.rows[0].name
+        }
+      }
+    }
+
+    if (!targetRole) {
+      const adminCheck = await queryPg<{ id: string; role: string; username: string }>(
+        targetId
+          ? `SELECT id, role, username FROM admin_accounts WHERE id = $1 AND "tenantId" = $2`
+          : `SELECT id, role, username FROM admin_accounts WHERE LOWER(username) = $1 AND "tenantId" = $2`,
+        targetId ? [targetId, auth.tenantId] : [targetUsername!.toLowerCase(), auth.tenantId]
+      )
+      if (adminCheck.rows?.[0]) {
+        targetRole = adminCheck.rows[0].role
+        targetUsernameVal = adminCheck.rows[0].username
+      }
+    }
+
+    if (!targetRole) {
       return NextResponse.json(
         { error: "Akun staf tidak ditemukan di tenant Anda." },
         { status: 404 }
       )
     }
 
-    // Prevent self-deletion by id
-    if (targetAccount.username.toLowerCase() === auth.username.toLowerCase()) {
+    // Prevent self-deletion
+    if (targetUsernameVal && targetUsernameVal.toLowerCase() === auth.username.toLowerCase()) {
       return NextResponse.json(
         { error: "Aksi ditolak: Anda tidak dapat menghapus akun Anda sendiri saat sedang login." },
         { status: 400 }
@@ -367,15 +412,15 @@ export async function DELETE(req: NextRequest) {
     }
 
     // Prevent deletion of OWNER or SUPERADMIN
-    if (["OWNER", "SUPERADMIN"].includes(targetAccount.role.toUpperCase())) {
+    if (["OWNER", "SUPERADMIN"].includes(targetRole.toUpperCase())) {
       return NextResponse.json(
-        { error: `Aksi ditolak: Akun dengan role '${targetAccount.role}' tidak dapat dihapus melalui antarmuka staf.` },
+        { error: `Aksi ditolak: Akun dengan role '${targetRole}' tidak dapat dihapus melalui antarmuka staf.` },
         { status: 403 }
       )
     }
 
     // Only OWNER (or SUPERADMIN) can delete an ADMIN account
-    if (targetAccount.role.toUpperCase() === "ADMIN" && auth.userRole !== "OWNER" && auth.userRole !== "SUPERADMIN") {
+    if (targetRole.toUpperCase() === "ADMIN" && auth.userRole !== "OWNER" && auth.userRole !== "SUPERADMIN") {
       return NextResponse.json(
         { error: "Hanya Owner yang dapat menghapus akun Admin." },
         { status: 403 }
@@ -528,7 +573,7 @@ export async function DELETE(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
-    const auth = await requireRole(req, ["OWNER", "ADMIN"])
+    const auth = await requirePermission(req, "manage_staff")
     if (!auth.ok) return auth.response
 
     if (!isDatabaseConfigured) {
@@ -571,7 +616,82 @@ export async function PATCH(req: NextRequest) {
       )
     }
 
-    // Find target account
+    // Resolve matchedRoleId from roles
+    const roleCheckRes = await queryPg<{ id: string; name: string }>(
+      `SELECT id, name FROM roles WHERE ("tenantId" = $1 OR "isSystemDefault" = true) AND UPPER(name) = $2 LIMIT 1`,
+      [auth.tenantId, newRole]
+    )
+    const matchedRoleId = roleCheckRes.rows?.[0]?.id || null
+
+    if (!matchedRoleId && !ALLOWED_STAFF_ROLES.includes(newRole)) {
+      return NextResponse.json(
+        { error: `Role tidak valid. Role yang diizinkan: ${ALLOWED_STAFF_ROLES.join(", ")} atau peran kustom yang terdaftar.` },
+        { status: 400 }
+      )
+    }
+
+    // 1. Check memberships if targetId provided
+    if (targetId) {
+      const memRes = await queryPg<{ id: string; role: string; name: string; email: string | null; clerkId: string | null }>(
+        `SELECT m.id, COALESCE(r.name, m.role) as role, u.name, u.email, u."clerkId"
+         FROM memberships m
+         JOIN users u ON u.id = m."userId"
+         LEFT JOIN roles r ON r.id = m."roleId"
+         WHERE m.id = $1 AND m."tenantId" = $2`,
+        [targetId, auth.tenantId]
+      )
+      if (memRes.rows?.[0]) {
+        const m = memRes.rows[0]
+        const currentRole = m.role.toUpperCase()
+        if (["OWNER", "SUPERADMIN"].includes(currentRole)) {
+          return NextResponse.json({ error: "Role Pemilik tidak dapat diubah." }, { status: 403 })
+        }
+        if (newRole === "ADMIN" && auth.userRole !== "OWNER" && auth.userRole !== "SUPERADMIN") {
+          return NextResponse.json({ error: "Hanya Owner yang dapat memberikan role Admin." }, { status: 403 })
+        }
+        if (currentRole === "ADMIN" && newRole !== "ADMIN" && auth.userRole !== "OWNER" && auth.userRole !== "SUPERADMIN") {
+          return NextResponse.json({ error: "Hanya Owner yang dapat mencabut role Admin." }, { status: 403 })
+        }
+
+        await queryPg(
+          `UPDATE memberships SET role = $1, "roleId" = $2, "updatedAt" = NOW() WHERE id = $3`,
+          [newRole, matchedRoleId, m.id]
+        )
+        if (m.email || m.clerkId) {
+          await queryPg(
+            `UPDATE admin_accounts SET role = $1, "updatedAt" = NOW() WHERE "tenantId" = $2 AND (email = $3 OR "clerkId" = $4)`,
+            [newRole, auth.tenantId, m.email, m.clerkId]
+          )
+        }
+        return NextResponse.json({
+          message: `Role akun '${m.name || "Staf"}' berhasil diubah menjadi '${newRole}'.`,
+          account: { id: m.id, role: newRole },
+        })
+      }
+
+      // Check tenant_access_grants
+      const grantRes = await queryPg<{ id: string; role: string; name: string }>(
+        `SELECT g.id, COALESCE(r.name, 'STAFF') as role, u.name
+         FROM tenant_access_grants g
+         JOIN users u ON u.id = g."userId"
+         LEFT JOIN roles r ON r.id = g."roleId"
+         WHERE g.id = $1 AND g."tenantId" = $2`,
+        [targetId, auth.tenantId]
+      )
+      if (grantRes.rows?.[0]) {
+        const g = grantRes.rows[0]
+        await queryPg(
+          `UPDATE tenant_access_grants SET "roleId" = $1, "updatedAt" = NOW() WHERE id = $2`,
+          [matchedRoleId, g.id]
+        )
+        return NextResponse.json({
+          message: `Role staf lintas cabang '${g.name || "Staf"}' berhasil diubah menjadi '${newRole}'.`,
+          account: { id: g.id, role: newRole },
+        })
+      }
+    }
+
+    // 2. Check admin_accounts
     const findRes = await queryPg<{ id: string; username: string; role: string; tenantId: string; email: string | null; clerkId: string | null }>(
       targetId
         ? `SELECT id, username, role, "tenantId", email, "clerkId" FROM admin_accounts WHERE id = $1 AND "tenantId" = $2`
@@ -621,7 +741,7 @@ export async function PATCH(req: NextRequest) {
       )
     }
 
-    // 1. Update in admin_accounts
+    // Update in admin_accounts
     const updateRes = await queryPg<{
       id: string
       username: string
@@ -640,18 +760,18 @@ export async function PATCH(req: NextRequest) {
       [newRole, targetAccount.id, auth.tenantId]
     )
 
-    // 2. Also update in memberships table
+    // Also update in memberships table if user exists
     if (targetAccount.email || targetAccount.clerkId) {
       await queryPg(
         `UPDATE memberships 
-         SET role = $1, "updatedAt" = NOW()
-         WHERE "tenantId" = $2 
+         SET role = $1, "roleId" = $2, "updatedAt" = NOW()
+         WHERE "tenantId" = $3 
          AND "userId" IN (
            SELECT id FROM users 
-           WHERE (email = $3 AND $3 IS NOT NULL) 
-              OR ("clerkId" = $4 AND $4 IS NOT NULL)
+           WHERE (email = $4 AND $4 IS NOT NULL) 
+              OR ("clerkId" = $5 AND $5 IS NOT NULL)
          )`,
-        [newRole, auth.tenantId, targetAccount.email, targetAccount.clerkId]
+        [newRole, matchedRoleId, auth.tenantId, targetAccount.email, targetAccount.clerkId]
       )
     }
 

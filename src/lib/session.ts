@@ -58,6 +58,7 @@ export interface SessionPayload {
   fullName?: string
   businessName?: string
   email?: string
+  roleId?: string | null
   onboardingCompleted?: boolean
 }
 

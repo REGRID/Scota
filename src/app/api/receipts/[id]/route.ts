@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getSession } from "@/lib/authHelper"
-import { requireRole } from "@/lib/roleGuard"
+import { requireRole, requirePermission } from "@/lib/roleGuard"
 import { sendWebPushNotification } from "@/lib/serverPush"
 import { invalidateReceiptsListCache } from "@/app/api/receipts/route"
 import { invalidateApprovalsCache } from "@/app/api/approvals/route"
@@ -412,7 +412,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const auth = await requireRole(req, ["OWNER", "ADMIN"])
+    const auth = await requirePermission(req, "manage_staff")
     if (!auth.ok) return auth.response
 
     const { id } = await params

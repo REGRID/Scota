@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { requireRole } from "@/lib/roleGuard"
+import { requirePermission } from "@/lib/roleGuard"
 import { revokeInviteLink } from "@/lib/inviteSystem"
 
 export async function DELETE(
@@ -7,7 +7,7 @@ export async function DELETE(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const auth = await requireRole(req, ["OWNER", "ADMIN"])
+    const auth = await requirePermission(req, "manage_staff")
     if (!auth.ok) return auth.response
 
     const { id } = await context.params

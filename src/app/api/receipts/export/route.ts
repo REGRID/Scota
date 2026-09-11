@@ -1,16 +1,15 @@
 import { NextRequest, NextResponse } from "next/server"
 import { queryPg, isDatabaseConfigured } from "@/lib/pgDb"
 import { isTenantSchemaMigrated, withTenantSchema } from "@/lib/tenantDb"
-import { getSession } from "@/lib/authHelper"
+import { requirePermission } from "@/lib/roleGuard"
 import { DEFAULT_TENANT_ID } from "@/lib/session"
 import * as XLSX from "xlsx"
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await getSession(req)
-    if (!session) {
-      return NextResponse.json({ error: "Sesi tidak valid. Silakan login." }, { status: 401 })
-    }
+    const auth = await requirePermission(req, "export_reports")
+    if (!auth.ok) return auth.response
+    const session = auth.session
 
     if (session.role === "DEMO") {
       return NextResponse.json(

@@ -40,17 +40,37 @@ BEGIN
                 ADD COLUMN IF NOT EXISTS "paymentStatus" TEXT NOT NULL DEFAULT ''Lunas'',
                 ADD COLUMN IF NOT EXISTS "staffName" TEXT DEFAULT ''Admin'',
                 ADD COLUMN IF NOT EXISTS "createdByUsername" TEXT;
+            ', schema_rec.schema_name);
 
-                UPDATE %I.receipts
-                SET "createdByRole" = CASE
-                    WHEN "paymentMethod" ILIKE ''%%Talangan%%'' 
-                      OR notes ILIKE ''%%(karyawan)%%'' 
-                      OR notes ILIKE ''%%(kasir)%%'' 
-                      OR "staffName" ILIKE ANY(ARRAY[''%%kasir%%'', ''%%staf%%'', ''%%staff%%'', ''%%karyawan%%'']) THEN ''KARYAWAN''
-                    ELSE ''ADMIN''
-                END
-                WHERE "createdByRole" IS NULL;
-            ', schema_rec.schema_name, schema_rec.schema_name);
+            -- Determine if column is notes or note
+            IF EXISTS (
+                SELECT 1 FROM information_schema.columns 
+                WHERE table_schema = schema_rec.schema_name AND table_name = 'receipts' AND column_name = 'notes'
+            ) THEN
+                EXECUTE format('
+                    UPDATE %I.receipts
+                    SET "createdByRole" = CASE
+                        WHEN "paymentMethod" ILIKE ''%%Talangan%%'' 
+                          OR notes ILIKE ''%%(karyawan)%%'' 
+                          OR notes ILIKE ''%%(kasir)%%'' 
+                          OR "staffName" ILIKE ANY(ARRAY[''%%kasir%%'', ''%%staf%%'', ''%%staff%%'', ''%%karyawan%%'']) THEN ''KARYAWAN''
+                        ELSE ''ADMIN''
+                    END
+                    WHERE "createdByRole" IS NULL;
+                ', schema_rec.schema_name);
+            ELSE
+                EXECUTE format('
+                    UPDATE %I.receipts
+                    SET "createdByRole" = CASE
+                        WHEN "paymentMethod" ILIKE ''%%Talangan%%'' 
+                          OR note ILIKE ''%%(karyawan)%%'' 
+                          OR note ILIKE ''%%(kasir)%%'' 
+                          OR "staffName" ILIKE ANY(ARRAY[''%%kasir%%'', ''%%staf%%'', ''%%staff%%'', ''%%karyawan%%'']) THEN ''KARYAWAN''
+                        ELSE ''ADMIN''
+                    END
+                    WHERE "createdByRole" IS NULL;
+                ', schema_rec.schema_name);
+            END IF;
         END IF;
     END LOOP;
 END $$;

@@ -39,6 +39,7 @@ node scripts/setup-postgres.js
 node scripts/migrate-json-logs-to-db.js
 node scripts/run-migration-008.js
 node scripts/run-migration-010.js
+node scripts/run-migration-011-dynamic-roles.js
 
 echo "🔨 [3/5] Building Next.js production bundle..."
 npm run build
@@ -62,4 +63,8 @@ else
     echo "Last PM2 logs:"
     pm2 logs scota --lines 20 --nostream
 fi
+
+echo "🛡️ Verifying superadmin page protection (regression guard)..."
+node scripts/test-superadmin-page-protected.js http://127.0.0.1:3000
+
 echo "=========================================="

@@ -292,7 +292,7 @@ export async function getAllTenants(): Promise<TenantSummary[]> {
               }
             } else {
               const isSuperadminEmail = email === (process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL || "refo.gangga.dev@gmail.com").toLowerCase().trim()
-              const role = isSuperadminEmail ? "SUPERADMIN" : "OWNER"
+              const role = "OWNER"
               const tier: SubscriptionTier = isSuperadminEmail ? "developer" : "trial"
               const tierCfg = TIER_CONFIG[tier] || TIER_CONFIG.trial
               const createdAt = u.created_at ? new Date(u.created_at).toISOString() : new Date().toISOString()

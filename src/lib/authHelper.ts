@@ -48,18 +48,32 @@ export async function getSession(req: NextRequest): Promise<SessionPayload | nul
 
     if (!userId) return null
 
-    // 2a. Check Staff Membership in PostgreSQL (Invite/Staff Google Login)
+    // Prefer tenant specified in request header or active cookie if provided
+    const preferredTenantId =
+      req.headers.get("x-tenant-id")?.trim() ||
+      req.cookies.get("scota_active_tenant")?.value?.trim() ||
+      null
+
+    // 2a. Check Staff Membership in PostgreSQL (Invite/Staff Google Login - Single Tenant)
     const memRes = await queryPg<{
       role: string
+      roleId: string | null
       tenantId: string
       businessName: string
       name: string
       onboardingCompleted: boolean
     }>(
-      `SELECT m.role, m."tenantId", t."businessName", u.name, COALESCE(u."onboardingCompleted", false) AS "onboardingCompleted"
+      `SELECT 
+         COALESCE(r.name, m.role) AS role,
+         m."roleId",
+         m."tenantId", 
+         t."businessName", 
+         u.name, 
+         COALESCE(u."onboardingCompleted", false) AS "onboardingCompleted"
        FROM memberships m
        JOIN tenants t ON t.id = m."tenantId"
        JOIN users u ON u.id = m."userId"
+       LEFT JOIN roles r ON r.id = m."roleId"
        WHERE u."clerkId" = $1 AND m.status = 'ACTIVE'
        LIMIT 1`,
       [userId]
@@ -70,6 +84,7 @@ export async function getSession(req: NextRequest): Promise<SessionPayload | nul
       return {
         username: `staff_${userId.slice(-8)}`,
         role: m.role as any,
+        roleId: m.roleId || null,
         tenantId: m.tenantId,
         staffName: m.name,
         fullName: m.name,
@@ -89,21 +104,68 @@ export async function getSession(req: NextRequest): Promise<SessionPayload | nul
        FROM tenants t
        JOIN users u ON u.id = t."ownerId"
        WHERE u."clerkId" = $1
-       ORDER BY t."createdAt" ASC
-       LIMIT 1`,
+       ORDER BY t."createdAt" ASC`,
       [userId]
     )
 
-    if (ownRes.rows?.[0]) {
-      const o = ownRes.rows[0]
+    if (ownRes.rows && ownRes.rows.length > 0) {
+      // If user owns multiple branches and has an active tenant preference, pick that one
+      const targetTenant =
+        (preferredTenantId && ownRes.rows.find((t) => t.id === preferredTenantId)) ||
+        ownRes.rows[0]
+
       return {
         username: `owner_${userId.slice(-8)}`,
         role: "OWNER",
-        tenantId: o.id,
-        staffName: o.name,
-        fullName: o.name,
-        businessName: o.businessName,
-        onboardingCompleted: Boolean(o.onboardingCompleted),
+        tenantId: targetTenant.id,
+        staffName: targetTenant.name,
+        fullName: targetTenant.name,
+        businessName: targetTenant.businessName,
+        onboardingCompleted: Boolean(targetTenant.onboardingCompleted),
+      }
+    }
+
+    // 2c. Check Multi-Tenant Access Grants in PostgreSQL (Spec Bab 3 & Bab 6)
+    const grantsRes = await queryPg<{
+      id: string
+      tenantId: string
+      roleId: string | null
+      role: string
+      businessName: string
+      name: string
+      onboardingCompleted: boolean
+    }>(
+      `SELECT 
+         g.id,
+         g."tenantId",
+         g."roleId",
+         COALESCE(r.name, 'STAFF') AS role,
+         t."businessName",
+         u.name,
+         COALESCE(u."onboardingCompleted", false) AS "onboardingCompleted"
+       FROM tenant_access_grants g
+       JOIN tenants t ON t.id = g."tenantId"
+       JOIN users u ON u.id = g."userId"
+       LEFT JOIN roles r ON r.id = g."roleId"
+       WHERE u."clerkId" = $1 AND g.status = 'ACTIVE'
+       ORDER BY g."createdAt" ASC`,
+      [userId]
+    )
+
+    if (grantsRes.rows && grantsRes.rows.length > 0) {
+      const activeGrant =
+        (preferredTenantId && grantsRes.rows.find((g) => g.tenantId === preferredTenantId)) ||
+        grantsRes.rows[0]
+
+      return {
+        username: `staff_${userId.slice(-8)}`,
+        role: activeGrant.role as any,
+        roleId: activeGrant.roleId || null,
+        tenantId: activeGrant.tenantId,
+        staffName: activeGrant.name,
+        fullName: activeGrant.name,
+        businessName: activeGrant.businessName,
+        onboardingCompleted: Boolean(activeGrant.onboardingCompleted),
       }
     }
 

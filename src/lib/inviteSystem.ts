@@ -61,6 +61,14 @@ export async function createInviteLink(params: {
       }
     }
 
+    const upperRole = roleName.toUpperCase()
+    if (upperRole === "SUPERADMIN" || upperRole === "DEVELOPER") {
+      return { success: false, error: "Akses Superadmin hanya untuk developer platform dan tidak dapat diundang melalui tautan staf." }
+    }
+    if (upperRole === "OWNER") {
+      return { success: false, error: "Hak kepemilikan toko (Owner) tidak dapat diundang melalui tautan staf." }
+    }
+
     const token = crypto.randomBytes(16).toString("hex")
     const maxUses = typeof params.maxUses === "number" && params.maxUses > 0 ? params.maxUses : null
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { recordVerifiedReceiptLearning } from "@/lib/selfLearningEngine"
 import { getSession } from "@/lib/authHelper"
-import { requireRole } from "@/lib/roleGuard"
+import { requireRole, requirePermission, checkRolePermission } from "@/lib/roleGuard"
 import { getOrSeedCategories } from "@/lib/categories"
 import { compressBase64Image } from "@/lib/imageCompressor"
 import { sendWebPushNotification } from "@/lib/serverPush"
@@ -25,8 +25,7 @@ export async function GET(req: NextRequest) {
   try {
     const session = await getSession(req)
     const rawRole = (session?.role || "ADMIN").toUpperCase()
-    const isSuperadmin = rawRole === "SUPERADMIN"
-    const isKasirOrStaff = ["KASIR", "KARYAWAN", "STAFF", "STAF"].includes(rawRole)
+    const isSuperadmin = rawRole === "SUPERADMIN" || rawRole === "DEVELOPER"
 
     const { searchParams } = new URL(req.url)
     const search = searchParams.get("search") || ""
@@ -37,6 +36,13 @@ export async function GET(req: NextRequest) {
 
     const requestedTenant = searchParams.get("tenantId")
     const targetTenantId = isSuperadmin && requestedTenant ? requestedTenant : session?.tenantId || DEFAULT_TENANT_ID
+
+    // Dynamic permission scoping: Staff with 'view_reports' can see all tenant receipts; otherwise restricted to own/staff receipts
+    const canViewReports =
+      rawRole === "OWNER" ||
+      isSuperadmin ||
+      (await checkRolePermission(targetTenantId, session?.role || "", session?.roleId, "view_reports"))
+    const isKasirOrStaff = !canViewReports
 
     const cacheKey = `${targetTenantId}_${rawRole}_${search}_${category}_${limit || "all"}`
     const now = Date.now()
@@ -656,7 +662,7 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
-    const auth = await requireRole(req, ["OWNER", "ADMIN"])
+    const auth = await requirePermission(req, "manage_staff")
     if (!auth.ok) return auth.response
 
     const adminUser = auth.username

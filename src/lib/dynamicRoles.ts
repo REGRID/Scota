@@ -124,6 +124,14 @@ export async function createTenantRole(
     return { success: false, error: "Nama peran wajib diisi minimal 2 karakter." }
   }
 
+  const upperName = name.toUpperCase()
+  if (upperName === "SUPERADMIN" || upperName === "DEVELOPER") {
+    return { success: false, error: "Nama peran 'SUPERADMIN' atau 'DEVELOPER' hanya untuk akses developer platform dan tidak dapat dijadikan peran toko." }
+  }
+  if (upperName === "OWNER" || upperName === "PEMILIK") {
+    return { success: false, error: "Hak kepemilikan toko (Owner) ditentukan langsung dari profil toko, bukan melalui peran staf." }
+  }
+
   // Bab 11.6: Reject any owner-only permissions
   const ownerOnlyCheck = await queryPg<{ code: string }>(
     `SELECT code FROM permissions WHERE code = ANY($1::text[]) AND "isOwnerOnly" = TRUE`,

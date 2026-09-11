@@ -63,7 +63,12 @@ import { ThemeToggle } from "@/lib/theme"
 
 interface IntroductionDashboardProps {
   isAuthenticated?: boolean | null
-  onEnterApp: (options?: { mode?: "login" | "register"; tier?: SubscriptionTier }) => void
+  onEnterApp: (options?: {
+    mode?: "login" | "register"
+    tier?: SubscriptionTier
+    initialFile?: File
+    initialBase64?: string
+  }) => void
   onOpenPricingModal?: () => void
 }
 
@@ -161,7 +166,10 @@ export function IntroductionDashboard({
     remaining: number
     used: number
     allowed: boolean
+    isUnlimited?: boolean
+    isBusiness?: boolean
   } | null>(null)
+  const [isDragOver, setIsDragOver] = useState<boolean>(false)
 
   const fetchDemoQuota = async () => {
     try {
@@ -267,11 +275,8 @@ export function IntroductionDashboard({
     }
   }
 
-  // Handle User Uploading Real Receipt Image
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
+  // Process Real Receipt Image
+  const handleProcessIncomingFile = async (file: File) => {
     if (!file.type.startsWith("image/") && file.type !== "application/pdf") {
       setScanError("Pilih berkas gambar (JPG, PNG, WEBP) atau PDF.")
       return
@@ -290,9 +295,17 @@ export function IntroductionDashboard({
       try {
         const compressedBase64 = await compressImageBase64(rawBase64, 1280, 1280, 0.82)
         setUploadedBase64(compressedBase64)
+        if (isUserLoggedIn) {
+          onEnterApp({ initialFile: file, initialBase64: compressedBase64 })
+          return
+        }
         await handleScanUploadedFile(compressedBase64, file)
       } catch {
         setUploadedBase64(rawBase64)
+        if (isUserLoggedIn) {
+          onEnterApp({ initialFile: file, initialBase64: rawBase64 })
+          return
+        }
         await handleScanUploadedFile(rawBase64, file)
       }
     }
@@ -300,6 +313,22 @@ export function IntroductionDashboard({
       setScanError("Gagal membaca gambar. Silakan coba lagi.")
     }
     reader.readAsDataURL(file)
+  }
+
+  // Handle User Uploading Real Receipt Image
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    handleProcessIncomingFile(file)
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragOver(false)
+    const files = Array.from(e.dataTransfer.files || [])
+    if (files.length > 0) {
+      handleProcessIncomingFile(files[0])
+    }
   }
 
   // Trigger Real Cloud Scan for Uploaded Receipt
@@ -542,6 +571,14 @@ export function IntroductionDashboard({
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-4xl mx-auto space-y-5 sm:space-y-6">
+            {/* Personalized Welcome Badge for Logged-In User */}
+            {isUserLoggedIn && (
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-700 dark:text-emerald-400 text-xs font-bold animate-in fade-in duration-300 mx-auto shadow-2xs">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span>Selamat Datang Kembali, {activeDisplayName}</span>
+              </div>
+            )}
+
             {/* Main Headline (Max 2 lines) */}
             <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-slate-900 dark:text-white tracking-tight leading-[1.12] text-balance">
               Otomatisasi Pembukuan & Scan Nota untuk Semua Jenis Usaha
@@ -555,31 +592,41 @@ export function IntroductionDashboard({
             {/* CTAs */}
             <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
               {isUserLoggedIn ? (
-                <Link
-                  href="/dashboard"
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-500 dark:hover:bg-emerald-400 text-white dark:text-slate-950 font-bold text-sm transition-all shadow-md hover:shadow-lg active:scale-[0.98] cursor-pointer"
-                >
-                  <Zap className="w-4 h-4 fill-current" />
-                  <span>Buka Dashboard & Scan Nota</span>
-                </Link>
+                <>
+                  <button
+                    type="button"
+                    onClick={() => onEnterApp()}
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-500 dark:hover:bg-emerald-400 text-white dark:text-slate-950 font-bold text-sm transition-all shadow-md hover:shadow-lg active:scale-[0.98] cursor-pointer"
+                  >
+                    <Zap className="w-4 h-4 fill-current" />
+                    <span>Buka Dashboard & Scan Nota</span>
+                  </button>
+                  <Link
+                    href="/history"
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-2xl bg-white hover:bg-slate-50 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 font-semibold text-sm transition-all active:scale-[0.98] cursor-pointer shadow-xs"
+                  >
+                    <FileText className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                    <span>Lihat Riwayat Transaksi</span>
+                  </Link>
+                </>
               ) : (
-                <Link
-                  href="/register"
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-500 dark:hover:bg-emerald-400 text-white dark:text-slate-950 font-bold text-sm transition-all shadow-md hover:shadow-lg active:scale-[0.98] cursor-pointer"
-                >
-                  <Zap className="w-4 h-4 fill-current" />
-                  <span>Coba Gratis 14 Hari</span>
-                </Link>
+                <>
+                  <Link
+                    href="/register"
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-500 dark:hover:bg-emerald-400 text-white dark:text-slate-950 font-bold text-sm transition-all shadow-md hover:shadow-lg active:scale-[0.98] cursor-pointer"
+                  >
+                    <Zap className="w-4 h-4 fill-current" />
+                    <span>Coba Gratis 14 Hari</span>
+                  </Link>
+                  <Link
+                    href="/pricing"
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-2xl bg-white hover:bg-slate-50 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 font-semibold text-sm transition-all active:scale-[0.98] cursor-pointer shadow-xs"
+                  >
+                    <Receipt className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                    <span>Lihat Paket Harga</span>
+                  </Link>
+                </>
               )}
-
-
-              <Link
-                href="/pricing"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-2xl bg-white hover:bg-slate-50 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 font-semibold text-sm transition-all active:scale-[0.98] cursor-pointer shadow-xs"
-              >
-                <Receipt className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-                <span>Lihat Paket Harga</span>
-              </Link>
             </div>
 
             {/* Trust Micro-Metrics */}
@@ -608,13 +655,19 @@ export function IntroductionDashboard({
                 </div>
                 <div>
                   <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                    Coba Scan Nota Sekarang
-                    <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
-                      Demo Langsung
+                    {isUserLoggedIn ? "Menu Scan Nota Bisnis" : "Coba Scan Nota Sekarang"}
+                    <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
+                      isUserLoggedIn
+                        ? "bg-emerald-500/15 dark:bg-emerald-500/25 text-emerald-700 dark:text-emerald-400 border border-emerald-500/40"
+                        : "bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30"
+                    }`}>
+                      {isUserLoggedIn ? "Akun Aktif" : "Demo Langsung"}
                     </span>
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Unggah foto nota untuk melihat ekstraksi data otomatis.
+                    {isUserLoggedIn
+                      ? "Pindai struk fisik toko dan digitalisasi rincian pengeluaran ke pembukuan usaha."
+                      : "Unggah foto nota untuk melihat ekstraksi data otomatis."}
                   </p>
                 </div>
               </div>
@@ -624,16 +677,18 @@ export function IntroductionDashboard({
                 <div className="self-start sm:self-auto">
                   <div
                     className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border transition-all ${
-                      demoQuota.remaining > 0
+                      (isUserLoggedIn || demoQuota.remaining > 0)
                         ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/30"
                         : "bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-500/30"
                     }`}
                   >
-                    <span className={`w-2 h-2 rounded-full ${demoQuota.remaining > 0 ? "bg-emerald-500 dark:bg-emerald-400 animate-pulse" : "bg-rose-500 dark:bg-rose-400"}`} />
+                    <span className={`w-2 h-2 rounded-full ${(isUserLoggedIn || demoQuota.remaining > 0) ? "bg-emerald-500 dark:bg-emerald-400 animate-pulse" : "bg-rose-500 dark:bg-rose-400"}`} />
                     <span>
-                      {demoQuota.remaining > 0
-                        ? `Sisa Uji Coba: ${demoQuota.remaining}/${demoQuota.dailyLimit || 2} Hari Ini`
-                        : "Batas Uji Coba Habis (0/2)"}
+                      {isUserLoggedIn
+                        ? (demoQuota.isUnlimited ? "Kuota Bisnis: Unlimited" : `Sisa Kuota: ${demoQuota.remaining} Scan Bulan Ini`)
+                        : (demoQuota.remaining > 0
+                            ? `Sisa Uji Coba: ${demoQuota.remaining}/${demoQuota.dailyLimit || 2} Hari Ini`
+                            : "Batas Uji Coba Habis (0/2)")}
                     </span>
                   </div>
                 </div>
@@ -652,7 +707,7 @@ export function IntroductionDashboard({
             <input
               ref={galleryInputRef}
               type="file"
-              accept="image/*"
+              accept="image/png, image/jpeg, image/jpg, image/webp, image/heic, image/*"
               className="hidden"
               onChange={handleFileChange}
             />
@@ -667,7 +722,7 @@ export function IntroductionDashboard({
             {/* Viewport */}
             {!uploadedImage && !isScanningCustom && !customParsedData && !scanError ? (
               <div className="pt-6">
-                {demoQuota && !demoQuota.allowed ? (
+                {!isUserLoggedIn && demoQuota && !demoQuota.allowed ? (
                   <div className="bg-slate-50 dark:bg-slate-950/90 rounded-3xl p-6 sm:p-10 border border-amber-300 dark:border-amber-500/30 text-center space-y-5 relative overflow-hidden shadow-lg animate-in fade-in zoom-in-95 duration-200">
                     <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-3xl bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto shadow-sm">
                       <Lock className="w-8 h-8 sm:w-10 sm:h-10" />
@@ -698,6 +753,72 @@ export function IntroductionDashboard({
                       >
                         Masuk ke Akun
                       </button>
+                    </div>
+                  </div>
+                ) : isUserLoggedIn ? (
+                  /* LOGGED-IN VIEW: Matches Menu Scan (ReceiptImageUpload) Exactly */
+                  <div
+                    onDragOver={(e) => {
+                      e.preventDefault()
+                      setIsDragOver(true)
+                    }}
+                    onDragLeave={() => setIsDragOver(false)}
+                    onDrop={handleDrop}
+                    className={`bg-slate-50/70 dark:bg-slate-950/80 rounded-3xl p-6 sm:p-10 border-2 border-dashed transition-all text-center space-y-5 relative overflow-hidden shadow-xs dark:shadow-2xl group ${
+                      isDragOver
+                        ? "border-emerald-500 bg-emerald-500/10 scale-[1.01]"
+                        : "border-slate-300 dark:border-slate-800 hover:border-emerald-500/50"
+                    }`}
+                  >
+                    <div className="space-y-4 relative z-10">
+                      <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-emerald-500/10 dark:bg-emerald-500/20 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto shadow-sm group-hover:scale-105 transition-transform">
+                        <Upload className="w-8 h-8 sm:w-10 sm:h-10" />
+                      </div>
+
+                      <div className="space-y-1.5 max-w-xl mx-auto">
+                        <h3 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white tracking-tight">
+                          Unggah atau Foto Nota
+                        </h3>
+                        <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
+                          Pilih foto dari galeri atau ambil foto langsung menggunakan kamera untuk diproses ke akun bisnis.
+                        </p>
+                      </div>
+
+                      {/* Dua Tombol Aksi Kembar Persis Seperti di Menu Scan */}
+                      <div className="flex flex-col sm:flex-row items-center justify-center gap-3 w-full max-w-md mx-auto pt-1">
+                        <button
+                          type="button"
+                          onClick={() => galleryInputRef.current?.click()}
+                          className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-800 dark:text-slate-100 font-bold text-xs border border-slate-300 dark:border-slate-700 transition-all active:scale-[0.98] cursor-pointer shadow-xs"
+                        >
+                          <ImageIcon className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                          <span>Buka Galeri</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => cameraInputRef.current?.click()}
+                          className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-500 dark:hover:bg-emerald-400 text-white dark:text-slate-950 font-bold text-xs transition-all shadow-md active:scale-[0.98] cursor-pointer"
+                        >
+                          <Camera className="w-4 h-4" />
+                          <span>Ambil Foto</span>
+                        </button>
+                      </div>
+
+                      <div className="pt-3 border-t border-slate-200 dark:border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
+                        <span className="flex items-center gap-1.5 font-medium">
+                          <Layers className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                          Mendukung struk thermal kasir, bon belanja, dan faktur PDF
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => onEnterApp()}
+                          className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 font-bold transition-colors cursor-pointer"
+                        >
+                          <span>Buka Menu Scan Penuh</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ) : (

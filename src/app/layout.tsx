@@ -7,6 +7,7 @@ import { Toaster } from "sonner"
 
 import { AppDialogProvider } from "@/components/ui/app-dialog"
 import { ThemeProvider } from "@/lib/theme"
+import { JsonLd } from "@/components/seo/JsonLd"
 
 const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -27,23 +28,34 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://scota.web.id"),
   title: {
-    default: "Scota — Otomatisasi Scan Nota & Pembukuan Bisnis",
+    default: "Scota — Aplikasi Pencatatan Pengeluaran & AI Scan Nota Bisnis",
     template: "%s | Scota",
   },
-  description: "Platform digitalisasi struk belanja, bon faktur, dan pembukuan pengeluaran otomatis berbasis AI untuk semua jenis bisnis, toko, dan UMKM.",
+  description: "Aplikasi pencatatan pengeluaran otomatis berbasis AI dengan fitur scan struk belanja, rekap nota toko ke Excel, dan pembukuan usaha UMKM serta multi-cabang.",
   keywords: [
+    "aplikasi pencatatan pengeluaran",
+    "aplikasi catat pengeluaran",
+    "aplikasi pencatat pengeluaran",
+    "aplikasi pembukuan pengeluaran",
+    "aplikasi rekap pengeluaran",
+    "aplikasi pencatatan pengeluaran dari nota",
+    "aplikasi pencatatan pengeluaran usaha",
+    "aplikasi pencatatan pengeluaran umkm",
     "scan nota",
-    "pembukuan otomatis",
+    "scan nota otomatis",
     "aplikasi scan struk",
-    "ocr nota kasir",
+    "ocr nota kasir indonesia",
     "rekap pengeluaran bisnis",
     "digitalisasi bon toko",
-    "pembukuan umkm",
+    "pembukuan umkm otomatis",
     "scota",
   ],
   authors: [{ name: "Scota Platform" }],
   creator: "Scota Platform",
   manifest: "/manifest.json",
+  alternates: {
+    canonical: "/",
+  },
   icons: {
     icon: [
       { url: "/favicon.png", sizes: "32x32", type: "image/png" },
@@ -57,23 +69,14 @@ export const metadata: Metadata = {
     type: "website",
     locale: "id_ID",
     url: "/",
-    title: "Scota — Otomatisasi Scan Nota & Pembukuan Bisnis",
-    description: "Cukup foto nota fisik, Scota otomatis mengekstrak rincian item, nominal, dan merekap pembukuan bisnis Anda.",
+    title: "Scota — Aplikasi Pencatatan Pengeluaran & AI Scan Nota Bisnis",
+    description: "Cukup foto nota fisik, Scota otomatis mengekstrak rincian item, nominal, dan merekap pembukuan bisnis Anda ke Excel.",
     siteName: "Scota",
-    images: [
-      {
-        url: "/scota-logo-detailed-dark.png",
-        width: 1200,
-        height: 630,
-        alt: "Scota Platform Pembukuan Otomatis",
-      },
-    ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Scota — Otomatisasi Scan Nota & Pembukuan Bisnis",
-    description: "Cukup foto nota fisik, Scota otomatis merekap pembukuan bisnis Anda.",
-    images: ["/scota-logo-detailed-dark.png"],
+    title: "Scota — Aplikasi Pencatatan Pengeluaran & AI Scan Nota Bisnis",
+    description: "Cukup foto nota fisik, Scota otomatis merekap pembukuan bisnis Anda ke Excel.",
   },
   appleWebApp: {
     capable: true,
@@ -96,6 +99,7 @@ export default function RootLayout({
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <JsonLd />
       </head>
       <body className="min-h-screen max-w-full overflow-x-clip bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 flex flex-col font-sans antialiased selection:bg-emerald-500 selection:text-white transition-colors duration-200">
         <ClerkProvider appearance={{ theme: shadcn }}>

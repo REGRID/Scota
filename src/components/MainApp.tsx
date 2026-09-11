@@ -761,6 +761,10 @@ export function MainApp({
           }
           if (options?.tier) setAuthInitialTier(options.tier)
           setShowLanding(false)
+          setActiveTab("scan")
+          if (options?.initialFile && options?.initialBase64) {
+            handleImageSelected(options.initialFile, options.initialBase64)
+          }
         }}
         onOpenPricingModal={() => router.push("/pricing")}
       />

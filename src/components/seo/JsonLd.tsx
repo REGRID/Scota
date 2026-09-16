@@ -27,17 +27,24 @@ export function JsonLd({ siteUrl = "https://scota.web.id" }: JsonLdProps) {
       },
       {
         "@type": "Offer",
-        price: "49000",
+        price: "35000",
         priceCurrency: "IDR",
-        name: "Paket Starter",
+        name: "Paket Starter Bisnis (Promo 50%)",
         description: "Pencatatan pengeluaran untuk UMKM, toko kelontong, dan usaha rintisan.",
       },
       {
         "@type": "Offer",
-        price: "129000",
+        price: "60000",
         priceCurrency: "IDR",
-        name: "Paket Pro",
+        name: "Paket Pro Usaha (Promo 50%)",
         description: "Solusi lengkap kafe, resto, dan toko dengan multi-staf dan rekap ekspor Excel.",
+      },
+      {
+        "@type": "Offer",
+        price: "100000",
+        priceCurrency: "IDR",
+        name: "Paket Enterprise Multi-Cabang (Promo 50%)",
+        description: "Solusi tanpa batas untuk bisnis multi-cabang, custom POS sync, dan dedicated database.",
       },
     ],
     aggregateRating: {

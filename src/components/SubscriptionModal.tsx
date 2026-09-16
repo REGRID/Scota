@@ -302,6 +302,7 @@ export function SubscriptionModal({
                   const isCurrent = currentTier === tierKey
                   const isPro = tierKey === "pro"
                   const price = billingCycle === "yearly" ? plan.priceYearly : plan.priceMonthly
+                  const originalPrice = billingCycle === "yearly" ? plan.originalPriceYearly : plan.originalPriceMonthly
 
                   return (
                     <div
@@ -321,7 +322,17 @@ export function SubscriptionModal({
                       <div className="space-y-4">
                         <div>
                           <h3 className="text-base font-bold text-slate-900 dark:text-white">{plan.name}</h3>
-                          <div className="mt-2 flex items-baseline gap-1">
+                          {originalPrice && (
+                            <div className="mt-1.5 flex items-center gap-1.5">
+                              <span className="text-[11px] font-semibold line-through text-slate-400 dark:text-slate-500">
+                                Rp {originalPrice.toLocaleString("id-ID")}
+                              </span>
+                              <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded-md bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                                Diskon 50%
+                              </span>
+                            </div>
+                          )}
+                          <div className="mt-1 flex items-baseline gap-1">
                             <span className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">
                               Rp {price.toLocaleString("id-ID")}
                             </span>

@@ -17,7 +17,6 @@ const isPublicRoute = createRouteMatcher([
   "/superadmin/login",
   "/join(.*)",
   "/api/invites(.*)",
-  "/api/tenants(.*)",
   "/api/ping",
   "/api/quota",
   "/api/parse-receipt",
@@ -25,7 +24,6 @@ const isPublicRoute = createRouteMatcher([
   "/api/webhooks/clerk(.*)",
   "/api/webhooks/pakasir(.*)",
   "/api/subscription(.*)",
-  "/api/settings(.*)",
   "/onboarding(.*)",
   "/api/onboarding(.*)",
 ])

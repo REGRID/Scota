@@ -1,6 +1,7 @@
 import { queryPg, isDatabaseConfigured } from "@/lib/pgDb"
 
 export const DAILY_SCAN_LIMIT = 2
+export const GLOBAL_DEMO_SCAN_LIMIT_PER_DAY = 50
 
 export interface RateLimitResult {
   allowed: boolean
@@ -26,6 +27,90 @@ export function normalizeIp(ipAddress?: string | null): string {
     clean = clean.replace("::ffff:", "")
   }
   return clean
+}
+
+/**
+ * Mengambil IP klien yang tepercaya dari request header secara aman dari manipulasi (spoofing).
+ *
+ * PENTING (SECURITY ANTI-SPOOFING):
+ * JANGAN PERNAH mengambil nilai pertama (.split(",")[0]) dari header "x-forwarded-for"!
+ * Header X-Forwarded-For dikirim oleh klien (browser/bot) dan bisa dimanipulasi dengan IP bebas.
+ * Pada arsitektur reverse proxy / CDN (seperti Cloudflare atau Vercel):
+ * - Nilai yang dikirim oleh klien berada di urutan PERTAMA (posisi [0]).
+ * - IP asli klien yang ditambahkan oleh proxy platform berada di posisi TERAKHIR (terdekat dengan server).
+ * Mengambil index 0 memungkinkan penyerang melewati rate limit hanya dengan mengganti header di setiap request.
+ *
+ * Urutan prioritas tepercaya:
+ * 1. "x-vercel-forwarded-for" (ditetapkan langsung oleh edge proxy Vercel, tidak bisa ditimpa klien)
+ * 2. Nilai TERAKHIR dari daftar "x-forwarded-for" (proxy terdekat dengan server)
+ * 3. "x-real-ip" (ditetapkan oleh reverse proxy jika ada)
+ * 4. Fallback "127.0.0.1"
+ */
+export function getClientIp(req: any): string {
+  const getHeader = (name: string): string | null => {
+    try {
+      const headers = req?.headers
+      if (!headers) return null
+      if (typeof headers.get === "function") {
+        return headers.get(name)
+      }
+      const val = headers[name.toLowerCase()] || headers[name]
+      if (Array.isArray(val)) return val[0] || null
+      return val || null
+    } catch {
+      return null
+    }
+  }
+
+  // 1. Vercel trusted edge header
+  const vercelIp = getHeader("x-vercel-forwarded-for")?.trim()
+  if (vercelIp) {
+    return normalizeIp(vercelIp)
+  }
+
+  // 2. Nilai TERAKHIR dari x-forwarded-for (proxy terdekat dengan server kita)
+  const forwardedFor = getHeader("x-forwarded-for")
+  if (forwardedFor) {
+    const parts = forwardedFor.split(",").map((p) => p.trim()).filter(Boolean)
+    if (parts.length > 0) {
+      return normalizeIp(parts[parts.length - 1])
+    }
+  }
+
+  // 3. x-real-ip
+  const realIp = getHeader("x-real-ip")?.trim()
+  if (realIp) {
+    return normalizeIp(realIp)
+  }
+
+  return "127.0.0.1"
+}
+
+/**
+ * Memeriksa total akumulasi pemindaian demo harian di seluruh platform.
+ * Mencegah eksploitasi massal (misal botnet/proxy pool) yang menghabiskan kuota OCR berbayar.
+ */
+export async function checkGlobalDemoDailyLimit(): Promise<{ allowed: boolean; totalScans: number; limit: number }> {
+  if (!isDatabaseConfigured) {
+    return { allowed: true, totalScans: 0, limit: GLOBAL_DEMO_SCAN_LIMIT_PER_DAY }
+  }
+
+  try {
+    const res = await queryPg<{ total: string }>(
+      `SELECT COALESCE(SUM("demoScanCount"), 0) as total
+       FROM tenants
+       WHERE "isDemo" = true AND "updatedAt" >= CURRENT_DATE`
+    )
+    const totalScans = Number(res.rows?.[0]?.total || 0)
+    return {
+      allowed: totalScans < GLOBAL_DEMO_SCAN_LIMIT_PER_DAY,
+      totalScans,
+      limit: GLOBAL_DEMO_SCAN_LIMIT_PER_DAY,
+    }
+  } catch (error) {
+    console.error("Gagal memeriksa global demo daily limit:", error)
+    return { allowed: true, totalScans: 0, limit: GLOBAL_DEMO_SCAN_LIMIT_PER_DAY }
+  }
 }
 
 /**

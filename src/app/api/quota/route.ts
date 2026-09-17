@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { checkRateLimit, normalizeIp } from "@/lib/rateLimiter"
+import { checkRateLimit, normalizeIp, getClientIp } from "@/lib/rateLimiter"
 import { DEMO_SCAN_LIMIT, getOrCreateDemoTenant } from "@/lib/demoTenant"
 import { isDatabaseConfigured } from "@/lib/pgDb"
 import { getSession } from "@/lib/authHelper"
@@ -36,12 +36,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Demo Visitor Quota
-    const rawIp =
-      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-      req.headers.get("x-real-ip") ||
-      "127.0.0.1"
-
-    const cleanIp = normalizeIp(rawIp)
+    const cleanIp = getClientIp(req)
     let used = 0
 
     if (isDatabaseConfigured) {

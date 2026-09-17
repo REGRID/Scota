@@ -3,13 +3,14 @@ import { currentUser } from "@clerk/nextjs/server"
 import { validateInviteToken, acceptInvite } from "@/lib/inviteSystem"
 import { createSessionToken } from "@/lib/session"
 import { checkAuthRateLimit, recordAuthAttempt } from "@/lib/authRateLimiter"
+import { getClientIp } from "@/lib/rateLimiter"
 
 export async function GET(
   req: NextRequest,
   context: { params: Promise<{ token: string }> }
 ) {
   try {
-    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "127.0.0.1"
+    const ip = getClientIp(req)
     const rateCheck = await checkAuthRateLimit(ip, "invite_check")
     if (!rateCheck.allowed) {
       return NextResponse.json(

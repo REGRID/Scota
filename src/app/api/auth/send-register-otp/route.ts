@@ -6,13 +6,11 @@ import {
   sendVerificationEmail,
 } from "@/lib/emailSender"
 import { checkAuthRateLimit, recordAuthAttempt, formatLockoutMessage } from "@/lib/authRateLimiter"
+import { getClientIp } from "@/lib/rateLimiter"
 
 export async function POST(req: NextRequest) {
   try {
-    const ip =
-      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-      req.headers.get("x-real-ip")?.trim() ||
-      "127.0.0.1"
+    const ip = getClientIp(req)
 
     const body = await req.json()
     const cleanEmail = (body?.email || "").trim().toLowerCase()

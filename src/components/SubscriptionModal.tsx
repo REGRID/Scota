@@ -393,7 +393,7 @@ export function SubscriptionModal({
                         </div>
                         <div>
                           <strong className="text-sm font-bold text-slate-900 dark:text-white block">Checkout {TIER_CONFIG[selectedCheckoutPlan].name}</strong>
-                          <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">Total: Rp {(billingCycle === "yearly" ? TIER_CONFIG[selectedCheckoutPlan].priceYearly : TIER_CONFIG[selectedCheckoutPlan].priceMonthly).toLocaleString("id-ID")}</span>
+                          <span className="text-[11px] text-slate-500 dark:text-slate-400 font-bold">Total: Rp {(billingCycle === "yearly" ? TIER_CONFIG[selectedCheckoutPlan].priceYearly : TIER_CONFIG[selectedCheckoutPlan].priceMonthly).toLocaleString("id-ID")}</span>
                         </div>
                       </div>
                       <button onClick={() => setSelectedCheckoutPlan(null)} className="text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer">

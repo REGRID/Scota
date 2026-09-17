@@ -478,7 +478,7 @@ export function PakasirCheckoutModal({
                       Jumlah Transfer Persis
                     </span>
                     <div className="flex items-center justify-between mt-1 p-3 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
-                      <span className="font-mono text-lg font-black text-emerald-600 dark:text-emerald-400">
+                      <span className="text-lg font-black text-emerald-600 dark:text-emerald-400">
                         Rp {orderData.payment.total_payment.toLocaleString("id-ID")}
                       </span>
                       <button

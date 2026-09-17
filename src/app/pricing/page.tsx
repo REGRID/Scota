@@ -33,12 +33,7 @@ const TIER_DESCRIPTIONS: Record<SubscriptionTier, string> = {
 
 export default function PricingPage() {
   const { isLoaded, isSignedIn, user } = useUser()
-  const [cachedUser, setCachedUser] = useState<string | null>(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("nota_admin_user")
-    }
-    return null
-  })
+  const [cachedUser, setCachedUser] = useState<string | null>(null)
   const [sessionUser, setSessionUser] = useState<string | null>(null)
 
   React.useEffect(() => {

@@ -314,13 +314,19 @@ export function VerificationSplitScreen({
     }
   }
 
-  const isKaryawanRole = typeof window !== "undefined"
-    ? localStorage.getItem("nota_admin_role") === "KARYAWAN" || localStorage.getItem("nota_admin_user") === "karyawan"
-    : false
+  const [isKaryawanRole, setIsKaryawanRole] = useState(false)
+  const [activeStaffName, setActiveStaffName] = useState("Reza")
 
-  const activeStaffName = typeof window !== "undefined"
-    ? localStorage.getItem("nota_staff_name") || "Reza"
-    : "Reza"
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setIsKaryawanRole(
+        localStorage.getItem("nota_admin_role") === "KARYAWAN" ||
+        localStorage.getItem("nota_admin_user") === "karyawan"
+      )
+      const staff = localStorage.getItem("nota_staff_name")
+      if (staff) setActiveStaffName(staff)
+    }
+  }, [])
 
   const availablePaymentMethods = isKaryawanRole
     ? ["Cash", "Transfer Bank", "QRIS", "Talangan Karyawan"]

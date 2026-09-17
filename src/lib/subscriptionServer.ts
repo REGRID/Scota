@@ -59,23 +59,19 @@ export async function getSubscriptionInfo(tenantId: string = DEFAULT_TENANT_ID):
       const data = res.rows?.[0]
 
       if (data) {
-        const isSuperadminAccount =
-          targetTenant === DEFAULT_TENANT_ID ||
-          data.tier === "developer" ||
-          Boolean(data.isSuperadminTenant) ||
-          Boolean(data.isSuperadminOwner)
+        const isDeveloperTier = data.tier === "developer" || targetTenant === DEFAULT_TENANT_ID
 
-        const validUntil = isSuperadminAccount
+        const validUntil = isDeveloperTier
           ? new Date("2099-12-31T23:59:59.999Z")
           : new Date(data.validUntil || Date.now() + 14 * 86400000)
         const now = new Date()
-        const isExpired = !isSuperadminAccount && validUntil < now
-        const isExpiring = !isSuperadminAccount && !isExpired && validUntil.getTime() - now.getTime() < 5 * 24 * 60 * 60 * 1000
+        const isExpired = !isDeveloperTier && validUntil < now
+        const isExpiring = !isDeveloperTier && !isExpired && validUntil.getTime() - now.getTime() < 5 * 24 * 60 * 60 * 1000
 
         let status: SubscriptionInfo["status"] = "active"
         if (data.status === "suspended" || data.tenantStatus === "suspended") {
           status = "suspended"
-        } else if (isSuperadminAccount) {
+        } else if (isDeveloperTier) {
           status = "active"
         } else if (data.tier === "trial") {
           status = isExpired ? "expired" : "trial"
@@ -115,20 +111,20 @@ export async function getSubscriptionInfo(tenantId: string = DEFAULT_TENANT_ID):
           } catch (e) {}
         }
 
-        const resolvedTier: SubscriptionTier = isSuperadminAccount
-          ? "developer"
-          : (data.tier as SubscriptionTier) || "trial"
+        const resolvedTier: SubscriptionTier =
+          (data.tier as SubscriptionTier) ||
+          (targetTenant === DEFAULT_TENANT_ID ? "developer" : "trial")
 
-        const resolvedMonthlyScanLimit = isSuperadminAccount
+        const resolvedMonthlyScanLimit = isDeveloperTier
           ? 999999
           : (data.monthlyScanLimit || TIER_CONFIG[resolvedTier]?.monthlyScanLimit || 30)
 
         const result: SubscriptionInfo = {
           tier: resolvedTier,
           status,
-          validUntil: isSuperadminAccount ? "2099-12-31T23:59:59.999Z" : (data.validUntil || validUntil.toISOString()),
+          validUntil: isDeveloperTier ? "2099-12-31T23:59:59.999Z" : (data.validUntil || validUntil.toISOString()),
           monthlyScanLimit: resolvedMonthlyScanLimit,
-          usedScansThisMonth: isSuperadminAccount ? 0 : (data.usedScansThisMonth || 0),
+          usedScansThisMonth: isDeveloperTier ? 0 : (data.usedScansThisMonth || 0),
           studioProfile: profile,
           activeLicenseKey: data.activeLicenseKey,
           approvalWorkflow: workflow,

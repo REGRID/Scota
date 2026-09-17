@@ -1,7 +1,7 @@
 import { ClerkProvider } from "@clerk/nextjs";
 import { shadcn } from "@clerk/ui/themes";
 import type { Metadata, Viewport } from "next"
-import { Plus_Jakarta_Sans, Outfit, JetBrains_Mono } from "next/font/google"
+import { Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google"
 import localFont from "next/font/local"
 import "./globals.css"
 import { Toaster } from "sonner"
@@ -14,13 +14,6 @@ const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ["latin"],
   variable: "--font-sans",
   weight: ["400", "500", "600", "700", "800"],
-  display: "swap",
-})
-
-const outfit = Outfit({
-  subsets: ["latin"],
-  variable: "--font-heading",
-  weight: ["500", "600", "700", "800", "900"],
   display: "swap",
 })
 
@@ -135,7 +128,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="id" className={`${plusJakartaSans.variable} ${outfit.variable} ${jetbrainsMono.variable} ${clashDisplay.variable} dark max-w-full overflow-x-clip`} suppressHydrationWarning>
+    <html lang="id" className={`${plusJakartaSans.variable} ${jetbrainsMono.variable} ${clashDisplay.variable} dark max-w-full overflow-x-clip`} suppressHydrationWarning>
       <head>
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -143,7 +136,15 @@ export default function RootLayout({
         <JsonLd />
       </head>
       <body className="min-h-screen max-w-full overflow-x-clip bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 flex flex-col font-sans antialiased selection:bg-emerald-500 selection:text-white transition-colors duration-200">
-        <ClerkProvider appearance={{ theme: shadcn }}>
+        <ClerkProvider
+          publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+          appearance={{
+            theme: shadcn,
+            variables: {
+              fontFamily: "var(--font-sans), sans-serif",
+            },
+          }}
+        >
           <ThemeProvider>
           <AppDialogProvider>
           {children}

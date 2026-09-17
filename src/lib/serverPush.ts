@@ -106,7 +106,7 @@ export async function sendWebPushNotification(options: SendPushOptions) {
 
       if (!isGlobal && tenantId) {
         params.push(tenantId)
-        query += ` AND ("tenantId" = $${params.length} OR "tenantId" IS NULL)`
+        query += ` AND "tenantId" = $${params.length}`
       }
 
       if (recipientRole !== "ALL") {

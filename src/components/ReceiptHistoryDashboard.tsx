@@ -1,6 +1,8 @@
 "use client"
 
 import React, { useState, useEffect, useMemo, useRef } from "react"
+import { useRouter } from "next/navigation"
+import { NotificationPanel, type NotificationItem } from "@/components/ui/notification-panel"
 import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
 import {
@@ -141,6 +143,7 @@ interface ReceiptHistoryDashboardProps {
 }
 
 export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, currentAdminUser = "" }: ReceiptHistoryDashboardProps) {
+  const router = useRouter()
   const { showAlert, showConfirm } = useAppDialog()
   const [allReceipts, setAllReceipts] = useState<ReceiptData[]>(() => {
     if (typeof window !== "undefined") {
@@ -427,6 +430,72 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
   const [unreadNotificationCount, setUnreadNotificationCount] = useState<number>(0)
   const [showNotificationsModal, setShowNotificationsModal] = useState<boolean>(false)
   const notifiedIdsRef = useRef<Set<string>>(new Set())
+
+  // Convert Scota notifications to rich NotificationPanel items
+  const panelItems: NotificationItem[] = useMemo(() => {
+    return notifications.map((n: any) => {
+      const isRequest = Boolean(n.approvalId || n.type === "REQUEST")
+      const isReceipt = n.type === "NEW_RECEIPT" || (!n.type && n.title?.toLowerCase().includes("nota"))
+      const isApproved = n.type === "APPROVED"
+      const isRejected = n.type === "REJECTED"
+
+      let kind: NotificationItem["kind"] = "mention"
+      if (isRequest) kind = "request"
+      else if (isReceipt) kind = "file"
+      else if (isApproved) kind = "edit"
+      else if (isRejected) kind = "due"
+      else if (n.type === "JOIN") kind = "join"
+
+      let timeStr = "Baru saja"
+      try {
+        const d = new Date(n.createdAt)
+        const diffMs = Date.now() - d.getTime()
+        const diffMins = Math.floor(diffMs / 60000)
+        const diffHours = Math.floor(diffMins / 60)
+        const diffDays = Math.floor(diffHours / 24)
+
+        if (diffMins < 1) timeStr = "Baru saja"
+        else if (diffMins < 60) timeStr = `${diffMins} mnt lalu`
+        else if (diffHours < 24) timeStr = `${diffHours} jam lalu`
+        else if (diffDays === 1) timeStr = "Kemarin"
+        else if (diffDays < 7) timeStr = `${diffDays} hari lalu`
+        else timeStr = d.toLocaleDateString("id-ID", { day: "numeric", month: "short" })
+      } catch (e) {}
+
+      const actorName = n.sender && n.sender !== "all" && n.sender !== "*" ? n.sender : "Sistem Scota"
+
+      const actions = isRequest
+        ? [
+            {
+              id: "review",
+              label: "Tinjau Permintaan",
+              tone: "primary" as const,
+              resolved: "Membuka formulir persetujuan...",
+            },
+          ]
+        : undefined
+
+      return {
+        id: String(n.id),
+        actor: { name: actorName },
+        kind,
+        body: [
+          isRequest ? "mengajukan " : isReceipt ? "memproses " : "",
+          { entity: n.title || "Aktivitas Transaksi" },
+        ],
+        quote: n.message || undefined,
+        time: timeStr,
+        context: [
+          isRequest ? "Dual-Control" : isReceipt ? "Nota Transaksi" : "Aktivitas",
+          n.tenantId ? "Tenant Scota" : "Cabang Utama",
+        ],
+        unread: !n.isRead,
+        following: isRequest || !n.isRead,
+        actions,
+        raw: n,
+      }
+    })
+  }, [notifications])
 
   // Listen for global navbar modal trigger events
   useEffect(() => {
@@ -5268,77 +5337,63 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
 
       {/* NOTIFICATION CENTER MODAL */}
       {showNotificationsModal && (
-        <div className="fixed inset-0 z-[80] bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Zap className="w-5 h-5 text-amber-400 fill-amber-400" />
-                <h3 className="font-black text-sm text-white">Notifikasi Aktivitas Admin</h3>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => requestNotificationPermission()}
-                  className="text-[10px] font-extrabold bg-amber-400 hover:bg-amber-300 text-slate-950 px-2 py-0.5 rounded-lg flex items-center gap-1 shadow-2xs cursor-pointer"
-                  title="Minta izin Notifikasi Pop-up Native HP / Windows"
-                >
-                  <Bell className="w-3 h-3" /> Notifikasi HP
-                </button>
-                <button
-                  type="button"
-                  onClick={markAllNotificationsAsRead}
-                  className="text-[11px] font-bold text-emerald-400 hover:underline cursor-pointer"
-                >
-                  Tandai Dibaca
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowNotificationsModal(false)}
-                  className="p-1 text-slate-400 hover:text-white cursor-pointer"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
+        <div
+          className="fixed inset-0 z-[80] bg-slate-950/60 dark:bg-black/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-150"
+          onClick={() => setShowNotificationsModal(false)}
+        >
+          <div
+            className="w-full max-w-[440px] relative animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close floating button */}
+            <button
+              type="button"
+              onClick={() => setShowNotificationsModal(false)}
+              className="absolute -top-3 -right-3 z-30 w-7 h-7 rounded-full bg-white dark:bg-neutral-800 text-neutral-500 hover:text-neutral-900 dark:text-neutral-300 dark:hover:text-white border border-black/[0.08] dark:border-white/[0.12] shadow-md flex items-center justify-center cursor-pointer transition-transform hover:scale-105 active:scale-95"
+              aria-label="Tutup notifikasi"
+            >
+              <X className="w-4 h-4" />
+            </button>
 
-            <div className="p-4 max-h-[70vh] overflow-y-auto space-y-2.5 bg-slate-50/50">
-              {notifications.length === 0 ? (
-                <p className="text-xs font-semibold text-slate-400 text-center py-8">
-                  Belum ada notifikasi aktivitas baru.
-                </p>
-              ) : (
-                notifications.map((n: any) => (
-                  <div
-                    key={n.id}
-                    onClick={() => handleNotificationClick(n)}
-                    className={`p-3.5 rounded-2xl border text-xs space-y-1.5 transition-all cursor-pointer hover:scale-[1.01] active:scale-[0.99] ${
-                      !n.isRead
-                        ? "bg-amber-50/90 border-amber-300 ring-1 ring-amber-400/30 shadow-xs"
-                        : "bg-white border-slate-200 hover:bg-slate-50 opacity-85"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5">
-                        {!n.isRead && (
-                          <span className="w-2 h-2 rounded-full bg-red-500 shrink-0 animate-pulse" title="Belum Dibaca" />
-                        )}
-                        <span className="font-extrabold text-slate-900">{n.title}</span>
-                      </div>
-                      <span className="text-[10px] text-slate-400 font-medium shrink-0">
-                        {new Date(n.createdAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}
-                      </span>
-                    </div>
-                    <p className="text-slate-600 font-medium leading-snug">{n.message}</p>
-                    <div className="pt-1 flex items-center justify-between text-[10.5px] text-emerald-700 font-bold border-t border-slate-100/80">
-                      <span className="flex items-center gap-1">
-                        <ExternalLink className="w-3 h-3 text-emerald-600" /> Klik untuk lihat rincian nota ➔
-                      </span>
-                      {!n.isRead && <span className="text-amber-700 font-black text-[9.5px] uppercase bg-amber-100 px-1.5 py-0.5 rounded-md">Baru</span>}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
+            <NotificationPanel
+              items={panelItems}
+              maxHeight={460}
+              className="shadow-2xl"
+              onOpenItem={(item) => {
+                if (item.raw) {
+                  handleNotificationClick(item.raw)
+                }
+              }}
+              onReadChange={async (item, unread) => {
+                if (item.raw) {
+                  try {
+                    await fetch("/api/notifications", {
+                      method: "PATCH",
+                      headers: getAuthHeaders(),
+                      body: JSON.stringify({ id: item.raw.id }),
+                    })
+                    setNotifications((prev) =>
+                      prev.map((n) => (n.id === item.raw.id ? { ...n, isRead: !unread } : n))
+                    )
+                    setUnreadNotificationCount((prev) => (!unread ? Math.max(0, prev - 1) : prev + 1))
+                  } catch (err) {
+                    console.error("Update read status error:", err)
+                  }
+                }
+              }}
+              onMarkAllRead={() => {
+                markAllNotificationsAsRead()
+              }}
+              onAction={(item, actionId) => {
+                if (item.raw) {
+                  handleNotificationClick(item.raw)
+                }
+              }}
+              onSettings={() => {
+                setShowNotificationsModal(false)
+                router.push("/settings?tab=notifications")
+              }}
+            />
           </div>
         </div>
       )}

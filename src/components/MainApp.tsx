@@ -47,7 +47,7 @@ export interface MainAppProps {
 
 export function MainApp({
   initialView = "landing",
-  initialTab = "scan",
+  initialTab = "overview",
 }: MainAppProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -65,15 +65,7 @@ export function MainApp({
     initialView === "register" ? "register" : "login"
   )
   const [authInitialTier, setAuthInitialTier] = useState<SubscriptionTier>("trial")
-  const [showLanding, setShowLanding] = useState<boolean>(() => {
-    if (initialView !== "landing") return false
-    if (typeof window !== "undefined") {
-      const hasToken = Boolean(localStorage.getItem("nota_admin_token") || localStorage.getItem("nota_admin_user"))
-      const isExplicitLanding = new URLSearchParams(window.location.search).get("view") === "landing"
-      if (hasToken && !isExplicitLanding) return false
-    }
-    return true
-  })
+  const [showLanding, setShowLanding] = useState<boolean>(initialView === "landing")
   const [activeTab, setActiveTab] = useState<"overview" | "scan" | "history">(initialTab || "overview")
   const [showProfileMenu, setShowProfileMenu] = useState<boolean>(false)
 
@@ -83,7 +75,6 @@ export function MainApp({
       const isExplicitLanding = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("view") === "landing"
       if ((isAuthenticated === true || isClerkSignedIn) && !isExplicitLanding) {
         setShowLanding(false)
-        setActiveTab("overview")
       } else if (isAuthenticated === false) {
         setShowLanding(true)
       }
@@ -93,62 +84,43 @@ export function MainApp({
     } else if (pathname === "/register" || pathname === "/signup" || pathname === "/daftar") {
       setShowLanding(false)
       setAuthInitialMode("register")
-    } else if (pathname === "/scan") {
+    } else if (pathname === "/scan" || pathname === "/history" || pathname === "/dashboard" || pathname === "/app" || pathname === "/overview") {
       setShowLanding(false)
-      setActiveTab("scan")
-    } else if (pathname === "/history") {
-      setShowLanding(false)
-      setActiveTab("history")
-    } else if (pathname === "/dashboard" || pathname === "/app" || pathname === "/overview") {
-      setShowLanding(false)
-      setActiveTab("overview")
     }
   }, [pathname, isAuthenticated, isClerkSignedIn])
 
-  // Listen to browser Back/Forward navigation (popstate)
+  // Handle browser back / forward navigation seamlessly
   useEffect(() => {
     const handlePopState = () => {
-      if (typeof window === "undefined") return
       const path = window.location.pathname
-      if (path === "/") {
-        const isExplicitLanding = new URLSearchParams(window.location.search).get("view") === "landing"
-        if ((isAuthenticated === true || isClerkSignedIn) && !isExplicitLanding) {
-          setShowLanding(false)
-          setActiveTab("overview")
-        } else if (isAuthenticated === false) {
-          setShowLanding(true)
-        }
-      } else if (path === "/login" || path === "/signin") {
-        setShowLanding(false)
-        setAuthInitialMode("login")
-      } else if (path === "/register" || path === "/signup" || path === "/daftar") {
-        setShowLanding(false)
-        setAuthInitialMode("register")
-      } else if (path === "/scan") {
-        setShowLanding(false)
+      if (path === "/scan") {
         setActiveTab("scan")
+        setImagePreviewUrl(null)
       } else if (path === "/history") {
-        setShowLanding(false)
         setActiveTab("history")
+        setImagePreviewUrl(null)
       } else if (path === "/dashboard" || path === "/app" || path === "/overview") {
-        setShowLanding(false)
         setActiveTab("overview")
+        setImagePreviewUrl(null)
       }
     }
-
     window.addEventListener("popstate", handlePopState)
     return () => window.removeEventListener("popstate", handlePopState)
-  }, [isAuthenticated, isClerkSignedIn])
+  }, [])
 
   const handleTabChange = (tab: "overview" | "scan" | "history") => {
     if (isProcessing) return
     setImagePreviewUrl(null)
     setActiveTab(tab)
+    const targetPath = tab === "overview" ? "/dashboard" : `/${tab}`
     if (typeof window !== "undefined") {
-      const targetPath = tab === "overview" ? "/dashboard" : `/${tab}`
-      if (window.location.pathname !== targetPath) {
-        window.history.pushState(null, "", targetPath)
-      }
+      try {
+        window.history.pushState({ tab }, "", targetPath)
+        if (adminUser) {
+          localStorage.setItem(`nota_active_tab_${adminUser.toLowerCase()}`, tab)
+          localStorage.setItem("nota_active_tab", tab)
+        }
+      } catch {}
     }
   }
 
@@ -308,12 +280,27 @@ export function MainApp({
   useEffect(() => {
     const localUser = typeof window !== "undefined" ? localStorage.getItem("nota_admin_user") : null
     const localStaff = typeof window !== "undefined" ? localStorage.getItem("nota_staff_name") : null
+    const localToken = typeof window !== "undefined" ? localStorage.getItem("nota_admin_token") : null
+
     if (localStaff) setStaffName(localStaff)
+    if (localToken || localUser) {
+      setIsAuthenticated(true)
+    }
     if (localUser) {
       setAdminUser(localUser)
-      const key = `nota_active_tab_${localUser.toLowerCase()}`
-      const savedTab = localStorage.getItem(key) || localStorage.getItem("nota_active_tab")
-      if (savedTab === "scan" || savedTab === "history" || savedTab === "overview") setActiveTab(savedTab as any)
+      if (pathname === "/") {
+        const key = `nota_active_tab_${localUser.toLowerCase()}`
+        const savedTab = localStorage.getItem(key) || localStorage.getItem("nota_active_tab")
+        if (savedTab === "scan" || savedTab === "history" || savedTab === "overview") setActiveTab(savedTab as any)
+      }
+    }
+
+    if (initialView === "landing" && pathname === "/") {
+      const hasToken = Boolean(localStorage.getItem("nota_admin_token") || localStorage.getItem("nota_admin_user"))
+      const isExplicitLanding = new URLSearchParams(window.location.search).get("view") === "landing"
+      if (hasToken && !isExplicitLanding) {
+        setShowLanding(false)
+      }
     }
 
     if (!isClerkLoaded) return
@@ -347,9 +334,6 @@ export function MainApp({
             const isExplicitLanding = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("view") === "landing"
             if (!isExplicitLanding) {
               setShowLanding(false)
-              if (pathname === "/" || pathname === "/dashboard") {
-                setActiveTab("overview")
-              }
             }
             return
           }
@@ -381,9 +365,6 @@ export function MainApp({
       const isExplicitLanding = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("view") === "landing"
       if (!isExplicitLanding) {
         setShowLanding(false)
-        if (pathname === "/" || pathname === "/dashboard") {
-          setActiveTab("overview")
-        }
       }
     }
 
@@ -427,11 +408,6 @@ export function MainApp({
     const savedTabKey = `nota_active_tab_${cleanUser}`
 
     try {
-      const savedTab = localStorage.getItem(savedTabKey)
-      if (savedTab === "scan" || savedTab === "history") {
-        setActiveTab(savedTab as "scan" | "history")
-      }
-
       const savedDraftStr = localStorage.getItem(draftKey)
       if (savedDraftStr) {
         const draft = JSON.parse(savedDraftStr)
@@ -924,9 +900,9 @@ export function MainApp({
 
       {/* Top Header Navbar */}
       <header className="bg-white/95 text-slate-900 dark:bg-slate-900/95 dark:text-white sticky top-0 z-40 shadow-xs dark:shadow-md pt-[env(safe-area-inset-top,0px)] border-b border-slate-200 dark:border-slate-800 backdrop-blur-md transition-colors duration-200 w-full max-w-full">
-        <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 h-13 sm:h-16 flex items-center justify-between gap-1 sm:gap-4 min-w-0">
+        <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 h-13 sm:h-16 flex items-center justify-between gap-1 sm:gap-4 min-w-0 relative">
           {/* Brand Logo & Name & Branch Switcher */}
-          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0 min-w-0">
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0 min-w-0 z-10">
             <Link href="/" className="flex items-center gap-1.5 sm:gap-3 shrink-0 hover:opacity-90 transition-opacity min-w-0">
               <img
                 src="/scota-icon.png"
@@ -944,8 +920,8 @@ export function MainApp({
             </Link>
           </div>
 
-          {/* Center: Clean Primary Navigation Tabs */}
-          <div className="flex items-center bg-slate-100 dark:bg-slate-800/90 p-0.5 sm:p-1 rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs shrink-0">
+          {/* Center: Clean Primary Navigation Tabs (Perfect Center) */}
+          <div className="flex md:absolute md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 items-center bg-slate-100 dark:bg-slate-800/90 p-0.5 sm:p-1 rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs shrink-0 z-10">
             <button
               type="button"
               disabled={isProcessing}
@@ -990,7 +966,7 @@ export function MainApp({
           </div>
 
           {/* Right: Dual Control + Notifications + Theme Toggle + Unified User Profile Menu */}
-          <div className="flex items-center gap-0.5 sm:gap-1.5 shrink-0 relative">
+          <div className="flex items-center gap-0.5 sm:gap-1.5 shrink-0 relative z-10">
             {dualControlEnabled && (
               <button
                 type="button"
@@ -1045,14 +1021,6 @@ export function MainApp({
             >
               <Bell className="w-4 h-4 text-slate-600 dark:text-slate-300" />
             </button>
-
-            <Link
-              href="/settings"
-              className="p-1.5 sm:p-2 rounded-xl text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
-              title="Pengaturan & Tim Toko"
-            >
-              <Settings className="w-4 h-4 text-slate-600 dark:text-slate-300" />
-            </Link>
 
             <ThemeToggle />
 

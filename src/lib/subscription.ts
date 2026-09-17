@@ -118,7 +118,7 @@ export const TIER_CONFIG: Record<SubscriptionTier, TierConfig> = {
     features: [
       "Unlimited Scan Nota AI",
       "Dukungan Multi-Cabang & Multi-Usaha",
-      "Custom POS Sync / Webhook API",
+      "Webhook & Integrasi Akuntansi",
       "Dedicated Database & SLA 99.9%",
       "Onboarding & Training Tim Khusus",
     ],

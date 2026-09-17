@@ -1010,7 +1010,7 @@ export function IntroductionDashboard({
                                   </span>
                                 </div>
                               </div>
-                              <span className="font-mono text-emerald-600 dark:text-emerald-400 font-bold text-xs sm:text-sm shrink-0 whitespace-nowrap">
+                              <span className="text-emerald-600 dark:text-emerald-400 font-bold text-xs sm:text-sm shrink-0 whitespace-nowrap">
                                 Rp {(item.price || 0).toLocaleString("id-ID")}
                               </span>
                             </div>
@@ -1019,7 +1019,7 @@ export function IntroductionDashboard({
 
                         <div className="p-3 rounded-2xl bg-emerald-50/70 dark:bg-gradient-to-r dark:from-emerald-950/80 dark:via-slate-900 dark:to-slate-900 border-2 border-emerald-400 dark:border-emerald-500/60 flex justify-between items-center text-xs font-bold text-slate-900 dark:text-white shadow-sm">
                           <span className="text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[11px]">TOTAL PENGELUARAN</span>
-                          <span className="text-emerald-600 dark:text-emerald-400 font-mono text-base sm:text-lg">
+                          <span className="text-emerald-600 dark:text-emerald-400 font-bold text-base sm:text-lg">
                             Rp {customParsedData.totalAmount.toLocaleString("id-ID")}
                           </span>
                         </div>
@@ -1765,7 +1765,7 @@ export function IntroductionDashboard({
                 <span className="text-slate-400">Hasil:</span>
                 <strong className="text-white font-bold truncate max-w-[140px] sm:max-w-none">{customParsedData.merchantName}</strong>
                 <span className="text-slate-600">•</span>
-                <span className="font-mono text-emerald-400 font-bold text-sm whitespace-nowrap">
+                <span className="text-emerald-400 font-bold text-sm whitespace-nowrap">
                   Rp {customParsedData.totalAmount.toLocaleString("id-ID")}
                 </span>
                 <span className="text-slate-400 whitespace-nowrap">({customParsedData.items.length} item)</span>

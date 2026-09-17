@@ -34,7 +34,7 @@ function getFallbackSubscription(tenantId: string): SubscriptionInfo {
  */
 export async function getSubscriptionInfo(tenantId: string = DEFAULT_TENANT_ID): Promise<SubscriptionInfo> {
   const targetTenant = tenantId || DEFAULT_TENANT_ID
-  const masterEmail = (process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL || "refo.gangga.dev@gmail.com").toLowerCase().trim()
+  const masterEmail = (process.env.SUPERADMIN_EMAIL || process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL || "refo.gangga.dev@gmail.com").toLowerCase().trim()
 
   if (isDatabaseConfigured) {
     try {

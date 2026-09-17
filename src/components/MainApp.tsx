@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react"
 import Link from "next/link"
 import { useRouter, usePathname } from "next/navigation"
-import { extractTextFromReceipt } from "@/lib/ocr"
 import { useUser, useClerk, UserButton } from "@clerk/nextjs"
 import { ReceiptImageUpload, BatchFileItem } from "@/components/ReceiptImageUpload"
 import { VerificationSplitScreen } from "@/components/VerificationSplitScreen"
@@ -280,13 +279,10 @@ export function MainApp({
   useEffect(() => {
     const localUser = typeof window !== "undefined" ? localStorage.getItem("nota_admin_user") : null
     const localStaff = typeof window !== "undefined" ? localStorage.getItem("nota_staff_name") : null
-    const localToken = typeof window !== "undefined" ? localStorage.getItem("nota_admin_token") : null
 
     if (localStaff) setStaffName(localStaff)
-    if (localToken || localUser) {
-      setIsAuthenticated(true)
-    }
     if (localUser) {
+      setIsAuthenticated(true)
       setAdminUser(localUser)
       if (pathname === "/") {
         const key = `nota_active_tab_${localUser.toLowerCase()}`
@@ -296,9 +292,9 @@ export function MainApp({
     }
 
     if (initialView === "landing" && pathname === "/") {
-      const hasToken = Boolean(localStorage.getItem("nota_admin_token") || localStorage.getItem("nota_admin_user"))
+      const hasSession = Boolean(localStorage.getItem("nota_admin_user"))
       const isExplicitLanding = new URLSearchParams(window.location.search).get("view") === "landing"
-      if (hasToken && !isExplicitLanding) {
+      if (hasSession && !isExplicitLanding) {
         setShowLanding(false)
       }
     }
@@ -312,9 +308,6 @@ export function MainApp({
           const data = await res.json()
           if (data.authenticated) {
             setIsAuthenticated(true)
-            if (data.token && typeof window !== "undefined") {
-              localStorage.setItem("nota_admin_token", data.token)
-            }
             if (data.user?.username) setAdminUser(data.user.username)
             if (data.user?.role) setUserRole(data.user.role)
             if (data.user?.staffName) setStaffName(data.user.staffName)
@@ -585,10 +578,6 @@ export function MainApp({
       }),
     })
 
-    extractTextFromReceipt(item.base64)
-      .then((txt) => setRawOcrText(txt))
-      .catch(() => setRawOcrText("Nota Belanja"))
-
     try {
       setOcrPercent(0.7)
       const response = await parsePromise
@@ -619,6 +608,12 @@ export function MainApp({
 
       setOcrPercent(1.0)
       setOcrStatus("Pemrosesan Selesai!")
+
+      if (data.rawText) {
+        setRawOcrText(data.rawText)
+      } else {
+        setRawOcrText("Nota Belanja")
+      }
 
       if (data.result) {
         setParsedResult(data.result)
@@ -793,10 +788,7 @@ export function MainApp({
       <AdminLoginScreen
         initialMode={authInitialMode}
         initialTier={authInitialTier}
-        onLoginSuccess={(token, user) => {
-          if (token && typeof window !== "undefined") {
-            localStorage.setItem("nota_admin_token", token)
-          }
+        onLoginSuccess={(_token, user) => {
           setAdminUser(user)
           setIsAuthenticated(true)
           fetchSubscription()
@@ -825,10 +817,7 @@ export function MainApp({
       <AdminLoginScreen
         initialMode={authInitialMode}
         initialTier={authInitialTier}
-        onLoginSuccess={(token, user) => {
-          if (token && typeof window !== "undefined") {
-            localStorage.setItem("nota_admin_token", token)
-          }
+        onLoginSuccess={(_token, user) => {
           setAdminUser(user)
           setIsAuthenticated(true)
           fetchSubscription()

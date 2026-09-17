@@ -25,8 +25,10 @@ export async function provisionTenantForClerkUser(clerkId: string): Promise<Sess
 
     if (!user) return null
 
+    const primaryEmailObj = user.emailAddresses?.find((e: any) => e.id === user.primaryEmailAddressId)
     const email =
-      user.emailAddresses?.find((e: any) => e.emailAddress?.includes("dev"))?.emailAddress ||
+      primaryEmailObj?.emailAddress ||
+      user.primaryEmailAddress?.emailAddress ||
       user.emailAddresses?.[0]?.emailAddress ||
       ""
     const fullName = `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.username || email || "Pengguna Baru"

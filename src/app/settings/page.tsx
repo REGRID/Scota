@@ -626,9 +626,6 @@ function SettingsContent() {
         if (res.ok) {
           const data = await res.json()
           if (data?.authenticated) {
-            if (data.token && typeof window !== "undefined") {
-              localStorage.setItem("nota_admin_token", data.token)
-            }
             if (data?.user?.role) {
               setCurrentUserRole(data.user.role)
             }

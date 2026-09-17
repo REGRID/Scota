@@ -9,10 +9,6 @@ import { SuperadminSidebar } from "@/components/superadmin/SuperadminSidebar"
 import { SuperadminTopbar } from "@/components/superadmin/SuperadminTopbar"
 import { SuperadminLoginForm } from "@/components/SuperadminLoginForm"
 
-const ALLOWED_SUPERADMIN_EMAIL = (
-  process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL || "refo.gangga.dev@gmail.com"
-).toLowerCase().trim()
-
 export default function SuperadminLayout({
   children,
 }: {
@@ -99,39 +95,7 @@ export default function SuperadminLayout({
     )
   }
 
-  // 3. Gate 2: Check Allowed Google Email (Strict: refo.gangga.dev@gmail.com)
-  const userEmails = user.emailAddresses.map((e) => e.emailAddress.toLowerCase().trim())
-  const hasAuthorizedEmail = userEmails.includes(ALLOWED_SUPERADMIN_EMAIL)
-
-  if (!hasAuthorizedEmail) {
-    const currentEmail = user.primaryEmailAddress?.emailAddress || userEmails[0] || "Tidak Diketahui"
-    return (
-      <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4 relative font-sans selection:bg-emerald-500 selection:text-white">
-        <div className="w-full max-w-md bg-slate-900/95 border border-rose-500/30 rounded-3xl p-6 sm:p-8 text-center space-y-5 shadow-2xl">
-          <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-400 flex items-center justify-center mx-auto shadow-inner">
-            <ShieldAlert className="w-6 h-6" />
-          </div>
-          <div className="space-y-1.5">
-            <h1 className="text-lg font-bold text-white">Akses Ditolak</h1>
-            <p className="text-xs text-slate-300 leading-relaxed">
-              Akun Google Anda <strong className="text-rose-400 font-bold">({currentEmail})</strong> tidak memiliki izin untuk membuka portal Superadmin.
-            </p>
-          </div>
-          <div className="pt-2">
-            <Link
-              href="/dashboard"
-              className="w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs transition-all cursor-pointer flex items-center justify-center gap-2 border border-slate-700 shadow-sm"
-            >
-              <ArrowLeft className="w-3.5 h-3.5 text-slate-300" />
-              <span>Kembali ke Dashboard</span>
-            </Link>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  // 4. Gate 3: Check Superadmin ID & Password Verification
+  // 3. Gate 2: Check Superadmin ID & Password Verification
   if (!isSuperadminSessionValid) {
     return (
       <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4 relative overflow-hidden font-sans selection:bg-emerald-500 selection:text-white">

@@ -61,15 +61,8 @@ export function PakasirCheckoutModal({
       const clerkToken = await getToken()
       if (clerkToken) {
         headers["Authorization"] = `Bearer ${clerkToken}`
-        return headers
       }
     } catch {}
-    if (typeof window !== "undefined") {
-      const localToken = localStorage.getItem("nota_admin_token")
-      if (localToken) {
-        headers["Authorization"] = `Bearer ${localToken}`
-      }
-    }
     return headers
   }
   

@@ -1,5 +1,3 @@
-import { createWorker } from "tesseract.js"
-
 export interface OCRProgress {
   status: string
   progress: number
@@ -105,74 +103,4 @@ export function rotateImageBase64(base64Data: string, degrees: number): Promise<
     img.onerror = () => resolve(base64Data)
     img.src = base64Data
   })
-}
-
-/**
- * Extracts raw text from an image file or base64 data using Tesseract.js
- */
-export async function extractTextFromReceipt(
-  imageSource: File | string,
-  onProgress?: (info: OCRProgress) => void
-): Promise<string> {
-  let activeWorker: any = null
-
-  let timeoutId: any = null
-  const timeout = new Promise<string>((_, reject) => {
-    timeoutId = setTimeout(() => {
-      if (activeWorker) {
-        try {
-          activeWorker.terminate()
-        } catch {}
-      }
-      reject(new Error("OCR Timeout"))
-    }, 14000)
-  })
-
-  const ocrTask = async (): Promise<string> => {
-    try {
-      const worker = await createWorker("ind+eng", 1, {
-        logger: (m) => {
-          if (onProgress && m.status) {
-            onProgress({
-              status: m.status,
-              progress: typeof m.progress === "number" ? m.progress : 0,
-            })
-          }
-        },
-      })
-      activeWorker = worker
-
-      const {
-        data: { text },
-      } = await worker.recognize(imageSource)
-
-      await worker.terminate()
-      activeWorker = null
-      return text ? text.trim() : "Nota Belanja"
-    } catch (err) {
-      console.warn("Primary Tesseract OCR failed, using fallback:", err)
-      if (activeWorker) {
-        try {
-          await activeWorker.terminate()
-        } catch {}
-        activeWorker = null
-      }
-      return "Nota Belanja"
-    } finally {
-      if (timeoutId) clearTimeout(timeoutId)
-    }
-  }
-
-  try {
-    return await Promise.race([ocrTask(), timeout])
-  } catch (err) {
-    console.warn("OCR timed out or failed gracefully:", err)
-    if (activeWorker) {
-      try {
-        await activeWorker.terminate()
-      } catch {}
-      activeWorker = null
-    }
-    return "Nota Belanja"
-  }
 }

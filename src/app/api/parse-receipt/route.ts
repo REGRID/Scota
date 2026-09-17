@@ -549,8 +549,23 @@ Keluarkan HANYA JSON:
       remainingQuota = 999
     }
 
+    const generatedRawText = [
+      parsedJson.merchantName,
+      `Tanggal: ${parsedJson.date}`,
+      "--------------------------------",
+      ...parsedJson.items.map(
+        (it) => `${it.name} x${it.quantity} @Rp ${it.price.toLocaleString("id-ID")}`
+      ),
+      "--------------------------------",
+      `Subtotal: Rp ${parsedJson.subtotal?.toLocaleString("id-ID")}`,
+      parsedJson.discountAmount ? `Diskon: -Rp ${parsedJson.discountAmount.toLocaleString("id-ID")}` : null,
+      parsedJson.taxAmount ? `Pajak: Rp ${parsedJson.taxAmount.toLocaleString("id-ID")}` : null,
+      `Total: Rp ${parsedJson.totalAmount?.toLocaleString("id-ID")}`,
+    ].filter(Boolean).join("\n")
+
     const response = NextResponse.json({
       ...parsedJson,
+      rawText: generatedRawText,
       result: parsedJson,
       parsed: parsedJson,
       mode: "gemini_multimodal_vision",

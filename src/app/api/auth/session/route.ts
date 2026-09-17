@@ -23,7 +23,6 @@ export async function GET(req: NextRequest) {
 
     const response = NextResponse.json({
       authenticated: true,
-      token: sessionToken,
       user: {
         username: session.username,
         role: session.role || "ADMIN",

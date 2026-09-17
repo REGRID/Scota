@@ -122,7 +122,7 @@ export async function getAllTenants(): Promise<TenantSummary[]> {
           const rawUser = email || row.adminUsername || `tenant_${tenantId.slice(0, 8)}`
           const usernameKey = rawUser.toLowerCase().trim()
 
-          const masterEmail = (process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL || "refo.gangga.dev@gmail.com").toLowerCase().trim()
+          const masterEmail = (process.env.SUPERADMIN_EMAIL || process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL || "refo.gangga.dev@gmail.com").toLowerCase().trim()
           const isSuperadminAccount =
             email === masterEmail ||
             row.adminRole === "SUPERADMIN" ||
@@ -291,7 +291,7 @@ export async function getAllTenants(): Promise<TenantSummary[]> {
                 existingEntry.status = "suspended"
               }
             } else {
-              const isSuperadminEmail = email === (process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL || "refo.gangga.dev@gmail.com").toLowerCase().trim()
+              const isSuperadminEmail = email === (process.env.SUPERADMIN_EMAIL || process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL || "refo.gangga.dev@gmail.com").toLowerCase().trim()
               const role = "OWNER"
               const tier: SubscriptionTier = isSuperadminEmail ? "developer" : "trial"
               const tierCfg = TIER_CONFIG[tier] || TIER_CONFIG.trial
@@ -325,7 +325,7 @@ export async function getAllTenants(): Promise<TenantSummary[]> {
     }
   }
 
-  const masterSuperadminEmail = (process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL || "refo.gangga.dev@gmail.com").toLowerCase().trim()
+  const masterSuperadminEmail = (process.env.SUPERADMIN_EMAIL || process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL || "refo.gangga.dev@gmail.com").toLowerCase().trim()
   const masterSuperadminUser = (process.env.SUPERADMIN_USERNAME || "superadmin").toLowerCase().trim()
 
   return Array.from(tenantsMap.values()).filter((t) => {

@@ -107,9 +107,6 @@ export function IntroductionDashboard({
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data?.authenticated && data.user) {
-          if (data.token && typeof window !== "undefined") {
-            localStorage.setItem("nota_admin_token", data.token)
-          }
           setSessionUser(data.user.staffName || data.user.fullName || data.user.username)
         }
       })

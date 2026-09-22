@@ -331,7 +331,7 @@ export function ExecutiveSummaryDashboard({
   }
 
   return (
-    <div ref={dashboardRef} className="space-y-6">
+    <div ref={dashboardRef} className="space-y-3.5 sm:space-y-6">
       {/* Top Bar: Title & Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200 dark:border-slate-800">
         <div>
@@ -398,120 +398,120 @@ export function ExecutiveSummaryDashboard({
         </div>
       </div>
 
-      {/* 4 BALANCED KPI METRIC CARDS ROW */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* 4 BALANCED KPI METRIC CARDS ROW (2x2 ON MOBILE, 4 COLS ON DESKTOP) */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         {/* KPI 1: Total Pengeluaran */}
-        <div className="bento-card-animate bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 hover:border-emerald-500/40 rounded-3xl p-5 shadow-xs dark:shadow-xl relative overflow-hidden flex flex-col justify-between group transition-all">
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                Total Pengeluaran
+        <div className="bento-card-animate bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 hover:border-emerald-500/40 rounded-2xl sm:rounded-3xl p-3 sm:p-5 shadow-xs dark:shadow-xl relative overflow-hidden flex flex-col justify-between group transition-all">
+          <div className="space-y-1.5 sm:space-y-3">
+            <div className="flex items-center justify-between gap-1">
+              <span className="text-[10px] sm:text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate">
+                Total Belanja
               </span>
-              <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 border border-emerald-500/20 flex items-center justify-center shrink-0">
-                <Wallet className="w-4 h-4" />
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 border border-emerald-500/20 flex items-center justify-center shrink-0">
+                <Wallet className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </div>
             </div>
             <div>
-              <div className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+              <div className="text-[15px] sm:text-2xl lg:text-3xl font-black text-slate-900 dark:text-white tracking-tight truncate">
                 Rp {metrics.totalAmount.toLocaleString("id-ID")}
               </div>
-              <div className="flex items-center gap-1.5 mt-1">
-                <span className="text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+              <div className="flex items-center gap-1 mt-0.5 sm:mt-1">
+                <span className="text-[9px] sm:text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 truncate">
                   {getTimeframeLabel()}
                 </span>
               </div>
             </div>
           </div>
-          <div className="pt-3 mt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-            <span className="font-semibold">{metrics.count} Nota Tercatat</span>
+          <div className="pt-2 mt-2 sm:pt-3 sm:mt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[10px] sm:text-xs text-slate-500 dark:text-slate-400">
+            <span className="font-semibold truncate">{metrics.count} Nota</span>
             <button
               type="button"
               onClick={() => onNavigateTab("history")}
-              className="text-emerald-600 dark:text-emerald-400 font-bold hover:underline flex items-center gap-0.5 text-[11px] cursor-pointer"
+              className="text-emerald-600 dark:text-emerald-400 font-bold hover:underline flex items-center gap-0.5 shrink-0 cursor-pointer"
             >
               <span>Riwayat</span>
-              <ArrowUpRight className="w-3 h-3" />
+              <ArrowUpRight className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
             </button>
           </div>
         </div>
 
         {/* KPI 2: Rata-rata / Hari */}
-        <div className="bento-card-animate bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 hover:border-sky-500/40 rounded-3xl p-5 shadow-xs dark:shadow-xl relative overflow-hidden flex flex-col justify-between group transition-all">
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+        <div className="bento-card-animate bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 hover:border-sky-500/40 rounded-2xl sm:rounded-3xl p-3 sm:p-5 shadow-xs dark:shadow-xl relative overflow-hidden flex flex-col justify-between group transition-all">
+          <div className="space-y-1.5 sm:space-y-3">
+            <div className="flex items-center justify-between gap-1">
+              <span className="text-[10px] sm:text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate">
                 Rata-rata / Hari
               </span>
-              <div className="w-8 h-8 rounded-xl bg-sky-500/10 text-sky-500 dark:text-sky-400 border border-sky-500/20 flex items-center justify-center shrink-0">
-                <Calendar className="w-4 h-4" />
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-sky-500/10 text-sky-500 dark:text-sky-400 border border-sky-500/20 flex items-center justify-center shrink-0">
+                <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </div>
             </div>
             <div>
-              <div className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+              <div className="text-[15px] sm:text-2xl lg:text-3xl font-black text-slate-900 dark:text-white tracking-tight truncate">
                 Rp {metrics.avgPerDay.toLocaleString("id-ID")}
               </div>
-              <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                Beban rata-rata operasional harian
+              <div className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 mt-0.5 sm:mt-1 truncate">
+                Beban harian aktif
               </div>
             </div>
           </div>
-          <div className="pt-3 mt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-            <span className="font-semibold">
-              Periode: {timeframe === "today" ? "1 Hari" : timeframe === "7d" ? "7 Hari" : "30 Hari"}
+          <div className="pt-2 mt-2 sm:pt-3 sm:mt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[10px] sm:text-xs text-slate-500 dark:text-slate-400">
+            <span className="font-semibold truncate">
+              {timeframe === "today" ? "1 Hari" : timeframe === "7d" ? "7 Hari" : "30 Hari"}
             </span>
-            <span className="text-[10px] font-bold uppercase text-slate-400">Rerata</span>
+            <span className="text-[9px] sm:text-[10px] font-bold uppercase text-slate-400 shrink-0">Rerata</span>
           </div>
         </div>
 
         {/* KPI 3: Rata-rata / Nota */}
-        <div className="bento-card-animate bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 hover:border-indigo-500/40 rounded-3xl p-5 shadow-xs dark:shadow-xl relative overflow-hidden flex flex-col justify-between group transition-all">
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+        <div className="bento-card-animate bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 hover:border-indigo-500/40 rounded-2xl sm:rounded-3xl p-3 sm:p-5 shadow-xs dark:shadow-xl relative overflow-hidden flex flex-col justify-between group transition-all">
+          <div className="space-y-1.5 sm:space-y-3">
+            <div className="flex items-center justify-between gap-1">
+              <span className="text-[10px] sm:text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate">
                 Rata-rata / Nota
               </span>
-              <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-500 dark:text-indigo-400 border border-indigo-500/20 flex items-center justify-center shrink-0">
-                <Receipt className="w-4 h-4" />
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-indigo-500/10 text-indigo-500 dark:text-indigo-400 border border-indigo-500/20 flex items-center justify-center shrink-0">
+                <Receipt className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </div>
             </div>
             <div>
-              <div className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+              <div className="text-[15px] sm:text-2xl lg:text-3xl font-black text-slate-900 dark:text-white tracking-tight truncate">
                 Rp {metrics.avgPerReceipt.toLocaleString("id-ID")}
               </div>
-              <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                Besaran rata-rata per struk belanja
+              <div className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 mt-0.5 sm:mt-1 truncate">
+                Rata-rata per transaksi
               </div>
             </div>
           </div>
-          <div className="pt-3 mt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-            <span className="font-semibold">Nilai Struk Kasir</span>
-            <span className="text-[10px] font-bold uppercase text-slate-400">Per Faktur</span>
+          <div className="pt-2 mt-2 sm:pt-3 sm:mt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[10px] sm:text-xs text-slate-500 dark:text-slate-400">
+            <span className="font-semibold truncate">Nilai Struk</span>
+            <span className="text-[9px] sm:text-[10px] font-bold uppercase text-slate-400 shrink-0">Per Nota</span>
           </div>
         </div>
 
         {/* KPI 4: Sisa Kuota AI Scan */}
-        <div className="bento-card-animate bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 hover:border-purple-500/40 rounded-3xl p-5 shadow-xs dark:shadow-xl relative overflow-hidden flex flex-col justify-between group transition-all">
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                Sisa Kuota AI Scan
+        <div className="bento-card-animate bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 hover:border-purple-500/40 rounded-2xl sm:rounded-3xl p-3 sm:p-5 shadow-xs dark:shadow-xl relative overflow-hidden flex flex-col justify-between group transition-all">
+          <div className="space-y-1.5 sm:space-y-3">
+            <div className="flex items-center justify-between gap-1">
+              <span className="text-[10px] sm:text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate">
+                Kuota AI Scan
               </span>
-              <div className="w-8 h-8 rounded-xl bg-purple-500/10 text-purple-500 dark:text-purple-400 border border-purple-500/20 flex items-center justify-center shrink-0">
-                <Sparkles className="w-4 h-4" />
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-purple-500/10 text-purple-500 dark:text-purple-400 border border-purple-500/20 flex items-center justify-center shrink-0">
+                <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </div>
             </div>
             <div>
-              <div className="text-2xl sm:text-3xl font-black text-emerald-600 dark:text-emerald-400 tracking-tight">
+              <div className="text-[15px] sm:text-2xl lg:text-3xl font-black text-emerald-600 dark:text-emerald-400 tracking-tight truncate">
                 {quotaInfo?.isUnlimited ? "Unlimited" : `${quotaInfo?.remaining ?? 0} Nota`}
               </div>
-              <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                Ekstraksi OCR otomatis & cerdas
+              <div className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 mt-0.5 sm:mt-1 truncate">
+                Ekstraksi OCR otomatis
               </div>
             </div>
           </div>
-          <div className="pt-3 mt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-            <span className="font-semibold">Status Kuota</span>
-            <span className="text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded-md bg-purple-500/10 text-purple-600 dark:text-purple-400">
+          <div className="pt-2 mt-2 sm:pt-3 sm:mt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[10px] sm:text-xs text-slate-500 dark:text-slate-400">
+            <span className="font-semibold truncate">Status AI</span>
+            <span className="text-[9px] sm:text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded-md bg-purple-500/10 text-purple-600 dark:text-purple-400 shrink-0">
               Bulan Ini
             </span>
           </div>
@@ -519,9 +519,9 @@ export function ExecutiveSummaryDashboard({
       </div>
 
       {/* CHARTS & ANALYTICS VISUALIZATION ROW */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-5 items-stretch">
         {/* CHART 1: Tren Pengeluaran Harian (AreaChart) */}
-        <div className="bento-card-animate lg:col-span-7 bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-xs dark:shadow-xl flex flex-col justify-between">
+        <div className="bento-card-animate lg:col-span-7 bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl sm:rounded-3xl p-3.5 sm:p-6 shadow-xs dark:shadow-xl flex flex-col justify-between">
           <div>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
               <div>
@@ -539,9 +539,9 @@ export function ExecutiveSummaryDashboard({
             </div>
 
             {/* AreaChart Container */}
-            <div className="w-full pt-4 min-h-[250px]">
+            <div className="w-full pt-3 sm:pt-4 min-h-[210px] sm:min-h-[250px]">
               {isMounted ? (
-                <ResponsiveContainer width="100%" height={250}>
+                <ResponsiveContainer width="100%" height={220}>
                   <AreaChart data={dailyTrendData} margin={{ top: 12, right: 10, left: -15, bottom: 0 }}>
                     <defs>
                       <linearGradient id="expenseTrendGradient" x1="0" y1="0" x2="0" y2="1">
@@ -600,7 +600,7 @@ export function ExecutiveSummaryDashboard({
                   </AreaChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="w-full h-[250px] flex items-center justify-center text-xs text-slate-500 animate-pulse">
+                <div className="w-full h-[220px] flex items-center justify-center text-xs text-slate-500 animate-pulse">
                   Memuat visualisasi grafik...
                 </div>
               )}
@@ -616,7 +616,7 @@ export function ExecutiveSummaryDashboard({
         </div>
 
         {/* CHART 2: Komposisi Top Kategori & Porsi Biaya (Donut + Progress) */}
-        <div className="bento-card-animate lg:col-span-5 bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-xs dark:shadow-xl flex flex-col justify-between">
+        <div className="bento-card-animate lg:col-span-5 bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl sm:rounded-3xl p-3.5 sm:p-6 shadow-xs dark:shadow-xl flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <h3 className="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
@@ -734,9 +734,9 @@ export function ExecutiveSummaryDashboard({
       </div>
 
       {/* FINANCIAL CASHFLOW & RECENT ACTIVITY ROW */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-5 items-stretch">
         {/* CARD: Kanal Pembayaran & Status Kas (6 Cols) */}
-        <div className="bento-card-animate lg:col-span-6 bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-xs dark:shadow-xl flex flex-col justify-between">
+        <div className="bento-card-animate lg:col-span-6 bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl sm:rounded-3xl p-3.5 sm:p-6 shadow-xs dark:shadow-xl flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <h3 className="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
@@ -748,18 +748,18 @@ export function ExecutiveSummaryDashboard({
               </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 pt-4">
+            <div className="grid grid-cols-2 gap-2.5 sm:gap-3 pt-3 sm:pt-4">
               {/* Tunai */}
-              <div className="bg-slate-50 dark:bg-slate-950/60 p-4 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 space-y-2">
+              <div className="bg-slate-50 dark:bg-slate-950/60 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-200/60 dark:border-slate-800/60 space-y-1.5 sm:space-y-2">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="flex items-center gap-1.5 font-bold text-slate-700 dark:text-slate-300">
-                    <Banknote className="w-4 h-4 text-emerald-500" /> Kas Tunai
+                  <span className="flex items-center gap-1.5 font-bold text-slate-700 dark:text-slate-300 truncate">
+                    <Banknote className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-500 shrink-0" /> Tunai
                   </span>
-                  <span className="text-[11px] font-bold text-slate-500">
+                  <span className="text-[11px] font-bold text-slate-500 shrink-0">
                     {metrics.cashPercent}%
                   </span>
                 </div>
-                <div className="text-lg font-black text-slate-900 dark:text-white">
+                <div className="text-sm sm:text-lg font-black text-slate-900 dark:text-white truncate">
                   Rp {metrics.cashTotal.toLocaleString("id-ID")}
                 </div>
                 <div className="w-full bg-slate-200 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
@@ -771,16 +771,16 @@ export function ExecutiveSummaryDashboard({
               </div>
 
               {/* Non-Tunai / Bank */}
-              <div className="bg-slate-50 dark:bg-slate-950/60 p-4 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 space-y-2">
+              <div className="bg-slate-50 dark:bg-slate-950/60 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-200/60 dark:border-slate-800/60 space-y-1.5 sm:space-y-2">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="flex items-center gap-1.5 font-bold text-slate-700 dark:text-slate-300">
-                    <CreditCard className="w-4 h-4 text-teal-500" /> Non-Tunai / Bank
+                  <span className="flex items-center gap-1.5 font-bold text-slate-700 dark:text-slate-300 truncate">
+                    <CreditCard className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-teal-500 shrink-0" /> Non-Tunai
                   </span>
-                  <span className="text-[11px] font-bold text-slate-500">
+                  <span className="text-[11px] font-bold text-slate-500 shrink-0">
                     {metrics.nonCashPercent}%
                   </span>
                 </div>
-                <div className="text-lg font-black text-slate-900 dark:text-white">
+                <div className="text-sm sm:text-lg font-black text-slate-900 dark:text-white truncate">
                   Rp {metrics.nonCashTotal.toLocaleString("id-ID")}
                 </div>
                 <div className="w-full bg-slate-200 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
@@ -793,44 +793,44 @@ export function ExecutiveSummaryDashboard({
             </div>
 
             {/* Status Pelunasan */}
-            <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
-              <div className="p-3 rounded-2xl bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/25 flex items-center justify-between">
-                <span className="font-bold text-emerald-700 dark:text-emerald-300">
-                  Lunas Terverifikasi
+            <div className="mt-2.5 sm:mt-3 grid grid-cols-2 gap-2.5 sm:gap-3 text-xs">
+              <div className="p-2.5 sm:p-3 rounded-xl sm:rounded-2xl bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/25 flex items-center justify-between">
+                <span className="font-bold text-emerald-700 dark:text-emerald-300 text-[11px] sm:text-xs truncate">
+                  Lunas
                 </span>
-                <span className="font-black text-emerald-600 dark:text-emerald-400">
+                <span className="font-black text-emerald-600 dark:text-emerald-400 text-[11px] sm:text-xs shrink-0">
                   {metrics.lunasCount} Nota
                 </span>
               </div>
 
-              <div className="p-3 rounded-2xl bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/25 flex items-center justify-between">
-                <span className="font-bold text-amber-700 dark:text-amber-300">
-                  Tempo / Pending
+              <div className="p-2.5 sm:p-3 rounded-xl sm:rounded-2xl bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/25 flex items-center justify-between">
+                <span className="font-bold text-amber-700 dark:text-amber-300 text-[11px] sm:text-xs truncate">
+                  Tempo
                 </span>
-                <span className="font-black text-amber-600 dark:text-amber-400">
+                <span className="font-black text-amber-600 dark:text-amber-400 text-[11px] sm:text-xs shrink-0">
                   {metrics.tempoCount} Nota
                 </span>
               </div>
             </div>
           </div>
 
-          <div className="pt-4 mt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
-            <span className="text-slate-500 dark:text-slate-400">
-              Format Pembukuan: Standar SAK EMKM
+          <div className="pt-3 sm:pt-4 mt-3 sm:mt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
+            <span className="text-slate-500 dark:text-slate-400 text-[11px] sm:text-xs truncate">
+              Standar SAK EMKM
             </span>
             <button
               type="button"
               onClick={handleExportExcel}
-              className="inline-flex items-center gap-1.5 font-bold text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 cursor-pointer"
+              className="inline-flex items-center gap-1.5 font-bold text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 cursor-pointer text-xs shrink-0"
             >
               <FileSpreadsheet className="w-3.5 h-3.5" />
-              <span>Unduh Rekap Excel</span>
+              <span>Unduh Excel</span>
             </button>
           </div>
         </div>
 
         {/* CARD: Nota & Transaksi Terkini (6 Cols) */}
-        <div className="bento-card-animate lg:col-span-6 bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-xs dark:shadow-xl flex flex-col justify-between">
+        <div className="bento-card-animate lg:col-span-6 bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl sm:rounded-3xl p-3.5 sm:p-6 shadow-xs dark:shadow-xl flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-2">

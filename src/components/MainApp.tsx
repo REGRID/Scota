@@ -20,6 +20,7 @@ import { ExecutiveSummaryDashboard } from "@/components/ExecutiveSummaryDashboar
 import {
   Camera,
   History,
+  Home,
   BarChart3,
   ShieldCheck,
   ShieldAlert,
@@ -1199,7 +1200,7 @@ export function MainApp({
       />
 
       {/* Main Container Body */}
-      <div ref={tabContentAreaRef} className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+      <div ref={tabContentAreaRef} className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 pb-28 md:pb-8">
         {/* Verification Split Screen View */}
         {imagePreviewUrl && parsedResult ? (
           <div className="mb-8">
@@ -1294,48 +1295,47 @@ export function MainApp({
         )}
       </div>
 
-      {/* Mobile Responsive Bottom Navigation Bar (iOS & Android) with GSAP */}
+      {/* Mobile Responsive Floating Island Navigation Bar (iOS & Android) */}
       <nav
         ref={bottomNavRef}
         role="navigation"
         aria-label="Navigasi Utama Mobile"
-        className="fixed bottom-0 left-0 right-0 z-40 md:hidden bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-t border-slate-200/90 dark:border-slate-800/90 shadow-[0_-8px_30px_rgba(0,0,0,0.08)] dark:shadow-[0_-8px_30px_rgba(0,0,0,0.35)] pb-[max(env(safe-area-inset-bottom,0px),10px)] transition-colors duration-200"
+        className="fixed bottom-4 inset-x-0 z-40 md:hidden flex justify-center px-4 pointer-events-none pb-[env(safe-area-inset-bottom,0px)]"
       >
-        <div className="max-w-md mx-auto px-8 relative h-16 flex items-center justify-between">
-          {/* 1. Ringkasan (Overview) */}
+        <div className="pointer-events-auto relative flex items-center justify-between w-full max-w-[340px] h-[64px] px-6 rounded-full bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl border border-white/80 dark:border-slate-800 shadow-[0_12px_40px_rgba(0,0,0,0.14),0_2px_10px_rgba(0,0,0,0.06)] dark:shadow-[0_12px_40px_rgba(0,0,0,0.6)]">
+          {/* 1. Ringkasan (Home) */}
           <button
             type="button"
             disabled={isProcessing}
             onClick={() => handleTabChange("overview")}
             aria-label="Ringkasan"
             title="Ringkasan"
-            className={`group flex flex-col items-center justify-center w-14 h-14 rounded-2xl transition-all duration-200 cursor-pointer active:scale-90 ${
+            className={`group flex flex-col items-center justify-center min-w-[64px] py-1 transition-all duration-200 cursor-pointer active:scale-90 ${
               activeTab === "overview" && !imagePreviewUrl
                 ? "text-emerald-600 dark:text-emerald-400"
-                : "text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300"
+                : "text-slate-800 dark:text-slate-200 hover:text-slate-950 dark:hover:text-white"
             } ${isProcessing ? "opacity-40 cursor-not-allowed pointer-events-none" : ""}`}
           >
-            <div
-              ref={overviewIconRef}
-              className={`p-2 rounded-xl transition-all duration-200 ${
+            <div ref={overviewIconRef}>
+              <Home className="w-6 h-6 stroke-[2.1]" />
+            </div>
+            <span
+              className={`text-[11px] mt-1 tracking-tight leading-none ${
                 activeTab === "overview" && !imagePreviewUrl
-                  ? "bg-emerald-500/15 dark:bg-emerald-500/20 scale-110"
-                  : "group-hover:bg-slate-100 dark:group-hover:bg-slate-800/50"
+                  ? "font-bold text-emerald-600 dark:text-emerald-400"
+                  : "font-medium text-slate-800 dark:text-slate-200"
               }`}
             >
-              <BarChart3 className="w-5 h-5 stroke-[2.2]" />
-            </div>
-            {activeTab === "overview" && !imagePreviewUrl && (
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 mt-0.5 shadow-xs shadow-emerald-500" />
-            )}
+              Ringkasan
+            </span>
           </button>
 
-          {/* 2. Scan (Fitur Utama - Bulat Besar di Tengah dengan GSAP Ambient Halo) */}
-          <div className="relative -top-5 flex flex-col items-center justify-center">
-            {/* GSAP Continuous Ambient Halo Ring */}
+          {/* 2. Pindai (Center Explore Bubble Dome) */}
+          <div className="relative -top-3 flex flex-col items-center justify-center">
+            {/* Ambient Breathing Halo (GSAP) */}
             <div
               ref={scanHaloRingRef}
-              className="absolute inset-0 rounded-full bg-emerald-500/30 blur-[3px] pointer-events-none"
+              className="absolute inset-0 rounded-full bg-emerald-500/25 blur-[4px] pointer-events-none"
             />
             <button
               ref={scanBtnRef}
@@ -1344,14 +1344,16 @@ export function MainApp({
               onClick={() => handleTabChange("scan")}
               aria-label="Pindai Nota"
               title="Pindai Nota"
-              className={`group relative flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-tr from-emerald-600 via-emerald-500 to-teal-400 text-slate-950 shadow-xl shadow-emerald-500/35 active:scale-90 transition-all duration-200 cursor-pointer ring-4 ${
+              className={`group relative flex flex-col items-center justify-center w-[68px] h-[68px] rounded-full transition-all duration-200 cursor-pointer active:scale-95 shadow-md ${
                 activeTab === "scan" && !imagePreviewUrl
-                  ? "ring-emerald-400 dark:ring-emerald-400 shadow-emerald-500/60 scale-105"
-                  : "ring-white dark:ring-slate-900 hover:shadow-emerald-500/50"
+                  ? "bg-emerald-500/15 dark:bg-emerald-500/25 border-2 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 shadow-emerald-500/20"
+                  : "bg-slate-200/80 hover:bg-slate-200 dark:bg-slate-800/90 dark:hover:bg-slate-800 border-2 border-white dark:border-slate-700/80 text-slate-800 dark:text-slate-200"
               } ${isProcessing ? "opacity-60 cursor-not-allowed pointer-events-none animate-pulse" : ""}`}
             >
-              <div className="absolute inset-0 rounded-full bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity" />
-              <Camera className="w-7 h-7 text-slate-950 stroke-[2.5]" />
+              <Camera className="w-6 h-6 stroke-[2.2]" />
+              <span className="text-[10.5px] font-bold mt-0.5 tracking-tight leading-none">
+                Pindai
+              </span>
             </button>
           </div>
 
@@ -1362,25 +1364,24 @@ export function MainApp({
             onClick={() => handleTabChange("history")}
             aria-label="Riwayat"
             title="Riwayat"
-            className={`group flex flex-col items-center justify-center w-14 h-14 rounded-2xl transition-all duration-200 cursor-pointer active:scale-90 ${
+            className={`group flex flex-col items-center justify-center min-w-[64px] py-1 transition-all duration-200 cursor-pointer active:scale-90 ${
               activeTab === "history" && !imagePreviewUrl
                 ? "text-emerald-600 dark:text-emerald-400"
-                : "text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300"
+                : "text-slate-800 dark:text-slate-200 hover:text-slate-950 dark:hover:text-white"
             } ${isProcessing ? "opacity-40 cursor-not-allowed pointer-events-none" : ""}`}
           >
-            <div
-              ref={historyIconRef}
-              className={`p-2 rounded-xl transition-all duration-200 ${
+            <div ref={historyIconRef}>
+              <History className="w-6 h-6 stroke-[2.1]" />
+            </div>
+            <span
+              className={`text-[11px] mt-1 tracking-tight leading-none ${
                 activeTab === "history" && !imagePreviewUrl
-                  ? "bg-emerald-500/15 dark:bg-emerald-500/20 scale-110"
-                  : "group-hover:bg-slate-100 dark:group-hover:bg-slate-800/50"
+                  ? "font-bold text-emerald-600 dark:text-emerald-400"
+                  : "font-medium text-slate-800 dark:text-slate-200"
               }`}
             >
-              <History className="w-5 h-5 stroke-[2.2]" />
-            </div>
-            {activeTab === "history" && !imagePreviewUrl && (
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 mt-0.5 shadow-xs shadow-emerald-500" />
-            )}
+              Riwayat
+            </span>
           </button>
         </div>
       </nav>

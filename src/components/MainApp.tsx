@@ -73,30 +73,22 @@ export function MainApp({
 
   // GSAP Animation Refs
   const bottomNavRef = useRef<HTMLElement>(null)
-  const scanHaloRingRef = useRef<HTMLDivElement>(null)
-  const scanBtnRef = useRef<HTMLButtonElement>(null)
   const overviewIconRef = useRef<HTMLDivElement>(null)
+  const scanIconRef = useRef<HTMLDivElement>(null)
   const historyIconRef = useRef<HTMLDivElement>(null)
   const tabContentAreaRef = useRef<HTMLDivElement>(null)
 
-  // 1. GSAP Continuous Breathing Halo for Floating Center Scan Button
-  useGSAP(() => {
-    if (scanHaloRingRef.current) {
-      const tl = gsap.timeline({ repeat: -1 })
-      tl.fromTo(
-        scanHaloRingRef.current,
-        { scale: 0.95, opacity: 0.65 },
-        { scale: 1.45, opacity: 0, duration: 2.2, ease: "power2.out" }
-      )
-      return () => tl.kill()
-    }
-  }, { scope: bottomNavRef })
-
-  // 2. GSAP Elastic Bounce on Tab Switch
+  // GSAP Elastic Bounce on Tab Switch (Uniform across all 3 tabs)
   useGSAP(() => {
     if (activeTab === "overview" && overviewIconRef.current) {
       gsap.fromTo(
         overviewIconRef.current,
+        { scale: 0.75, y: -4 },
+        { scale: 1, y: 0, duration: 0.45, ease: "back.out(2.2)" }
+      )
+    } else if (activeTab === "scan" && scanIconRef.current) {
+      gsap.fromTo(
+        scanIconRef.current,
         { scale: 0.75, y: -4 },
         { scale: 1, y: 0, duration: 0.45, ease: "back.out(2.2)" }
       )
@@ -105,12 +97,6 @@ export function MainApp({
         historyIconRef.current,
         { scale: 0.75, y: -4 },
         { scale: 1, y: 0, duration: 0.45, ease: "back.out(2.2)" }
-      )
-    } else if (activeTab === "scan" && scanBtnRef.current) {
-      gsap.fromTo(
-        scanBtnRef.current,
-        { scale: 0.9 },
-        { scale: 1.06, duration: 0.35, ease: "back.out(2)" }
       )
     }
   }, { dependencies: [activeTab], scope: bottomNavRef })
@@ -1295,14 +1281,14 @@ export function MainApp({
         )}
       </div>
 
-      {/* Mobile Responsive Floating Island Navigation Bar (iOS & Android) */}
+      {/* Mobile Responsive Floating Island Navigation Bar (Even / Sama Rata) */}
       <nav
         ref={bottomNavRef}
         role="navigation"
         aria-label="Navigasi Utama Mobile"
         className="fixed bottom-4 inset-x-0 z-40 md:hidden flex justify-center px-4 pointer-events-none pb-[env(safe-area-inset-bottom,0px)]"
       >
-        <div className="pointer-events-auto relative flex items-center justify-between w-full max-w-[340px] h-[64px] px-6 rounded-full bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl border border-white/80 dark:border-slate-800 shadow-[0_12px_40px_rgba(0,0,0,0.14),0_2px_10px_rgba(0,0,0,0.06)] dark:shadow-[0_12px_40px_rgba(0,0,0,0.6)]">
+        <div className="pointer-events-auto relative grid grid-cols-3 items-center w-full max-w-[340px] h-[64px] px-3 rounded-full bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl border border-white/80 dark:border-slate-800 shadow-[0_12px_40px_rgba(0,0,0,0.14),0_2px_10px_rgba(0,0,0,0.06)] dark:shadow-[0_12px_40px_rgba(0,0,0,0.6)]">
           {/* 1. Ringkasan (Home) */}
           <button
             type="button"
@@ -1310,52 +1296,40 @@ export function MainApp({
             onClick={() => handleTabChange("overview")}
             aria-label="Ringkasan"
             title="Ringkasan"
-            className={`group flex flex-col items-center justify-center min-w-[64px] py-1 transition-all duration-200 cursor-pointer active:scale-90 ${
+            className={`group flex flex-col items-center justify-center py-1 transition-all duration-200 cursor-pointer active:scale-90 ${
               activeTab === "overview" && !imagePreviewUrl
-                ? "text-emerald-600 dark:text-emerald-400"
-                : "text-slate-800 dark:text-slate-200 hover:text-slate-950 dark:hover:text-white"
+                ? "text-emerald-600 dark:text-emerald-400 font-bold"
+                : "text-slate-600 dark:text-slate-400 font-medium hover:text-slate-900 dark:hover:text-white"
             } ${isProcessing ? "opacity-40 cursor-not-allowed pointer-events-none" : ""}`}
           >
             <div ref={overviewIconRef}>
               <Home className="w-6 h-6 stroke-[2.1]" />
             </div>
-            <span
-              className={`text-[11px] mt-1 tracking-tight leading-none ${
-                activeTab === "overview" && !imagePreviewUrl
-                  ? "font-bold text-emerald-600 dark:text-emerald-400"
-                  : "font-medium text-slate-800 dark:text-slate-200"
-              }`}
-            >
+            <span className="text-[11px] mt-1 tracking-tight leading-none">
               Ringkasan
             </span>
           </button>
 
-          {/* 2. Pindai (Center Explore Bubble Dome) */}
-          <div className="relative -top-3 flex flex-col items-center justify-center">
-            {/* Ambient Breathing Halo (GSAP) */}
-            <div
-              ref={scanHaloRingRef}
-              className="absolute inset-0 rounded-full bg-emerald-500/25 blur-[4px] pointer-events-none"
-            />
-            <button
-              ref={scanBtnRef}
-              type="button"
-              disabled={isProcessing}
-              onClick={() => handleTabChange("scan")}
-              aria-label="Pindai Nota"
-              title="Pindai Nota"
-              className={`group relative flex flex-col items-center justify-center w-[68px] h-[68px] rounded-full transition-all duration-200 cursor-pointer active:scale-95 shadow-md ${
-                activeTab === "scan" && !imagePreviewUrl
-                  ? "bg-emerald-500/15 dark:bg-emerald-500/25 border-2 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 shadow-emerald-500/20"
-                  : "bg-slate-200/80 hover:bg-slate-200 dark:bg-slate-800/90 dark:hover:bg-slate-800 border-2 border-white dark:border-slate-700/80 text-slate-800 dark:text-slate-200"
-              } ${isProcessing ? "opacity-60 cursor-not-allowed pointer-events-none animate-pulse" : ""}`}
-            >
-              <Camera className="w-6 h-6 stroke-[2.2]" />
-              <span className="text-[10.5px] font-bold mt-0.5 tracking-tight leading-none">
-                Pindai
-              </span>
-            </button>
-          </div>
+          {/* 2. Pindai (Scan - Sama Rata) */}
+          <button
+            type="button"
+            disabled={isProcessing}
+            onClick={() => handleTabChange("scan")}
+            aria-label="Pindai Nota"
+            title="Pindai Nota"
+            className={`group flex flex-col items-center justify-center py-1 transition-all duration-200 cursor-pointer active:scale-90 ${
+              activeTab === "scan" && !imagePreviewUrl
+                ? "text-emerald-600 dark:text-emerald-400 font-bold"
+                : "text-slate-600 dark:text-slate-400 font-medium hover:text-slate-900 dark:hover:text-white"
+            } ${isProcessing ? "opacity-40 cursor-not-allowed pointer-events-none" : ""}`}
+          >
+            <div ref={scanIconRef}>
+              <Camera className="w-6 h-6 stroke-[2.1]" />
+            </div>
+            <span className="text-[11px] mt-1 tracking-tight leading-none">
+              Pindai
+            </span>
+          </button>
 
           {/* 3. Riwayat (History) */}
           <button
@@ -1364,22 +1338,16 @@ export function MainApp({
             onClick={() => handleTabChange("history")}
             aria-label="Riwayat"
             title="Riwayat"
-            className={`group flex flex-col items-center justify-center min-w-[64px] py-1 transition-all duration-200 cursor-pointer active:scale-90 ${
+            className={`group flex flex-col items-center justify-center py-1 transition-all duration-200 cursor-pointer active:scale-90 ${
               activeTab === "history" && !imagePreviewUrl
-                ? "text-emerald-600 dark:text-emerald-400"
-                : "text-slate-800 dark:text-slate-200 hover:text-slate-950 dark:hover:text-white"
+                ? "text-emerald-600 dark:text-emerald-400 font-bold"
+                : "text-slate-600 dark:text-slate-400 font-medium hover:text-slate-900 dark:hover:text-white"
             } ${isProcessing ? "opacity-40 cursor-not-allowed pointer-events-none" : ""}`}
           >
             <div ref={historyIconRef}>
               <History className="w-6 h-6 stroke-[2.1]" />
             </div>
-            <span
-              className={`text-[11px] mt-1 tracking-tight leading-none ${
-                activeTab === "history" && !imagePreviewUrl
-                  ? "font-bold text-emerald-600 dark:text-emerald-400"
-                  : "font-medium text-slate-800 dark:text-slate-200"
-              }`}
-            >
+            <span className="text-[11px] mt-1 tracking-tight leading-none">
               Riwayat
             </span>
           </button>

@@ -1126,8 +1126,8 @@ function SettingsContent() {
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200">
       {/* Top Navbar */}
-      <header className="bg-white/95 dark:bg-slate-900/95 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-2 min-w-0">
+      <header className="bg-white/95 dark:bg-slate-900/95 border-b border-slate-200/90 dark:border-slate-800/90 sticky top-0 z-30 backdrop-blur-md pt-[env(safe-area-inset-top,0px)] shadow-xs dark:shadow-md">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2 min-w-0">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <Link
               href="/history"

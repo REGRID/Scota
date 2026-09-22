@@ -28,6 +28,8 @@ import {
 } from "lucide-react"
 import { compressImageBase64 } from "@/lib/ocr"
 import { useAppDialog } from "@/components/ui/app-dialog"
+import { gsap } from "gsap"
+import { useGSAP } from "@gsap/react"
 
 interface ReceiptItem {
   id?: string
@@ -79,6 +81,20 @@ export function ExecutiveSummaryDashboard({
 
   const quickGalleryRef = useRef<HTMLInputElement | null>(null)
   const quickCameraRef = useRef<HTMLInputElement | null>(null)
+  const dashboardRef = useRef<HTMLDivElement>(null)
+
+  // GSAP Staggered Card Entrance on Data Load / Timeframe change
+  useGSAP(() => {
+    if (!isLoading && dashboardRef.current) {
+      gsap.from(".bento-card-animate", {
+        opacity: 0,
+        y: 18,
+        duration: 0.42,
+        stagger: 0.07,
+        ease: "power2.out",
+      })
+    }
+  }, { dependencies: [isLoading, timeframe], scope: dashboardRef })
 
   // Realtime Quota
   const [quotaInfo, setQuotaInfo] = useState<{
@@ -264,7 +280,7 @@ export function ExecutiveSummaryDashboard({
   }
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
+    <div ref={dashboardRef} className="space-y-6">
       {/* Hidden Quick Inputs */}
       <input
         ref={quickCameraRef}
@@ -349,7 +365,7 @@ export function ExecutiveSummaryDashboard({
       {/* Bento Grid Layout (Variance: 7, Density: 6, Anti-Slop Asymmetry) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
         {/* CARD 1: Hero Metric (8 Cols) */}
-        <div className="lg:col-span-8 bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-xs dark:shadow-xl relative overflow-hidden flex flex-col justify-between">
+        <div className="bento-card-animate lg:col-span-8 bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-xs dark:shadow-xl relative overflow-hidden flex flex-col justify-between">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <span className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
@@ -415,7 +431,7 @@ export function ExecutiveSummaryDashboard({
           }}
           onDragLeave={() => setIsDragOver(false)}
           onDrop={handleDrop}
-          className={`hidden md:flex lg:col-span-4 rounded-3xl p-6 border-2 border-dashed transition-all flex-col justify-between text-center relative overflow-hidden ${
+          className={`bento-card-animate hidden md:flex lg:col-span-4 rounded-3xl p-6 border-2 border-dashed transition-all flex-col justify-between text-center relative overflow-hidden ${
             isDragOver
               ? "border-emerald-500 bg-emerald-500/10 scale-[1.01]"
               : "border-slate-300 dark:border-slate-700/80 bg-white/80 dark:bg-slate-900/90 shadow-xs hover:border-emerald-500/60"
@@ -471,7 +487,7 @@ export function ExecutiveSummaryDashboard({
         </div>
 
         {/* CARD 3: Expense Category Velocity (6 Cols) */}
-        <div className="lg:col-span-6 bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-xs dark:shadow-xl flex flex-col justify-between">
+        <div className="bento-card-animate lg:col-span-6 bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-xs dark:shadow-xl flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
@@ -532,7 +548,7 @@ export function ExecutiveSummaryDashboard({
         </div>
 
         {/* CARD 4: Payment Flow & Cash Radar (6 Cols) */}
-        <div className="lg:col-span-6 bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-xs dark:shadow-xl flex flex-col justify-between">
+        <div className="bento-card-animate lg:col-span-6 bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-xs dark:shadow-xl flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
@@ -625,7 +641,7 @@ export function ExecutiveSummaryDashboard({
         </div>
 
         {/* CARD 5: Recent Transactions Feed (Full Width 12 Cols) */}
-        <div className="lg:col-span-12 bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-xs dark:shadow-xl space-y-4">
+        <div className="bento-card-animate lg:col-span-12 bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-xs dark:shadow-xl space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
             <div className="flex items-center gap-2">
               <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">

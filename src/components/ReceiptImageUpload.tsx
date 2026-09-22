@@ -24,6 +24,8 @@ import {
 import { rotateImageBase64, compressImageBase64 } from "@/lib/ocr"
 import { ImageInteractiveLightbox } from "@/components/ImageInteractiveLightbox"
 import { useAppDialog } from "@/components/ui/app-dialog"
+import { gsap } from "gsap"
+import { useGSAP } from "@gsap/react"
 
 export interface BatchFileItem {
   file: File
@@ -62,6 +64,96 @@ export function ReceiptImageUpload({
   const [isCompressing, setIsCompressing] = useState(false)
   const [showLightbox, setShowLightbox] = useState(false)
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
+
+  // GSAP Animation Refs
+  const containerRef = React.useRef<HTMLDivElement>(null)
+  const laserBeamRef = React.useRef<HTMLDivElement>(null)
+  const progressBarRef = React.useRef<HTMLDivElement>(null)
+  const compressionRing1Ref = React.useRef<HTMLDivElement>(null)
+  const compressionRing2Ref = React.useRef<HTMLDivElement>(null)
+  const compressionIconRef = React.useRef<HTMLDivElement>(null)
+  const previewStageRef = React.useRef<HTMLDivElement>(null)
+  const previewImageRef = React.useRef<HTMLImageElement>(null)
+
+  // 1. GSAP Laser Beam Scan Sweep
+  useGSAP(() => {
+    if (isProcessing && laserBeamRef.current) {
+      const tl = gsap.timeline({ repeat: -1, yoyo: true })
+      tl.fromTo(
+        laserBeamRef.current,
+        { y: 0, opacity: 0.75 },
+        { y: 168, opacity: 1, duration: 1.4, ease: "power1.inOut" }
+      )
+      return () => tl.kill()
+    }
+  }, { dependencies: [isProcessing], scope: containerRef })
+
+  // 2. GSAP Smooth Progress Bar Tweening
+  useGSAP(() => {
+    if (isProcessing && progressBarRef.current) {
+      const targetPercent = Math.max(Math.round(ocrProgressPercent * 100), 28)
+      gsap.to(progressBarRef.current, {
+        width: `${targetPercent}%`,
+        duration: 0.55,
+        ease: "power2.out",
+      })
+    }
+  }, { dependencies: [ocrProgressPercent, isProcessing], scope: containerRef })
+
+  // 3. GSAP Compression Sonar Pulse
+  useGSAP(() => {
+    if (isCompressing) {
+      const tl = gsap.timeline({ repeat: -1 })
+      if (compressionRing1Ref.current) {
+        tl.fromTo(
+          compressionRing1Ref.current,
+          { scale: 0.9, opacity: 0.9 },
+          { scale: 1.6, opacity: 0, duration: 1.3, ease: "power2.out" },
+          0
+        )
+      }
+      if (compressionRing2Ref.current) {
+        tl.fromTo(
+          compressionRing2Ref.current,
+          { scale: 0.9, opacity: 0.7 },
+          { scale: 1.9, opacity: 0, duration: 1.3, ease: "power2.out" },
+          0.35
+        )
+      }
+      if (compressionIconRef.current) {
+        gsap.to(compressionIconRef.current, {
+          scale: 1.06,
+          duration: 0.65,
+          yoyo: true,
+          repeat: -1,
+          ease: "sine.inOut",
+        })
+      }
+      return () => tl.kill()
+    }
+  }, { dependencies: [isCompressing], scope: containerRef })
+
+  // 4. GSAP Preview Stage Entrance
+  useGSAP(() => {
+    if (selectedBase64 && !isProcessing && !isCompressing && previewStageRef.current) {
+      gsap.fromTo(
+        previewStageRef.current,
+        { opacity: 0, y: 18, scale: 0.97 },
+        { opacity: 1, y: 0, scale: 1, duration: 0.35, ease: "back.out(1.4)" }
+      )
+    }
+  }, { dependencies: [selectedBase64, isProcessing, isCompressing], scope: containerRef })
+
+  // 5. GSAP Smooth Rotation Physics on preview image
+  useGSAP(() => {
+    if (previewImageRef.current) {
+      gsap.to(previewImageRef.current, {
+        rotate: rotationDegrees,
+        duration: 0.45,
+        ease: "back.out(1.5)",
+      })
+    }
+  }, { dependencies: [rotationDegrees], scope: containerRef })
 
   useEffect(() => {
     if (!isProcessing) {
@@ -202,7 +294,7 @@ export function ReceiptImageUpload({
   const isQuotaReached = (quotaInfo && !quotaInfo.allowed) || Boolean(quotaError)
 
   return (
-    <div className="w-full max-w-2xl mx-auto space-y-4">
+    <div ref={containerRef} className="w-full max-w-2xl mx-auto space-y-4">
       {/* Quota Limit Warning Toast / Alert */}
       {isQuotaReached && (
         <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 shadow-md space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-300 text-left">
@@ -260,29 +352,46 @@ export function ReceiptImageUpload({
         }`}
       >
         {isProcessing ? (
-          /* WAITING & PROCESSING SCREEN */
-          <div className="flex flex-col items-center justify-center py-4 space-y-5 animate-in fade-in zoom-in-95 duration-300">
+          /* GSAP POWERED WAITING & PROCESSING SCREEN */
+          <div className="flex flex-col items-center justify-center py-4 space-y-5">
             {selectedBase64 && (
-              <div className="relative w-44 h-44 rounded-2xl bg-slate-100 dark:bg-slate-950 overflow-hidden shadow-md dark:shadow-2xl border border-emerald-500/40 flex items-center justify-center">
+              <div className="relative w-48 h-48 rounded-2xl bg-slate-950 overflow-hidden shadow-2xl border border-emerald-500/50 flex items-center justify-center group">
+                {/* HUD Corner Reticles */}
+                <div className="absolute top-2 left-2 w-3 h-3 border-t-2 border-l-2 border-emerald-400 z-20 pointer-events-none" />
+                <div className="absolute top-2 right-2 w-3 h-3 border-t-2 border-r-2 border-emerald-400 z-20 pointer-events-none" />
+                <div className="absolute bottom-2 left-2 w-3 h-3 border-b-2 border-l-2 border-emerald-400 z-20 pointer-events-none" />
+                <div className="absolute bottom-2 right-2 w-3 h-3 border-b-2 border-r-2 border-emerald-400 z-20 pointer-events-none" />
+
+                {/* Laser Scanning Beam (GSAP Animated) */}
+                <div
+                  ref={laserBeamRef}
+                  className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-emerald-400 to-transparent shadow-[0_0_15px_#34d399,0_0_25px_#10b981] z-20 pointer-events-none"
+                >
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-3 bg-emerald-400/40 blur-md rounded-full" />
+                </div>
+
+                {/* Subtle Grid Matrix */}
+                <div className="absolute inset-0 bg-[linear-gradient(rgba(16,185,129,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(16,185,129,0.06)_1px,transparent_1px)] bg-[size:14px_14px] z-10 pointer-events-none" />
+
                 {/* eslint-disable-next-html-element */}
                 <img
                   src={selectedBase64}
                   alt="Nota Preview"
-                  className="w-full h-full object-contain opacity-90 transition-transform duration-300"
+                  className="w-full h-full object-contain opacity-85"
                   style={{ transform: `rotate(${rotationDegrees}deg)` }}
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent" />
-                <div className="absolute bottom-2 inset-x-0 flex justify-center">
-                  <span className="text-[10px] font-black text-emerald-400 bg-slate-900/90 px-2.5 py-0.5 rounded-full border border-emerald-500/30 flex items-center gap-1.5 shadow-sm">
-                    <Sparkles className="w-3 h-3 text-emerald-400 animate-spin" /> Membaca Data...
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-transparent to-transparent z-10" />
+                <div className="absolute bottom-2 inset-x-0 flex justify-center z-20">
+                  <span className="text-[10px] font-black text-emerald-400 bg-slate-900/90 px-3 py-1 rounded-full border border-emerald-500/40 flex items-center gap-1.5 shadow-lg backdrop-blur-md">
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-400" /> Memindai Nota...
                   </span>
                 </div>
               </div>
             )}
 
             <div className="space-y-1.5 text-center max-w-sm">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-bold border border-emerald-500/20">
-                <Clock className="w-3.5 h-3.5 text-emerald-500 animate-spin" /> Durasi: {timerSeconds} detik
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-bold border border-emerald-500/20 shadow-xs">
+                <Clock className="w-3.5 h-3.5 text-emerald-500" /> Durasi: {timerSeconds} detik
               </div>
               <h3 className="font-black text-slate-900 dark:text-white text-lg sm:text-xl">
                 Menganalisis Nota...
@@ -292,7 +401,7 @@ export function ReceiptImageUpload({
               </p>
             </div>
 
-            <div className="w-full max-w-sm bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-slate-800 p-3.5 space-y-2.5 text-left text-xs">
+            <div className="w-full max-w-sm bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-slate-800 p-3.5 space-y-2.5 text-left text-xs shadow-sm">
               <div className="flex items-center justify-between font-semibold text-slate-700 dark:text-slate-300">
                 <span className="flex items-center gap-1.5">
                   <CheckCircle2 className="w-4 h-4 text-emerald-500 dark:text-emerald-400" /> 1. Optimasi Gambar
@@ -302,7 +411,7 @@ export function ReceiptImageUpload({
 
               <div className="flex items-center justify-between font-semibold text-slate-700 dark:text-slate-300">
                 <span className="flex items-center gap-1.5">
-                  <Loader2 className="w-4 h-4 text-sky-500 dark:text-sky-400 animate-spin" /> 2. Ekstraksi AI Vision
+                  <Zap className="w-4 h-4 text-sky-500 dark:text-sky-400" /> 2. Ekstraksi AI Vision
                 </span>
                 <span className="text-sky-600 dark:text-sky-400 font-bold font-mono">
                   {ocrProgressPercent > 0 ? `${Math.round(ocrProgressPercent * 100)}%` : "Proses..."}
@@ -317,10 +426,12 @@ export function ReceiptImageUpload({
               </div>
             </div>
 
-            <div className="w-full max-w-xs bg-slate-200 dark:bg-slate-950 rounded-full h-2 overflow-hidden border border-slate-300 dark:border-slate-800">
+            {/* GSAP Fluid Progress Bar */}
+            <div className="w-full max-w-xs bg-slate-200 dark:bg-slate-950 rounded-full h-2.5 overflow-hidden border border-slate-300 dark:border-slate-800 p-0.5">
               <div
-                className="bg-emerald-500 h-full transition-all duration-300 rounded-full shadow-xs"
-                style={{ width: `${Math.max(Math.round(ocrProgressPercent * 100), 30)}%` }}
+                ref={progressBarRef}
+                className="bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-400 h-full rounded-full shadow-[0_0_10px_rgba(52,211,153,0.5)]"
+                style={{ width: `${Math.max(Math.round(ocrProgressPercent * 100), 28)}%` }}
               />
             </div>
 
@@ -331,7 +442,7 @@ export function ReceiptImageUpload({
                   <button
                     type="button"
                     onClick={() => setShowCancelConfirm(true)}
-                    className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-rose-500/10 hover:text-rose-600 dark:bg-slate-950 dark:hover:bg-rose-500/10 dark:hover:text-rose-400 text-slate-600 dark:text-slate-400 font-bold text-xs border border-slate-300 dark:border-slate-800 hover:border-rose-500/30 transition-all flex items-center gap-1.5 active:scale-[0.98] cursor-pointer"
+                    className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-rose-500/10 hover:text-rose-600 dark:bg-slate-950 dark:hover:bg-rose-500/10 dark:hover:text-rose-400 text-slate-600 dark:text-slate-400 font-bold text-xs border border-slate-300 dark:border-slate-800 hover:border-rose-500/30 transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer"
                     title="Batalkan proses scan nota"
                   >
                     <X className="w-3.5 h-3.5" />
@@ -349,14 +460,14 @@ export function ReceiptImageUpload({
                           setShowCancelConfirm(false)
                           onCancelScan()
                         }}
-                        className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-black text-xs transition-all active:scale-[0.98] cursor-pointer"
+                        className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-black text-xs transition-all active:scale-95 cursor-pointer"
                       >
                         Ya, Batalkan
                       </button>
                       <button
                         type="button"
                         onClick={() => setShowCancelConfirm(false)}
-                        className="px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs border border-slate-300 dark:border-slate-800 transition-all active:scale-[0.98] cursor-pointer"
+                        className="px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs border border-slate-300 dark:border-slate-800 transition-all active:scale-95 cursor-pointer"
                       >
                         Tidak
                       </button>
@@ -367,11 +478,25 @@ export function ReceiptImageUpload({
             )}
           </div>
         ) : isCompressing ? (
-          /* COMPRESSION & PREPARATION SCREEN */
-          <div className="flex flex-col items-center justify-center py-12 space-y-4 animate-in fade-in zoom-in-95 duration-200">
-            <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shadow-md border border-emerald-500/20">
-              <Loader2 className="w-8 h-8 animate-spin" />
+          /* GSAP POWERED COMPRESSION SCREEN */
+          <div className="flex flex-col items-center justify-center py-12 space-y-5">
+            <div className="relative flex items-center justify-center w-24 h-24">
+              <div
+                ref={compressionRing1Ref}
+                className="absolute inset-0 rounded-3xl bg-emerald-500/15 border border-emerald-400/40 pointer-events-none"
+              />
+              <div
+                ref={compressionRing2Ref}
+                className="absolute inset-0 rounded-3xl bg-teal-500/15 border border-teal-400/30 pointer-events-none"
+              />
+              <div
+                ref={compressionIconRef}
+                className="relative z-10 w-16 h-16 rounded-2xl bg-gradient-to-tr from-emerald-500/20 via-teal-500/20 to-emerald-500/30 border border-emerald-500/50 flex items-center justify-center text-emerald-400 shadow-xl shadow-emerald-500/10"
+              >
+                <Sparkles className="w-8 h-8 text-emerald-400" />
+              </div>
             </div>
+
             <div className="space-y-1.5 text-center">
               <h3 className="font-black text-slate-900 dark:text-white text-lg sm:text-xl">
                 Memproses Foto Nota...
@@ -383,12 +508,12 @@ export function ReceiptImageUpload({
               </p>
             </div>
             <div className="w-44 bg-slate-200 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden">
-              <div className="bg-emerald-500 h-full w-2/3 animate-pulse rounded-full shadow-xs" />
+              <div className="bg-gradient-to-r from-emerald-500 to-teal-400 h-full w-2/3 rounded-full shadow-xs" />
             </div>
           </div>
         ) : selectedBase64 ? (
-          /* PREVIEW & ROTATION SCREEN */
-          <div className="flex flex-col items-center space-y-5 animate-in fade-in zoom-in-95 duration-200">
+          /* GSAP ENTRANCE & ROTATION SCREEN */
+          <div ref={previewStageRef} className="flex flex-col items-center space-y-5">
             {selectedFiles.length > 1 && (
               <div className="w-full max-w-md bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white p-3.5 rounded-2xl space-y-2 border border-slate-200 dark:border-slate-800 shadow-xs">
                 <div className="flex items-center justify-between text-xs font-bold px-1">
@@ -444,9 +569,10 @@ export function ReceiptImageUpload({
                 <>
                   {/* eslint-disable-next-html-element */}
                   <img
+                    ref={previewImageRef}
                     src={selectedBase64}
                     alt="Nota Selected"
-                    className="max-w-full max-h-full object-contain transition-transform duration-300 group-hover:scale-105"
+                    className="max-w-full max-h-full object-contain group-hover:scale-105 transition-transform"
                     style={{ transform: `rotate(${rotationDegrees}deg)` }}
                   />
 

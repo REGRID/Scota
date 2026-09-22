@@ -38,6 +38,8 @@ import {
 
 import { useAppDialog } from "@/components/ui/app-dialog"
 import { ThemeToggle } from "@/lib/theme"
+import { gsap } from "gsap"
+import { useGSAP } from "@gsap/react"
 
 export interface MainAppProps {
   initialView?: "landing" | "app" | "login" | "register"
@@ -67,6 +69,61 @@ export function MainApp({
   const [showLanding, setShowLanding] = useState<boolean>(initialView === "landing")
   const [activeTab, setActiveTab] = useState<"overview" | "scan" | "history">(initialTab || "overview")
   const [showProfileMenu, setShowProfileMenu] = useState<boolean>(false)
+
+  // GSAP Animation Refs
+  const bottomNavRef = useRef<HTMLElement>(null)
+  const scanHaloRingRef = useRef<HTMLDivElement>(null)
+  const scanBtnRef = useRef<HTMLButtonElement>(null)
+  const overviewIconRef = useRef<HTMLDivElement>(null)
+  const historyIconRef = useRef<HTMLDivElement>(null)
+  const tabContentAreaRef = useRef<HTMLDivElement>(null)
+
+  // 1. GSAP Continuous Breathing Halo for Floating Center Scan Button
+  useGSAP(() => {
+    if (scanHaloRingRef.current) {
+      const tl = gsap.timeline({ repeat: -1 })
+      tl.fromTo(
+        scanHaloRingRef.current,
+        { scale: 0.95, opacity: 0.65 },
+        { scale: 1.45, opacity: 0, duration: 2.2, ease: "power2.out" }
+      )
+      return () => tl.kill()
+    }
+  }, { scope: bottomNavRef })
+
+  // 2. GSAP Elastic Bounce on Tab Switch
+  useGSAP(() => {
+    if (activeTab === "overview" && overviewIconRef.current) {
+      gsap.fromTo(
+        overviewIconRef.current,
+        { scale: 0.75, y: -4 },
+        { scale: 1, y: 0, duration: 0.45, ease: "back.out(2.2)" }
+      )
+    } else if (activeTab === "history" && historyIconRef.current) {
+      gsap.fromTo(
+        historyIconRef.current,
+        { scale: 0.75, y: -4 },
+        { scale: 1, y: 0, duration: 0.45, ease: "back.out(2.2)" }
+      )
+    } else if (activeTab === "scan" && scanBtnRef.current) {
+      gsap.fromTo(
+        scanBtnRef.current,
+        { scale: 0.9 },
+        { scale: 1.06, duration: 0.35, ease: "back.out(2)" }
+      )
+    }
+  }, { dependencies: [activeTab], scope: bottomNavRef })
+
+  // 3. GSAP Tab Content Entrance
+  useGSAP(() => {
+    if (tabContentAreaRef.current) {
+      gsap.fromTo(
+        tabContentAreaRef.current,
+        { opacity: 0.5, y: 10 },
+        { opacity: 1, y: 0, duration: 0.3, ease: "power2.out" }
+      )
+    }
+  }, { dependencies: [activeTab] })
 
   // Sync state based on pathname, initialView, or initialTab
   useEffect(() => {
@@ -1142,7 +1199,7 @@ export function MainApp({
       />
 
       {/* Main Container Body */}
-      <div className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+      <div ref={tabContentAreaRef} className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
         {/* Verification Split Screen View */}
         {imagePreviewUrl && parsedResult ? (
           <div className="mb-8">
@@ -1237,8 +1294,9 @@ export function MainApp({
         )}
       </div>
 
-      {/* Mobile Responsive Bottom Navigation Bar (iOS & Android) */}
+      {/* Mobile Responsive Bottom Navigation Bar (iOS & Android) with GSAP */}
       <nav
+        ref={bottomNavRef}
         role="navigation"
         aria-label="Navigasi Utama Mobile"
         className="fixed bottom-0 left-0 right-0 z-40 md:hidden bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-t border-slate-200/90 dark:border-slate-800/90 shadow-[0_-8px_30px_rgba(0,0,0,0.08)] dark:shadow-[0_-8px_30px_rgba(0,0,0,0.35)] pb-[max(env(safe-area-inset-bottom,0px),10px)] transition-colors duration-200"
@@ -1258,6 +1316,7 @@ export function MainApp({
             } ${isProcessing ? "opacity-40 cursor-not-allowed pointer-events-none" : ""}`}
           >
             <div
+              ref={overviewIconRef}
               className={`p-2 rounded-xl transition-all duration-200 ${
                 activeTab === "overview" && !imagePreviewUrl
                   ? "bg-emerald-500/15 dark:bg-emerald-500/20 scale-110"
@@ -1271,9 +1330,15 @@ export function MainApp({
             )}
           </button>
 
-          {/* 2. Scan (Fitur Utama - Bulat Besar di Tengah) */}
+          {/* 2. Scan (Fitur Utama - Bulat Besar di Tengah dengan GSAP Ambient Halo) */}
           <div className="relative -top-5 flex flex-col items-center justify-center">
+            {/* GSAP Continuous Ambient Halo Ring */}
+            <div
+              ref={scanHaloRingRef}
+              className="absolute inset-0 rounded-full bg-emerald-500/30 blur-[3px] pointer-events-none"
+            />
             <button
+              ref={scanBtnRef}
               type="button"
               disabled={isProcessing}
               onClick={() => handleTabChange("scan")}
@@ -1304,6 +1369,7 @@ export function MainApp({
             } ${isProcessing ? "opacity-40 cursor-not-allowed pointer-events-none" : ""}`}
           >
             <div
+              ref={historyIconRef}
               className={`p-2 rounded-xl transition-all duration-200 ${
                 activeTab === "history" && !imagePreviewUrl
                   ? "bg-emerald-500/15 dark:bg-emerald-500/20 scale-110"

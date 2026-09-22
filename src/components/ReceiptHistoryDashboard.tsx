@@ -304,7 +304,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [selectedCategory, setSelectedCategory] = useState("Semua")
   const [selectedSubCategory, setSelectedSubCategory] = useState("Semua Sub-Kategori")
-  const [activeFilterPopover, setActiveFilterPopover] = useState<"kategori" | "metode" | "status" | "periode" | "urutan" | null>(null)
+  const [activeFilterPopover, setActiveFilterPopover] = useState<"kategori" | "metode" | "status" | "periode" | "urutan" | "activeFilters" | null>(null)
 
   // Date Range Filter State
   const [dateRangeFilter, setDateRangeFilter] = useState<"all" | "today" | "7days" | "month" | "custom">("all")
@@ -372,6 +372,84 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
 
   // Payment Method Multi-Select Filter State
   const [selectedPaymentMethods, setSelectedPaymentMethods] = useState<string[]>([])
+
+  // Active Filters Status & Summary Helpers
+  const hasActiveFilters = useMemo(() => {
+    return (
+      selectedCategories.length > 0 ||
+      (selectedCategory !== "Semua" && selectedCategories.length === 0) ||
+      selectedSubCategory !== "Semua Sub-Kategori" ||
+      selectedStatuses.length > 0 ||
+      (selectedStatusFilter !== "Semua Status" && selectedStatuses.length === 0) ||
+      selectedPersonFilter !== "Semua Penanggung Jawab" ||
+      selectedPaymentMethods.length > 0 ||
+      dateRangeFilter !== "all"
+    )
+  }, [
+    selectedCategories,
+    selectedCategory,
+    selectedSubCategory,
+    selectedStatuses,
+    selectedStatusFilter,
+    selectedPersonFilter,
+    selectedPaymentMethods,
+    dateRangeFilter,
+  ])
+
+  const activeFiltersCount = useMemo(() => {
+    return (
+      selectedCategories.length +
+      (selectedSubCategory !== "Semua Sub-Kategori" ? 1 : 0) +
+      selectedPaymentMethods.length +
+      selectedStatuses.length +
+      (selectedStatusFilter !== "Semua Status" && selectedStatuses.length === 0 ? 1 : 0) +
+      (selectedPersonFilter !== "Semua Penanggung Jawab" ? 1 : 0) +
+      (dateRangeFilter !== "all" ? 1 : 0)
+    )
+  }, [
+    selectedCategories,
+    selectedSubCategory,
+    selectedPaymentMethods,
+    selectedStatuses,
+    selectedStatusFilter,
+    selectedPersonFilter,
+    dateRangeFilter,
+  ])
+
+  const activeFilterSummaryLabel = useMemo(() => {
+    if (selectedSubCategory !== "Semua Sub-Kategori") return selectedSubCategory
+    if (selectedCategories.length === 1) return selectedCategories[0]
+    if (selectedCategories.length > 1) return `${selectedCategories.length} Kategori`
+    if (selectedPaymentMethods.length === 1) return selectedPaymentMethods[0]
+    if (selectedPaymentMethods.length > 1) return `${selectedPaymentMethods.length} Metode`
+    if (selectedStatuses.length === 1) return selectedStatuses[0]
+    if (selectedStatuses.length > 1) return `${selectedStatuses.length} Status`
+    if (dateRangeFilter === "today") return "Hari Ini"
+    if (dateRangeFilter === "7days") return "7 Hari"
+    if (dateRangeFilter === "month") return "Bulan Ini"
+    if (dateRangeFilter === "custom") return "Kustom"
+    return "Filter"
+  }, [
+    selectedCategories,
+    selectedSubCategory,
+    selectedPaymentMethods,
+    selectedStatuses,
+    dateRangeFilter,
+  ])
+
+  const handleClearAllFilters = () => {
+    setSelectedCategories([])
+    setSelectedCategory("Semua")
+    setSelectedSubCategory("Semua Sub-Kategori")
+    setSelectedStatuses([])
+    setSelectedStatusFilter("Semua Status")
+    setSelectedPersonFilter("Semua Penanggung Jawab")
+    setSelectedPaymentMethods([])
+    setDateRangeFilter("all")
+    setStartDate("")
+    setEndDate("")
+    setCurrentPage(1)
+  }
 
   // Custom Master Data State: Payment Methods & Statuses
   const [customPaymentMethods, setCustomPaymentMethods] = useState<string[]>([])
@@ -2448,142 +2526,96 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
         </div>
       </div>
 
-      {/* SEARCH & FILTER BAR DIRECTLY ABOVE RECEIPTS HISTORY (100% UNIFIED 1-ROW TOOLBAR WITH CHECKLIST DROPDOWNS) */}
-      <div className="relative bg-white dark:bg-slate-900/90 p-3 sm:p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-xl space-y-2.5 transition-colors duration-200 z-20">
+      {/* SEARCH & FILTER BAR DIRECTLY ABOVE RECEIPTS HISTORY (100% UNIFIED 1-ROW TOOLBAR WITH COMPACT ACTIVE FILTER BOX) */}
+      <div className="relative bg-white dark:bg-slate-900/90 p-3 sm:p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-xl transition-colors duration-200 z-20">
         {/* ROW 1: THE UNIFIED 1-ROW TOOLBAR */}
         <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-2">
-          {/* Search Box Input */}
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="w-4 h-4 text-slate-400 dark:text-slate-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Cari toko, barang, nominal..."
-              className="w-full pl-9 pr-8 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all bg-slate-50 dark:bg-slate-950"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery("")}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 cursor-pointer"
-                title="Hapus pencarian"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
+          {/* Search Box Input + Active Filter Button Box Container */}
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            {/* Search Box Input */}
+            <div className="relative flex-1 min-w-0 transition-all duration-300">
+              <Search className="w-4 h-4 text-slate-400 dark:text-slate-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Cari toko, barang, nominal..."
+                className="w-full pl-9 pr-8 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all bg-slate-50 dark:bg-slate-950"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 cursor-pointer"
+                  title="Hapus pencarian"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* New Box Khusus Filter: Seamless Transition In/Out */}
+            <div
+              className={`transition-all duration-300 ease-in-out overflow-hidden flex items-center shrink-0 ${
+                hasActiveFilters
+                  ? "max-w-[190px] sm:max-w-[240px] opacity-100 scale-100"
+                  : "max-w-0 opacity-0 scale-95 pointer-events-none"
+              }`}
+            >
+              <div className="flex items-center gap-1.5 h-9 px-2.5 sm:px-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300 text-xs font-bold shadow-2xs whitespace-nowrap">
+                <button
+                  type="button"
+                  onClick={() => setActiveFilterPopover("activeFilters")}
+                  className="flex items-center gap-1.5 hover:text-emerald-950 dark:hover:text-white cursor-pointer transition-colors max-w-[110px] sm:max-w-[150px]"
+                  title="Lihat rincian filter aktif"
+                >
+                  <Filter className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <span className="truncate">{activeFilterSummaryLabel}</span>
+                  <span className="px-1.5 py-0.5 rounded-full bg-emerald-600 text-white text-[9px] font-black shrink-0">
+                    {activeFiltersCount}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleClearAllFilters}
+                  className="p-1 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 hover:text-rose-500 dark:hover:text-rose-400 rounded-lg transition-colors cursor-pointer shrink-0 ml-0.5"
+                  title="Hapus semua filter"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
           </div>
 
-          {/* Quick Checklist Dropdown Controls */}
+          {/* Quick Checklist Dropdown Controls (Icons Only) */}
           <div className="flex items-center gap-1.5 sm:gap-2 w-full lg:w-auto shrink-0">
-            {/* 1. KATEGORI CHECKLIST DROPDOWN (ICON ONLY) */}
+            {/* 1. KATEGORI (ICON ONLY) */}
             <div className="relative flex-1 lg:flex-none">
               <button
                 type="button"
                 onClick={() => setActiveFilterPopover(activeFilterPopover === "kategori" ? null : "kategori")}
                 className={`relative inline-flex items-center justify-center w-full lg:w-9 h-9 rounded-xl border text-xs font-bold shadow-2xs transition-all cursor-pointer active:scale-95 ${
-                  selectedCategories.length > 0
+                  selectedCategories.length > 0 || selectedSubCategory !== "Semua Sub-Kategori"
                     ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 font-black"
                     : "bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-800"
                 }`}
                 title={
-                  selectedCategories.length === 0
+                  selectedCategories.length === 0 && selectedSubCategory === "Semua Sub-Kategori"
                     ? "Filter Kategori (Klik untuk memilih)"
-                    : `Kategori: ${selectedCategories.join(", ")}`
+                    : `Kategori: ${selectedCategories.join(", ") || "Semua"} ${selectedSubCategory !== "Semua Sub-Kategori" ? `(${selectedSubCategory})` : ""}`
                 }
                 aria-label="Filter Kategori"
               >
-                <Layers className={`w-4 h-4 ${selectedCategories.length > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400 dark:text-slate-500"}`} />
-                {selectedCategories.length > 0 && (
+                <Layers className={`w-4 h-4 ${selectedCategories.length > 0 || selectedSubCategory !== "Semua Sub-Kategori" ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400 dark:text-slate-500"}`} />
+                {(selectedCategories.length > 0 || selectedSubCategory !== "Semua Sub-Kategori") && (
                   <span className="absolute -top-1 -right-1 flex h-4 min-w-4 px-1 items-center justify-center bg-emerald-600 text-white rounded-full text-[9px] font-black leading-none shadow-xs">
-                    {selectedCategories.length}
+                    {selectedCategories.length + (selectedSubCategory !== "Semua Sub-Kategori" ? 1 : 0)}
                   </span>
                 )}
               </button>
-
-              {activeFilterPopover === "kategori" && (
-                <>
-                  <div className="fixed inset-0 z-30" onClick={() => setActiveFilterPopover(null)} />
-                  <div className="absolute left-0 sm:right-auto sm:left-0 top-full mt-1.5 w-64 max-w-[calc(100vw-2rem)] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2.5 space-y-1 z-40 animate-in fade-in zoom-in-95 duration-150">
-                    <div className="flex items-center justify-between px-2 py-1 text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 pb-1.5">
-                      <span>Kategori</span>
-                      {selectedCategories.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => handleToggleCategory("Semua")}
-                          className="text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer normal-case font-bold"
-                        >
-                          Reset
-                        </button>
-                      )}
-                    </div>
-                    <div className="max-h-56 overflow-y-auto space-y-0.5 scrollbar-thin py-0.5">
-                      {/* Option: Semua Kategori */}
-                      <div
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => handleToggleCategory("Semua")}
-                        className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold cursor-pointer transition-colors select-none ${
-                          selectedCategories.length === 0
-                            ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 font-bold"
-                            : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-                        }`}
-                      >
-                        <div
-                          className={`w-4 h-4 rounded-md flex items-center justify-center shrink-0 transition-all ${
-                            selectedCategories.length === 0
-                              ? "bg-emerald-600 text-white shadow-2xs"
-                              : "border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900"
-                          }`}
-                        >
-                          {selectedCategories.length === 0 && <Check className="w-3 h-3 stroke-[3]" />}
-                        </div>
-                        <span>Semua Kategori</span>
-                      </div>
-
-                      {hierarchy.map((cat) => {
-                        const isChecked = selectedCategories.includes(cat.name)
-                        return (
-                          <div
-                            key={cat.id || cat.name}
-                            role="button"
-                            tabIndex={0}
-                            onClick={() => handleToggleCategory(cat.name)}
-                            className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold cursor-pointer transition-colors select-none ${
-                              isChecked
-                                ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 font-bold"
-                                : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-                            }`}
-                          >
-                            <div
-                              className={`w-4 h-4 rounded-md flex items-center justify-center shrink-0 transition-all ${
-                                isChecked
-                                  ? "bg-emerald-600 text-white shadow-2xs"
-                                  : "border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900"
-                              }`}
-                            >
-                              {isChecked && <Check className="w-3 h-3 stroke-[3]" />}
-                            </div>
-                            <span className="truncate">{cat.name}</span>
-                          </div>
-                        )
-                      })}
-                    </div>
-                    <div className="pt-1.5 border-t border-slate-100 dark:border-slate-800 flex justify-end">
-                      <button
-                        type="button"
-                        onClick={() => setActiveFilterPopover(null)}
-                        className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all cursor-pointer"
-                      >
-                        Selesai
-                      </button>
-                    </div>
-                  </div>
-                </>
-              )}
             </div>
 
-            {/* 2. METODE PEMBAYARAN CHECKLIST DROPDOWN (ICON ONLY) */}
+            {/* 2. METODE PEMBAYARAN (ICON ONLY) */}
             <div className="relative flex-1 lg:flex-none">
               <button
                 type="button"
@@ -2607,89 +2639,9 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                   </span>
                 )}
               </button>
-
-              {activeFilterPopover === "metode" && (
-                <>
-                  <div className="fixed inset-0 z-30" onClick={() => setActiveFilterPopover(null)} />
-                  <div className="absolute left-0 sm:right-auto sm:left-0 top-full mt-1.5 w-64 max-w-[calc(100vw-2rem)] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2.5 space-y-1 z-40 animate-in fade-in zoom-in-95 duration-150">
-                    <div className="flex items-center justify-between px-2 py-1 text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 pb-1.5">
-                      <span>Metode Bayar</span>
-                      {selectedPaymentMethods.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={handleClearPaymentMethods}
-                          className="text-sky-600 dark:text-sky-400 hover:underline cursor-pointer normal-case font-bold"
-                        >
-                          Reset
-                        </button>
-                      )}
-                    </div>
-                    <div className="max-h-56 overflow-y-auto space-y-0.5 scrollbar-thin py-0.5">
-                      <div
-                        role="button"
-                        tabIndex={0}
-                        onClick={handleClearPaymentMethods}
-                        className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold cursor-pointer transition-colors select-none ${
-                          selectedPaymentMethods.length === 0
-                            ? "bg-sky-50 dark:bg-sky-950/40 text-sky-800 dark:text-sky-300 font-bold"
-                            : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-                        }`}
-                      >
-                        <div
-                          className={`w-4 h-4 rounded-md flex items-center justify-center shrink-0 transition-all ${
-                            selectedPaymentMethods.length === 0
-                              ? "bg-sky-600 text-white shadow-2xs"
-                              : "border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900"
-                          }`}
-                        >
-                          {selectedPaymentMethods.length === 0 && <Check className="w-3 h-3 stroke-[3]" />}
-                        </div>
-                        <span>Semua Metode</span>
-                      </div>
-
-                      {availablePaymentMethods.map((method) => {
-                        const isChecked = selectedPaymentMethods.includes(method)
-                        return (
-                          <div
-                            key={method}
-                            role="button"
-                            tabIndex={0}
-                            onClick={() => handleTogglePaymentMethod(method)}
-                            className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold cursor-pointer transition-colors select-none ${
-                              isChecked
-                                ? "bg-sky-50 dark:bg-sky-950/40 text-sky-800 dark:text-sky-300 font-bold"
-                                : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-                            }`}
-                          >
-                            <div
-                              className={`w-4 h-4 rounded-md flex items-center justify-center shrink-0 transition-all ${
-                                isChecked
-                                  ? "bg-sky-600 text-white shadow-2xs"
-                                  : "border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900"
-                              }`}
-                            >
-                              {isChecked && <Check className="w-3 h-3 stroke-[3]" />}
-                            </div>
-                            <span className="truncate">{method}</span>
-                          </div>
-                        )
-                      })}
-                    </div>
-                    <div className="pt-1.5 border-t border-slate-100 dark:border-slate-800 flex justify-end">
-                      <button
-                        type="button"
-                        onClick={() => setActiveFilterPopover(null)}
-                        className="px-3 py-1 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold transition-all cursor-pointer"
-                      >
-                        Selesai
-                      </button>
-                    </div>
-                  </div>
-                </>
-              )}
             </div>
 
-            {/* 3. STATUS PELUNASAN CHECKLIST DROPDOWN (ICON ONLY) */}
+            {/* 3. STATUS PELUNASAN (ICON ONLY) */}
             <div className="relative flex-1 lg:flex-none">
               <button
                 type="button"
@@ -2713,94 +2665,9 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                   </span>
                 )}
               </button>
-
-              {activeFilterPopover === "status" && (
-                <>
-                  <div className="fixed inset-0 z-30" onClick={() => setActiveFilterPopover(null)} />
-                  <div className="absolute left-1/2 -translate-x-1/2 sm:translate-x-0 sm:left-0 top-full mt-1.5 w-60 max-w-[calc(100vw-2rem)] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2.5 space-y-1 z-40 animate-in fade-in zoom-in-95 duration-150">
-                    <div className="flex items-center justify-between px-2 py-1 text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 pb-1.5">
-                      <span>Status Pelunasan</span>
-                      {selectedStatuses.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => handleToggleStatus("Semua Status")}
-                          className="text-amber-600 dark:text-amber-400 hover:underline cursor-pointer normal-case font-bold"
-                        >
-                          Reset
-                        </button>
-                      )}
-                    </div>
-                    <div className="space-y-0.5 py-0.5">
-                      <div
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => handleToggleStatus("Semua Status")}
-                        className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold cursor-pointer transition-colors select-none ${
-                          selectedStatuses.length === 0
-                            ? "bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 font-bold"
-                            : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-                        }`}
-                      >
-                        <div
-                          className={`w-4 h-4 rounded-md flex items-center justify-center shrink-0 transition-all ${
-                            selectedStatuses.length === 0
-                              ? "bg-amber-600 text-white shadow-2xs"
-                              : "border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900"
-                          }`}
-                        >
-                          {selectedStatuses.length === 0 && <Check className="w-3 h-3 stroke-[3]" />}
-                        </div>
-                        <span>Semua Status</span>
-                      </div>
-
-                      {allStatusesList.map((item) => {
-                        const isChecked = selectedStatuses.includes(item.value)
-                        return (
-                          <div
-                            key={item.value}
-                            role="button"
-                            tabIndex={0}
-                            onClick={() => handleToggleStatus(item.value)}
-                            className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold cursor-pointer transition-colors select-none ${
-                              isChecked
-                                ? "bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 font-bold"
-                                : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-                            }`}
-                          >
-                            <div
-                              className={`w-4 h-4 rounded-md flex items-center justify-center shrink-0 transition-all ${
-                                isChecked
-                                  ? "bg-amber-600 text-white shadow-2xs"
-                                  : "border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900"
-                              }`}
-                            >
-                              {isChecked && <Check className="w-3 h-3 stroke-[3]" />}
-                            </div>
-                            <span className="flex-1 truncate">{item.label}</span>
-                            {item.desc && (
-                              <span className="text-[10px] text-slate-400 font-normal shrink-0">
-                                {item.desc}
-                              </span>
-                            )}
-                          </div>
-                        )
-                      })}
-                    </div>
-                    <div className="pt-1.5 border-t border-slate-100 dark:border-slate-800 flex justify-end">
-                      <button
-                        type="button"
-                        onClick={() => setActiveFilterPopover(null)}
-                        className="px-3 py-1 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold transition-all cursor-pointer"
-                      >
-                        Selesai
-                      </button>
-                    </div>
-                  </div>
-                </>
-              )}
             </div>
 
-            {/* 4. PERIODE CHECKLIST DROPDOWN & INTERACTIVE CALENDAR RANGE SELECT (ICON ONLY) */}
+            {/* 4. PERIODE (ICON ONLY) */}
             <div className="relative flex-1 lg:flex-none">
               <button
                 type="button"
@@ -2832,22 +2699,9 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                   <span className="absolute -top-1 -right-1 flex h-2 w-2 bg-emerald-600 rounded-full shadow-xs" />
                 )}
               </button>
-
-              {activeFilterPopover === "periode" && (
-                <>
-                  <div className="fixed inset-0 z-30" onClick={() => setActiveFilterPopover(null)} />
-                  <div className="absolute right-0 sm:left-0 sm:right-auto top-full mt-1.5 w-[245px] sm:w-[250px] z-40 animate-in fade-in zoom-in-95 duration-150">
-                    <CalendarRangeSelect
-                      dateRange={currentDateRange}
-                      onApply={(range) => handleApplyCustomDateRange(range)}
-                      onClose={() => setActiveFilterPopover(null)}
-                    />
-                  </div>
-                </>
-              )}
             </div>
 
-            {/* 5. URUTKAN CHECKLIST DROPDOWN (ICON ONLY) */}
+            {/* 5. URUTKAN (ICON ONLY, HIDDEN ON XS) */}
             <div className="relative hidden sm:block sm:flex-1 lg:flex-none">
               <button
                 type="button"
@@ -2868,59 +2722,9 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
               >
                 <ArrowUpDown className="w-4 h-4 text-slate-400 dark:text-slate-500" />
               </button>
-
-              {activeFilterPopover === "urutan" && (
-                <>
-                  <div className="fixed inset-0 z-30" onClick={() => setActiveFilterPopover(null)} />
-                  <div className="absolute right-0 top-full mt-1.5 w-52 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2.5 space-y-1 z-40 animate-in fade-in zoom-in-95 duration-150">
-                    <div className="px-2 py-1 text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 pb-1.5">
-                      Urutan
-                    </div>
-                    <div className="space-y-0.5 py-0.5">
-                      {[
-                        { label: "Tanggal Terbaru", value: "date-desc" },
-                        { label: "Tanggal Terlama", value: "date-asc" },
-                        { label: "Nominal Tertinggi", value: "amount-desc" },
-                        { label: "Nominal Terendah", value: "amount-asc" },
-                        { label: "Nama Toko (A - Z)", value: "merchant-asc" },
-                        { label: "Nama Toko (Z - A)", value: "merchant-desc" },
-                      ].map((item) => {
-                        const isChecked = sortBy === item.value
-                        return (
-                          <div
-                            key={item.value}
-                            role="button"
-                            tabIndex={0}
-                            onClick={() => {
-                              setSortBy(item.value as any)
-                              setActiveFilterPopover(null)
-                            }}
-                            className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold cursor-pointer transition-colors select-none ${
-                              isChecked
-                                ? "bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white font-bold"
-                                : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
-                            }`}
-                          >
-                            <div
-                              className={`w-4 h-4 rounded-md flex items-center justify-center shrink-0 transition-all ${
-                                isChecked
-                                  ? "bg-emerald-600 text-white shadow-2xs"
-                                  : "border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900"
-                              }`}
-                            >
-                              {isChecked && <Check className="w-3 h-3 stroke-[3]" />}
-                            </div>
-                            <span>{item.label}</span>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                </>
-              )}
             </div>
 
-            {/* 6. KELOLA MASTER KATEGORI BUTTON */}
+            {/* 6. KELOLA MASTER DATA BUTTON */}
             <div className="relative flex-1 lg:flex-none">
               <button
                 type="button"
@@ -2934,134 +2738,631 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
           </div>
         </div>
 
-        {/* SUB-CATEGORY CHIPS (ONLY SHOWN WHEN A SINGLE PARENT CATEGORY WITH SUB-CATEGORIES IS ACTIVE) */}
-        {selectedCategories.length === 1 && subCategoryOptions.length > 0 && (
-          <div className="flex items-center gap-1.5 overflow-x-auto pt-1.5 border-t border-slate-100 dark:border-slate-800 scrollbar-none">
-            <span className="text-[11px] font-black text-slate-500 dark:text-slate-400 flex items-center gap-1 shrink-0 uppercase tracking-wider mr-1">
-              <ListFilter className="w-3 h-3 text-emerald-600 dark:text-emerald-400" /> Sub:
-            </span>
-            {subCategoryOptions.map((subName) => (
-              <button
-                key={subName}
-                type="button"
-                onClick={() => setSelectedSubCategory(subName)}
-                className={`px-2.5 py-0.5 rounded-lg text-xs font-bold transition-all duration-150 whitespace-nowrap active:scale-95 cursor-pointer ${
-                  selectedSubCategory === subName
-                    ? "bg-emerald-500 text-slate-950 font-black shadow-2xs"
-                    : "bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-slate-800"
-                }`}
-              >
-                {subName}
-              </button>
-            ))}
-          </div>
-        )}
+        {/* CENTERED POPUP MODAL WITH BLUR BACKDROP & CLEAR CARD HIERARCHY */}
+        {activeFilterPopover && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-950/70 backdrop-blur-md animate-in fade-in duration-200">
+            {/* Backdrop click area */}
+            <div
+              className="fixed inset-0"
+              onClick={() => setActiveFilterPopover(null)}
+            />
 
-        {/* ACTIVE FILTER BADGES ROW (CLEAR CHIPS) */}
-        {(selectedCategories.length > 0 || (selectedCategory !== "Semua" && selectedCategories.length === 0) || selectedSubCategory !== "Semua Sub-Kategori" || selectedStatuses.length > 0 || (selectedStatusFilter !== "Semua Status" && selectedStatuses.length === 0) || selectedPersonFilter !== "Semua Penanggung Jawab" || selectedPaymentMethods.length > 0 || dateRangeFilter !== "all" || searchQuery.trim() !== "") && (
-          <div className="flex items-center gap-1.5 flex-wrap pt-1.5 border-t border-slate-100 dark:border-slate-800 text-xs">
-            <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 shrink-0">Filter:</span>
+            {/* Modal Card Container */}
+            <div className="relative w-full max-w-sm sm:max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-2xl flex flex-col max-h-[85vh] overflow-hidden z-10 animate-in zoom-in-95 duration-200">
+              {/* MODAL 1: KATEGORI & SUB-KATEGORI */}
+              {activeFilterPopover === "kategori" && (
+                <>
+                  {/* Header */}
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                        <Layers className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-black text-slate-900 dark:text-white">Filter Kategori</h3>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                          Pilih kategori dan tentukan sub-kategori belanja
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setActiveFilterPopover(null)}
+                      className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
 
-            {searchQuery.trim() !== "" && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium">
-                "{searchQuery}"
-                <button type="button" onClick={() => setSearchQuery("")} className="hover:text-rose-500 cursor-pointer ml-0.5" title="Hapus">
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            )}
+                  {/* Scrollable Body */}
+                  <div className="flex-1 overflow-y-auto space-y-2 py-2 pr-1 scrollbar-thin">
+                    {/* Option: Semua Kategori */}
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => {
+                        handleToggleCategory("Semua")
+                        setSelectedSubCategory("Semua Sub-Kategori")
+                      }}
+                      className={`flex items-center gap-3 p-3 rounded-2xl text-xs font-semibold cursor-pointer transition-all border select-none ${
+                        selectedCategories.length === 0
+                          ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-800 dark:text-emerald-300 font-bold"
+                          : "bg-slate-50 dark:bg-slate-950/60 border-slate-200/80 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                      }`}
+                    >
+                      <div
+                        className={`w-4 h-4 rounded-md flex items-center justify-center shrink-0 transition-all ${
+                          selectedCategories.length === 0
+                            ? "bg-emerald-600 text-white shadow-2xs"
+                            : "border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900"
+                        }`}
+                      >
+                        {selectedCategories.length === 0 && <Check className="w-3 h-3 stroke-[3]" />}
+                      </div>
+                      <span className="flex-1 font-bold">Semua Kategori</span>
+                    </div>
 
-            {/* Selected Categories Badges */}
-            {selectedCategories.map((cat) => (
-              <span key={cat} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 font-bold">
-                {cat}
-                <button type="button" onClick={() => handleToggleCategory(cat)} className="hover:text-rose-500 cursor-pointer ml-0.5" title="Hapus">
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            ))}
+                    {/* Category List with Sub-Category Nesting */}
+                    {hierarchy.map((cat) => {
+                      const isChecked = selectedCategories.includes(cat.name)
+                      return (
+                        <div
+                          key={cat.id || cat.name}
+                          className={`rounded-2xl border transition-all p-3 space-y-2 ${
+                            isChecked
+                              ? "bg-emerald-500/10 border-emerald-500/30"
+                              : "bg-slate-50 dark:bg-slate-950/60 border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700"
+                          }`}
+                        >
+                          <div
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => handleToggleCategory(cat.name)}
+                            className="flex items-center gap-3 cursor-pointer select-none"
+                          >
+                            <div
+                              className={`w-4 h-4 rounded-md flex items-center justify-center shrink-0 transition-all ${
+                                isChecked
+                                  ? "bg-emerald-600 text-white shadow-2xs"
+                                  : "border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900"
+                              }`}
+                            >
+                              {isChecked && <Check className="w-3 h-3 stroke-[3]" />}
+                            </div>
+                            <span className={`text-xs flex-1 ${isChecked ? "font-bold text-emerald-800 dark:text-emerald-300" : "font-medium text-slate-800 dark:text-slate-200"}`}>
+                              {cat.name}
+                            </span>
+                            {cat.subCategories && cat.subCategories.length > 0 && (
+                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-200/70 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-bold">
+                                {cat.subCategories.length} Sub
+                              </span>
+                            )}
+                          </div>
 
-            {selectedSubCategory !== "Semua Sub-Kategori" && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-700 dark:text-purple-400 border border-purple-500/20 font-bold">
-                {selectedSubCategory}
-                <button type="button" onClick={() => setSelectedSubCategory("Semua Sub-Kategori")} className="hover:text-rose-500 cursor-pointer ml-0.5" title="Hapus">
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            )}
+                          {/* NESTED SUB-CATEGORIES SECTION INSIDE POPUP CARD */}
+                          {isChecked && cat.subCategories && cat.subCategories.length > 0 && (
+                            <div className="pt-2 border-t border-emerald-500/20 space-y-2 animate-in fade-in duration-150">
+                              <div className="flex items-center justify-between text-[11px] font-black text-emerald-800 dark:text-emerald-300 uppercase tracking-wider">
+                                <span className="flex items-center gap-1.5">
+                                  <ListFilter className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                                  Sub-Kategori
+                                </span>
+                                {selectedSubCategory !== "Semua Sub-Kategori" && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setSelectedSubCategory("Semua Sub-Kategori")
+                                    }}
+                                    className="text-[10px] text-rose-500 hover:underline font-bold cursor-pointer"
+                                  >
+                                    Reset Sub
+                                  </button>
+                                )}
+                              </div>
+                              <div className="flex flex-wrap gap-1.5">
+                                {["Semua Sub-Kategori", ...cat.subCategories.map((s) => s.name)].map((subName) => {
+                                  const isSubSelected = selectedSubCategory === subName
+                                  return (
+                                    <button
+                                      key={subName}
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        setSelectedSubCategory(subName)
+                                      }}
+                                      className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer active:scale-95 ${
+                                        isSubSelected
+                                          ? "bg-emerald-500 text-slate-950 font-black shadow-xs"
+                                          : "bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:border-emerald-500/40"
+                                      }`}
+                                    >
+                                      {subName}
+                                    </button>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
 
-            {/* Selected Payment Methods Badges */}
-            {selectedPaymentMethods.map((m) => (
-              <span key={m} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-sky-500/10 text-sky-700 dark:text-sky-400 border border-sky-500/20 font-bold">
-                {m}
-                <button type="button" onClick={() => handleTogglePaymentMethod(m)} className="hover:text-rose-500 cursor-pointer ml-0.5" title="Hapus">
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            ))}
+                  {/* Footer */}
+                  <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleToggleCategory("Semua")
+                        setSelectedSubCategory("Semua Sub-Kategori")
+                      }}
+                      className="text-xs font-bold text-slate-500 hover:text-rose-500 dark:text-slate-400 dark:hover:text-rose-400 transition-colors cursor-pointer"
+                    >
+                      Reset Kategori
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveFilterPopover(null)}
+                      className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-sm shadow-emerald-600/30 transition-all cursor-pointer active:scale-95"
+                    >
+                      Selesai
+                    </button>
+                  </div>
+                </>
+              )}
 
-            {/* Selected Statuses Badges */}
-            {selectedStatuses.map((st) => (
-              <span key={st} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 font-bold">
-                {st === "Belum Direimburse / Tempo" ? "Belum Lunas" : st}
-                <button type="button" onClick={() => handleToggleStatus(st)} className="hover:text-rose-500 cursor-pointer ml-0.5" title="Hapus">
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            ))}
+              {/* MODAL 2: METODE PEMBAYARAN */}
+              {activeFilterPopover === "metode" && (
+                <>
+                  {/* Header */}
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-xl bg-sky-500/15 border border-sky-500/30 flex items-center justify-center text-sky-600 dark:text-sky-400">
+                        <CreditCard className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-black text-slate-900 dark:text-white">Metode Pembayaran</h3>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                          Saring transaksi berdasarkan kanal kas / bank
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setActiveFilterPopover(null)}
+                      className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
 
-            {selectedPersonFilter !== "Semua Penanggung Jawab" && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 font-bold">
-                {selectedPersonFilter}
-                <button type="button" onClick={() => setSelectedPersonFilter("Semua Penanggung Jawab")} className="hover:text-rose-500 cursor-pointer ml-0.5" title="Hapus">
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            )}
+                  {/* Scrollable Body */}
+                  <div className="flex-1 overflow-y-auto space-y-2 py-2 pr-1 scrollbar-thin">
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={handleClearPaymentMethods}
+                      className={`flex items-center gap-3 p-3 rounded-2xl text-xs font-semibold cursor-pointer transition-all border select-none ${
+                        selectedPaymentMethods.length === 0
+                          ? "bg-sky-500/10 border-sky-500/30 text-sky-800 dark:text-sky-300 font-bold"
+                          : "bg-slate-50 dark:bg-slate-950/60 border-slate-200/80 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                      }`}
+                    >
+                      <div
+                        className={`w-4 h-4 rounded-md flex items-center justify-center shrink-0 transition-all ${
+                          selectedPaymentMethods.length === 0
+                            ? "bg-sky-600 text-white shadow-2xs"
+                            : "border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900"
+                        }`}
+                      >
+                        {selectedPaymentMethods.length === 0 && <Check className="w-3 h-3 stroke-[3]" />}
+                      </div>
+                      <span className="flex-1 font-bold">Semua Metode</span>
+                    </div>
 
-            {dateRangeFilter !== "all" && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 font-bold">
-                {dateRangeFilter === "today"
-                  ? "Hari Ini"
-                  : dateRangeFilter === "7days"
-                  ? "7 Hari"
-                  : dateRangeFilter === "month"
-                  ? "Bulan Ini"
-                  : `${startDate} s/d ${endDate}`}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDateRangeFilter("all")
-                    setStartDate("")
-                    setEndDate("")
-                  }}
-                  className="hover:text-rose-500 cursor-pointer ml-0.5"
-                  title="Hapus"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            )}
+                    {availablePaymentMethods.map((method) => {
+                      const isChecked = selectedPaymentMethods.includes(method)
+                      return (
+                        <div
+                          key={method}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => handleTogglePaymentMethod(method)}
+                          className={`flex items-center gap-3 p-3 rounded-2xl text-xs font-semibold cursor-pointer transition-all border select-none ${
+                            isChecked
+                              ? "bg-sky-500/10 border-sky-500/30 text-sky-800 dark:text-sky-300 font-bold"
+                              : "bg-slate-50 dark:bg-slate-950/60 border-slate-200/80 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                          }`}
+                        >
+                          <div
+                            className={`w-4 h-4 rounded-md flex items-center justify-center shrink-0 transition-all ${
+                              isChecked
+                                ? "bg-sky-600 text-white shadow-2xs"
+                                : "border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900"
+                            }`}
+                          >
+                            {isChecked && <Check className="w-3 h-3 stroke-[3]" />}
+                          </div>
+                          <span className="flex-1 truncate">{method}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
 
-            <button
-              type="button"
-              onClick={() => {
-                setSearchQuery("")
-                setSelectedCategories([])
-                setSelectedCategory("Semua")
-                setSelectedSubCategory("Semua Sub-Kategori")
-                setSelectedStatuses([])
-                setSelectedStatusFilter("Semua Status")
-                setSelectedPersonFilter("Semua Penanggung Jawab")
-                setSelectedPaymentMethods([])
-                setDateRangeFilter("all")
-                setStartDate("")
-                setEndDate("")
-              }}
-              className="text-[11px] font-bold text-rose-500 hover:text-rose-600 dark:text-rose-400 hover:underline cursor-pointer ml-auto shrink-0"
-            >
-              Reset
-            </button>
+                  {/* Footer */}
+                  <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={handleClearPaymentMethods}
+                      className="text-xs font-bold text-slate-500 hover:text-rose-500 dark:text-slate-400 dark:hover:text-rose-400 transition-colors cursor-pointer"
+                    >
+                      Reset Metode
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveFilterPopover(null)}
+                      className="px-5 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs shadow-sm shadow-sky-600/30 transition-all cursor-pointer active:scale-95"
+                    >
+                      Selesai
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {/* MODAL 3: STATUS PELUNASAN */}
+              {activeFilterPopover === "status" && (
+                <>
+                  {/* Header */}
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400">
+                        <CheckSquare className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-black text-slate-900 dark:text-white">Status Pelunasan</h3>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                          Saring nota lunas atau tempo / pending
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setActiveFilterPopover(null)}
+                      className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Scrollable Body */}
+                  <div className="flex-1 overflow-y-auto space-y-2 py-2 pr-1 scrollbar-thin">
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => handleToggleStatus("Semua Status")}
+                      className={`flex items-center gap-3 p-3 rounded-2xl text-xs font-semibold cursor-pointer transition-all border select-none ${
+                        selectedStatuses.length === 0
+                          ? "bg-amber-500/10 border-amber-500/30 text-amber-800 dark:text-amber-300 font-bold"
+                          : "bg-slate-50 dark:bg-slate-950/60 border-slate-200/80 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                      }`}
+                    >
+                      <div
+                        className={`w-4 h-4 rounded-md flex items-center justify-center shrink-0 transition-all ${
+                          selectedStatuses.length === 0
+                            ? "bg-amber-600 text-white shadow-2xs"
+                            : "border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900"
+                        }`}
+                      >
+                        {selectedStatuses.length === 0 && <Check className="w-3 h-3 stroke-[3]" />}
+                      </div>
+                      <span className="flex-1 font-bold">Semua Status</span>
+                    </div>
+
+                    {allStatusesList.map((item) => {
+                      const isChecked = selectedStatuses.includes(item.value)
+                      return (
+                        <div
+                          key={item.value}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => handleToggleStatus(item.value)}
+                          className={`flex items-center gap-3 p-3 rounded-2xl text-xs font-semibold cursor-pointer transition-all border select-none ${
+                            isChecked
+                              ? "bg-amber-500/10 border-amber-500/30 text-amber-800 dark:text-amber-300 font-bold"
+                              : "bg-slate-50 dark:bg-slate-950/60 border-slate-200/80 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                          }`}
+                        >
+                          <div
+                            className={`w-4 h-4 rounded-md flex items-center justify-center shrink-0 transition-all ${
+                              isChecked
+                                ? "bg-amber-600 text-white shadow-2xs"
+                                : "border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900"
+                            }`}
+                          >
+                            {isChecked && <Check className="w-3 h-3 stroke-[3]" />}
+                          </div>
+                          <span className="flex-1 truncate">{item.label}</span>
+                          {item.desc && (
+                            <span className="text-[10px] text-slate-400 font-normal shrink-0">
+                              {item.desc}
+                            </span>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+
+                  {/* Footer */}
+                  <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => handleToggleStatus("Semua Status")}
+                      className="text-xs font-bold text-slate-500 hover:text-rose-500 dark:text-slate-400 dark:hover:text-rose-400 transition-colors cursor-pointer"
+                    >
+                      Reset Status
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveFilterPopover(null)}
+                      className="px-5 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shadow-sm shadow-amber-600/30 transition-all cursor-pointer active:scale-95"
+                    >
+                      Selesai
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {/* MODAL 4: PERIODE / RENTANG WAKTU */}
+              {activeFilterPopover === "periode" && (
+                <>
+                  {/* Header */}
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                        <Calendar className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-black text-slate-900 dark:text-white">Rentang Waktu</h3>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                          Pilih rentang tanggal nota transaksi
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setActiveFilterPopover(null)}
+                      className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Body */}
+                  <div className="py-2 flex justify-center overflow-y-auto">
+                    <CalendarRangeSelect
+                      dateRange={currentDateRange}
+                      onApply={(range) => handleApplyCustomDateRange(range)}
+                      onClose={() => setActiveFilterPopover(null)}
+                    />
+                  </div>
+                </>
+              )}
+
+              {/* MODAL 5: URUTKAN TRANSAKSI */}
+              {activeFilterPopover === "urutan" && (
+                <>
+                  {/* Header */}
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300">
+                        <ArrowUpDown className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-black text-slate-900 dark:text-white">Urutan Transaksi</h3>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                          Urutkan daftar riwayat berdasarkan
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setActiveFilterPopover(null)}
+                      className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Body */}
+                  <div className="flex-1 overflow-y-auto space-y-2 py-2 pr-1 scrollbar-thin">
+                    {[
+                      { label: "Tanggal Terbaru", value: "date-desc" },
+                      { label: "Tanggal Terlama", value: "date-asc" },
+                      { label: "Nominal Tertinggi", value: "amount-desc" },
+                      { label: "Nominal Terendah", value: "amount-asc" },
+                      { label: "Nama Toko (A - Z)", value: "merchant-asc" },
+                      { label: "Nama Toko (Z - A)", value: "merchant-desc" },
+                    ].map((item) => {
+                      const isChecked = sortBy === item.value
+                      return (
+                        <div
+                          key={item.value}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => {
+                            setSortBy(item.value as any)
+                            setActiveFilterPopover(null)
+                          }}
+                          className={`flex items-center gap-3 p-3 rounded-2xl text-xs font-semibold cursor-pointer transition-all border select-none ${
+                            isChecked
+                              ? "bg-slate-100 dark:bg-slate-800/90 border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white font-bold"
+                              : "bg-slate-50 dark:bg-slate-950/60 border-slate-200/80 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                          }`}
+                        >
+                          <div
+                            className={`w-4 h-4 rounded-md flex items-center justify-center shrink-0 transition-all ${
+                              isChecked
+                                ? "bg-emerald-600 text-white shadow-2xs"
+                                : "border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900"
+                            }`}
+                          >
+                            {isChecked && <Check className="w-3 h-3 stroke-[3]" />}
+                          </div>
+                          <span>{item.label}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </>
+              )}
+
+              {/* MODAL 6: RINCIAN FILTER AKTIF (DARI TOMBOL BOX FILTER SAMPING PENCARIAN) */}
+              {activeFilterPopover === "activeFilters" && (
+                <>
+                  {/* Header */}
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                        <Filter className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-black text-slate-900 dark:text-white">Filter Aktif</h3>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                          {activeFiltersCount} kriteria filter sedang diterapkan
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setActiveFilterPopover(null)}
+                      className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Body */}
+                  <div className="flex-1 overflow-y-auto space-y-3 py-2 pr-1 scrollbar-thin">
+                    {/* Categories */}
+                    {selectedCategories.length > 0 && (
+                      <div className="space-y-1.5">
+                        <div className="text-[11px] font-black text-slate-400 uppercase tracking-wider">Kategori</div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {selectedCategories.map((cat) => (
+                            <span key={cat} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/25 text-xs font-bold">
+                              {cat}
+                              <button type="button" onClick={() => handleToggleCategory(cat)} className="hover:text-rose-500 cursor-pointer">
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Subcategory */}
+                    {selectedSubCategory !== "Semua Sub-Kategori" && (
+                      <div className="space-y-1.5">
+                        <div className="text-[11px] font-black text-slate-400 uppercase tracking-wider">Sub-Kategori</div>
+                        <div className="flex flex-wrap gap-1.5">
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/25 text-xs font-bold">
+                            {selectedSubCategory}
+                            <button type="button" onClick={() => setSelectedSubCategory("Semua Sub-Kategori")} className="hover:text-rose-500 cursor-pointer">
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Payment methods */}
+                    {selectedPaymentMethods.length > 0 && (
+                      <div className="space-y-1.5">
+                        <div className="text-[11px] font-black text-slate-400 uppercase tracking-wider">Metode Bayar</div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {selectedPaymentMethods.map((m) => (
+                            <span key={m} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/25 text-xs font-bold">
+                              {m}
+                              <button type="button" onClick={() => handleTogglePaymentMethod(m)} className="hover:text-rose-500 cursor-pointer">
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Statuses */}
+                    {selectedStatuses.length > 0 && (
+                      <div className="space-y-1.5">
+                        <div className="text-[11px] font-black text-slate-400 uppercase tracking-wider">Status Pelunasan</div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {selectedStatuses.map((st) => (
+                            <span key={st} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/25 text-xs font-bold">
+                              {st}
+                              <button type="button" onClick={() => handleToggleStatus(st)} className="hover:text-rose-500 cursor-pointer">
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Date Range */}
+                    {dateRangeFilter !== "all" && (
+                      <div className="space-y-1.5">
+                        <div className="text-[11px] font-black text-slate-400 uppercase tracking-wider">Rentang Waktu</div>
+                        <div className="flex flex-wrap gap-1.5">
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/25 text-xs font-bold">
+                            {dateRangeFilter === "today"
+                              ? "Hari Ini"
+                              : dateRangeFilter === "7days"
+                              ? "7 Hari Terakhir"
+                              : dateRangeFilter === "month"
+                              ? "Bulan Ini"
+                              : `${startDate} s/d ${endDate}`}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setDateRangeFilter("all")
+                                setStartDate("")
+                                setEndDate("")
+                              }}
+                              className="hover:text-rose-500 cursor-pointer"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Footer */}
+                  <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleClearAllFilters()
+                        setActiveFilterPopover(null)
+                      }}
+                      className="text-xs font-bold text-rose-600 dark:text-rose-400 hover:underline cursor-pointer"
+                    >
+                      Hapus Semua Filter
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveFilterPopover(null)}
+                      className="px-5 py-2 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold text-xs shadow-sm transition-all cursor-pointer active:scale-95"
+                    >
+                      Tutup
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         )}
       </div>

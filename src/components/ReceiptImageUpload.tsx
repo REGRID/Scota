@@ -366,6 +366,26 @@ export function ReceiptImageUpload({
               </div>
             )}
           </div>
+        ) : isCompressing ? (
+          /* COMPRESSION & PREPARATION SCREEN */
+          <div className="flex flex-col items-center justify-center py-12 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+            <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shadow-md border border-emerald-500/20">
+              <Loader2 className="w-8 h-8 animate-spin" />
+            </div>
+            <div className="space-y-1.5 text-center">
+              <h3 className="font-black text-slate-900 dark:text-white text-lg sm:text-xl">
+                Memproses Foto Nota...
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mx-auto leading-relaxed">
+                {selectedFiles.length > 1
+                  ? `Mengompres dan menyiapkan ${selectedFiles.length} foto nota untuk pemindaian optimal...`
+                  : "Mengompres foto resolusi tinggi untuk pemindaian AI yang optimal..."}
+              </p>
+            </div>
+            <div className="w-44 bg-slate-200 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden">
+              <div className="bg-emerald-500 h-full w-2/3 animate-pulse rounded-full shadow-xs" />
+            </div>
+          </div>
         ) : selectedBase64 ? (
           /* PREVIEW & ROTATION SCREEN */
           <div className="flex flex-col items-center space-y-5 animate-in fade-in zoom-in-95 duration-200">

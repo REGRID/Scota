@@ -2267,27 +2267,29 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
 
           {/* Quick Checklist Dropdown Controls */}
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none shrink-0 w-full lg:w-auto -mx-1 px-1 sm:mx-0 sm:px-0">
-            {/* 1. KATEGORI CHECKLIST DROPDOWN (MULTI-SELECT) */}
+            {/* 1. KATEGORI CHECKLIST DROPDOWN (ICON ONLY) */}
             <div className="relative">
               <button
                 type="button"
                 onClick={() => setActiveFilterPopover(activeFilterPopover === "kategori" ? null : "kategori")}
-                className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold shadow-2xs transition-all cursor-pointer active:scale-95 ${
+                className={`relative inline-flex items-center justify-center w-9 h-9 rounded-xl border text-xs font-bold shadow-2xs transition-all cursor-pointer active:scale-95 ${
                   selectedCategories.length > 0
-                    ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 font-black"
+                    ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 font-black"
                     : "bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-800"
                 }`}
-                title="Pilih Kategori (Bisa Pilih > 1)"
+                title={
+                  selectedCategories.length === 0
+                    ? "Filter Kategori (Klik untuk memilih)"
+                    : `Kategori: ${selectedCategories.join(", ")}`
+                }
+                aria-label="Filter Kategori"
               >
-                <Layers className={`w-3.5 h-3.5 ${selectedCategories.length > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400 dark:text-slate-500"}`} />
-                <span className="max-w-[120px] truncate">
-                  {selectedCategories.length === 0
-                    ? "Kategori"
-                    : selectedCategories.length === 1
-                    ? selectedCategories[0]
-                    : `Kategori (${selectedCategories.length})`}
-                </span>
-                <ChevronDown className="w-3 h-3 text-slate-400 dark:text-slate-500 shrink-0" />
+                <Layers className={`w-4 h-4 ${selectedCategories.length > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400 dark:text-slate-500"}`} />
+                {selectedCategories.length > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-4 min-w-4 px-1 items-center justify-center bg-emerald-600 text-white rounded-full text-[9px] font-black leading-none shadow-xs">
+                    {selectedCategories.length}
+                  </span>
+                )}
               </button>
 
               {activeFilterPopover === "kategori" && (
@@ -2372,27 +2374,29 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
               )}
             </div>
 
-            {/* 2. METODE PEMBAYARAN CHECKLIST DROPDOWN (MULTI-SELECT) */}
+            {/* 2. METODE PEMBAYARAN CHECKLIST DROPDOWN (ICON ONLY) */}
             <div className="relative">
               <button
                 type="button"
                 onClick={() => setActiveFilterPopover(activeFilterPopover === "metode" ? null : "metode")}
-                className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold shadow-2xs transition-all cursor-pointer active:scale-95 ${
+                className={`relative inline-flex items-center justify-center w-9 h-9 rounded-xl border text-xs font-bold shadow-2xs transition-all cursor-pointer active:scale-95 ${
                   selectedPaymentMethods.length > 0
-                    ? "bg-sky-500/10 text-sky-700 dark:text-sky-300 border-sky-500/30 font-black"
+                    ? "bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30 font-black"
                     : "bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-800"
                 }`}
-                title="Pilih Metode Pembayaran (Bisa Pilih > 1)"
+                title={
+                  selectedPaymentMethods.length === 0
+                    ? "Filter Metode Bayar (Klik untuk memilih)"
+                    : `Metode Bayar: ${selectedPaymentMethods.join(", ")}`
+                }
+                aria-label="Filter Metode Bayar"
               >
-                <CreditCard className={`w-3.5 h-3.5 ${selectedPaymentMethods.length > 0 ? "text-sky-600 dark:text-sky-400" : "text-slate-400 dark:text-slate-500"}`} />
-                <span className="max-w-[120px] truncate">
-                  {selectedPaymentMethods.length === 0
-                    ? "Metode"
-                    : selectedPaymentMethods.length === 1
-                    ? selectedPaymentMethods[0]
-                    : `Metode (${selectedPaymentMethods.length})`}
-                </span>
-                <ChevronDown className="w-3 h-3 text-slate-400 dark:text-slate-500 shrink-0" />
+                <CreditCard className={`w-4 h-4 ${selectedPaymentMethods.length > 0 ? "text-sky-600 dark:text-sky-400" : "text-slate-400 dark:text-slate-500"}`} />
+                {selectedPaymentMethods.length > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-4 min-w-4 px-1 items-center justify-center bg-sky-600 text-white rounded-full text-[9px] font-black leading-none shadow-xs">
+                    {selectedPaymentMethods.length}
+                  </span>
+                )}
               </button>
 
               {activeFilterPopover === "metode" && (
@@ -2476,29 +2480,29 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
               )}
             </div>
 
-            {/* 3. STATUS PELUNASAN CHECKLIST DROPDOWN (MULTI-SELECT) */}
+            {/* 3. STATUS PELUNASAN CHECKLIST DROPDOWN (ICON ONLY) */}
             <div className="relative">
               <button
                 type="button"
                 onClick={() => setActiveFilterPopover(activeFilterPopover === "status" ? null : "status")}
-                className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold shadow-2xs transition-all cursor-pointer active:scale-95 ${
+                className={`relative inline-flex items-center justify-center w-9 h-9 rounded-xl border text-xs font-bold shadow-2xs transition-all cursor-pointer active:scale-95 ${
                   selectedStatuses.length > 0 || selectedStatusFilter !== "Semua Status"
-                    ? "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30 font-black"
+                    ? "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30 font-black"
                     : "bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-800"
                 }`}
-                title="Pilih Status Pelunasan (Bisa Pilih > 1)"
+                title={
+                  selectedStatuses.length === 0 && selectedStatusFilter === "Semua Status"
+                    ? "Filter Status Pelunasan (Klik untuk memilih)"
+                    : `Status: ${selectedStatuses.join(", ") || selectedStatusFilter}`
+                }
+                aria-label="Filter Status Pelunasan"
               >
-                <CheckSquare className={`w-3.5 h-3.5 ${selectedStatuses.length > 0 || selectedStatusFilter !== "Semua Status" ? "text-amber-600 dark:text-amber-400" : "text-slate-400 dark:text-slate-500"}`} />
-                <span className="max-w-[120px] truncate">
-                  {selectedStatuses.length === 0
-                    ? "Status"
-                    : selectedStatuses.length === 1
-                    ? selectedStatuses[0] === "Belum Direimburse / Tempo"
-                      ? "Belum Lunas"
-                      : selectedStatuses[0]
-                    : `Status (${selectedStatuses.length})`}
-                </span>
-                <ChevronDown className="w-3 h-3 text-slate-400 dark:text-slate-500 shrink-0" />
+                <CheckSquare className={`w-4 h-4 ${selectedStatuses.length > 0 || selectedStatusFilter !== "Semua Status" ? "text-amber-600 dark:text-amber-400" : "text-slate-400 dark:text-slate-500"}`} />
+                {(selectedStatuses.length > 0 || (selectedStatusFilter && selectedStatusFilter !== "Semua Status")) && (
+                  <span className="absolute -top-1 -right-1 flex h-4 min-w-4 px-1 items-center justify-center bg-amber-600 text-white rounded-full text-[9px] font-black leading-none shadow-xs">
+                    {selectedStatuses.length || 1}
+                  </span>
+                )}
               </button>
 
               {activeFilterPopover === "status" && (
@@ -2586,33 +2590,37 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
               )}
             </div>
 
-            {/* 4. PERIODE CHECKLIST DROPDOWN & INTERACTIVE CALENDAR RANGE SELECT */}
+            {/* 4. PERIODE CHECKLIST DROPDOWN & INTERACTIVE CALENDAR RANGE SELECT (ICON ONLY) */}
             <div className="relative">
               <button
                 type="button"
                 onClick={() => setActiveFilterPopover(activeFilterPopover === "periode" ? null : "periode")}
-                className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold shadow-2xs transition-all cursor-pointer active:scale-95 ${
+                className={`relative inline-flex items-center justify-center w-9 h-9 rounded-xl border text-xs font-bold shadow-2xs transition-all cursor-pointer active:scale-95 ${
                   dateRangeFilter !== "all"
-                    ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 font-black"
+                    ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 font-black"
                     : "bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-800"
                 }`}
-                title="Pilih Rentang Waktu"
+                title={
+                  dateRangeFilter === "all"
+                    ? "Filter Rentang Waktu (Klik untuk memilih)"
+                    : `Periode: ${
+                        dateRangeFilter === "today"
+                          ? "Hari Ini"
+                          : dateRangeFilter === "7days"
+                          ? "7 Hari Terakhir"
+                          : dateRangeFilter === "month"
+                          ? "Bulan Ini"
+                          : startDate && endDate
+                          ? `${startDate} - ${endDate}`
+                          : "Kustom"
+                      }`
+                }
+                aria-label="Filter Rentang Waktu"
               >
-                <Calendar className={`w-3.5 h-3.5 ${dateRangeFilter !== "all" ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400 dark:text-slate-500"}`} />
-                <span className="max-w-[120px] truncate">
-                  {dateRangeFilter === "all"
-                    ? "Periode"
-                    : dateRangeFilter === "today"
-                    ? "Hari Ini"
-                    : dateRangeFilter === "7days"
-                    ? "7 Hari"
-                    : dateRangeFilter === "month"
-                    ? "Bulan Ini"
-                    : startDate && endDate
-                    ? `${startDate.split("-").slice(1).reverse().join("/")} - ${endDate.split("-").slice(1).reverse().join("/")}`
-                    : "Kustom"}
-                </span>
-                <ChevronDown className="w-3 h-3 text-slate-400 dark:text-slate-500 shrink-0" />
+                <Calendar className={`w-4 h-4 ${dateRangeFilter !== "all" ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400 dark:text-slate-500"}`} />
+                {dateRangeFilter !== "all" && (
+                  <span className="absolute -top-1 -right-1 flex h-2 w-2 bg-emerald-600 rounded-full shadow-xs" />
+                )}
               </button>
 
               {activeFilterPopover === "periode" && (
@@ -2629,17 +2637,14 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
               )}
             </div>
 
-            {/* 5. URUTKAN CHECKLIST DROPDOWN */}
-            <div className="relative hidden xl:block">
+            {/* 5. URUTKAN CHECKLIST DROPDOWN (ICON ONLY) */}
+            <div className="relative hidden sm:block">
               <button
                 type="button"
                 onClick={() => setActiveFilterPopover(activeFilterPopover === "urutan" ? null : "urutan")}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold shadow-2xs transition-all cursor-pointer active:scale-95 bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-800"
-                title="Urutan Transaksi"
-              >
-                <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
-                <span className="max-w-[90px] truncate">
-                  {sortBy === "date-desc"
+                className="relative inline-flex items-center justify-center w-9 h-9 rounded-xl border text-xs font-bold shadow-2xs transition-all cursor-pointer active:scale-95 bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-800"
+                title={`Urutan Transaksi: ${
+                  sortBy === "date-desc"
                     ? "Terbaru"
                     : sortBy === "date-asc"
                     ? "Terlama"
@@ -2647,9 +2652,11 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                     ? "Tertinggi"
                     : sortBy === "amount-asc"
                     ? "Terendah"
-                    : "Nama"}
-                </span>
-                <ChevronDown className="w-3 h-3 text-slate-400 dark:text-slate-500 shrink-0" />
+                    : "Nama"
+                }`}
+                aria-label="Urutan Transaksi"
+              >
+                <ArrowUpDown className="w-4 h-4 text-slate-400 dark:text-slate-500" />
               </button>
 
               {activeFilterPopover === "urutan" && (

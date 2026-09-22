@@ -6,7 +6,6 @@ import {
   TrendingDown,
   Receipt,
   Camera,
-  Image as ImageIcon,
   Layers,
   ArrowRight,
   FileSpreadsheet,
@@ -26,7 +25,6 @@ import {
   DollarSign,
   PieChart,
 } from "lucide-react"
-import { compressImageBase64 } from "@/lib/ocr"
 import { useAppDialog } from "@/components/ui/app-dialog"
 import { gsap } from "gsap"
 import { useGSAP } from "@gsap/react"
@@ -56,7 +54,7 @@ interface RawReceipt {
 
 interface ExecutiveSummaryDashboardProps {
   onNavigateTab: (tab: "scan" | "history") => void
-  onQuickScan: (file: File, base64: string) => void
+  onQuickScan?: (file: File, base64: string) => void
   adminUser?: string
   userRole?: string
   subscription?: any
@@ -66,7 +64,6 @@ type TimeframeOption = "today" | "7d" | "30d" | "all"
 
 export function ExecutiveSummaryDashboard({
   onNavigateTab,
-  onQuickScan,
   adminUser = "Pengguna",
   userRole = "ADMIN",
   subscription,
@@ -76,11 +73,7 @@ export function ExecutiveSummaryDashboard({
   const [isLoading, setIsLoading] = useState<boolean>(true)
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false)
   const [timeframe, setTimeframe] = useState<TimeframeOption>("30d")
-  const [isDragOver, setIsDragOver] = useState<boolean>(false)
-  const [isCompressingQuick, setIsCompressingQuick] = useState<boolean>(false)
 
-  const quickGalleryRef = useRef<HTMLInputElement | null>(null)
-  const quickCameraRef = useRef<HTMLInputElement | null>(null)
   const dashboardRef = useRef<HTMLDivElement>(null)
 
   // GSAP Staggered Card Entrance on Data Load / Timeframe change
@@ -234,42 +227,6 @@ export function ExecutiveSummaryDashboard({
       .slice(0, 5)
   }, [filteredReceipts])
 
-  // Quick file processor
-  const handleProcessFile = async (file: File) => {
-    if (!file.type.startsWith("image/") && file.type !== "application/pdf") {
-      showAlert({
-        title: "Format Tidak Didukung",
-        description: "Harap pilih berkas gambar (JPG, PNG, WEBP) atau invoice PDF.",
-        variant: "warning",
-      })
-      return
-    }
-
-    setIsCompressingQuick(true)
-    const reader = new FileReader()
-    reader.onload = async () => {
-      const rawBase64 = reader.result as string
-      try {
-        const compressed = await compressImageBase64(rawBase64, 1280, 1280, 0.82)
-        onQuickScan(file, compressed)
-      } catch {
-        onQuickScan(file, rawBase64)
-      } finally {
-        setIsCompressingQuick(false)
-      }
-    }
-    reader.readAsDataURL(file)
-  }
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault()
-    setIsDragOver(false)
-    const files = Array.from(e.dataTransfer.files || [])
-    if (files.length > 0) {
-      handleProcessFile(files[0])
-    }
-  }
-
   const handleExportExcel = () => {
     const url = new URL("/api/receipts/export", window.location.origin)
     url.searchParams.set("format", "xlsx")
@@ -281,31 +238,6 @@ export function ExecutiveSummaryDashboard({
 
   return (
     <div ref={dashboardRef} className="space-y-6">
-      {/* Hidden Quick Inputs */}
-      <input
-        ref={quickCameraRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        className="sr-only"
-        onChange={(e) => {
-          const file = e.target.files?.[0]
-          if (file) handleProcessFile(file)
-          e.target.value = ""
-        }}
-      />
-      <input
-        ref={quickGalleryRef}
-        type="file"
-        accept="image/png, image/jpeg, image/jpg, image/webp, image/heic, image/*"
-        className="sr-only"
-        onChange={(e) => {
-          const file = e.target.files?.[0]
-          if (file) handleProcessFile(file)
-          e.target.value = ""
-        }}
-      />
-
       {/* Top Bar: Title & Timeframe Selector */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-1 border-b border-slate-200 dark:border-slate-800">
         <div>
@@ -364,8 +296,8 @@ export function ExecutiveSummaryDashboard({
 
       {/* Bento Grid Layout (Variance: 7, Density: 6, Anti-Slop Asymmetry) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
-        {/* CARD 1: Hero Metric (8 Cols) */}
-        <div className="bento-card-animate lg:col-span-8 bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-xs dark:shadow-xl relative overflow-hidden flex flex-col justify-between">
+        {/* CARD 1: Hero Metric (Full Width 12 Cols) */}
+        <div className="bento-card-animate lg:col-span-12 bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-xs dark:shadow-xl relative overflow-hidden flex flex-col justify-between">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <span className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
@@ -377,13 +309,25 @@ export function ExecutiveSummaryDashboard({
               </span>
             </div>
 
-            <div className="space-y-1">
-              <div className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-slate-900 dark:text-white">
-                Rp {metrics.totalAmount.toLocaleString("id-ID")}
+            <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-4">
+              <div className="space-y-1">
+                <div className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-slate-900 dark:text-white">
+                  Rp {metrics.totalAmount.toLocaleString("id-ID")}
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Hasil ekstraksi nota belanja, bon kasir, dan faktur fisik yang telah terverifikasi.
+                </p>
               </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Hasil ekstraksi nota belanja, bon kasir, dan faktur fisik yang telah terverifikasi.
-              </p>
+
+              <button
+                type="button"
+                onClick={() => onNavigateTab("scan")}
+                className="self-start sm:self-center inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs transition-all shadow-md shadow-emerald-500/20 active:scale-95 cursor-pointer"
+              >
+                <Camera className="w-4 h-4" />
+                <span>Pindai Nota Baru</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
             </div>
           </div>
 
@@ -420,69 +364,6 @@ export function ExecutiveSummaryDashboard({
                 Bulan Ini
               </span>
             </div>
-          </div>
-        </div>
-
-        {/* CARD 2: Quick-Scan Terminal (4 Cols - Desktop only) */}
-        <div
-          onDragOver={(e) => {
-            e.preventDefault()
-            setIsDragOver(true)
-          }}
-          onDragLeave={() => setIsDragOver(false)}
-          onDrop={handleDrop}
-          className={`bento-card-animate hidden md:flex lg:col-span-4 rounded-3xl p-6 border-2 border-dashed transition-all flex-col justify-between text-center relative overflow-hidden ${
-            isDragOver
-              ? "border-emerald-500 bg-emerald-500/10 scale-[1.01]"
-              : "border-slate-300 dark:border-slate-700/80 bg-white/80 dark:bg-slate-900/90 shadow-xs hover:border-emerald-500/60"
-          }`}
-        >
-          <div className="space-y-3">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto shadow-2xs">
-              <Camera className="w-6 h-6" />
-            </div>
-
-            <div>
-              <h3 className="text-base font-black text-slate-900 dark:text-white">
-                Quick Scan Terminal
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                Tarik foto nota ke kotak ini atau gunakan tombol di bawah untuk langsung memindai.
-              </p>
-            </div>
-          </div>
-
-          <div className="space-y-2 pt-4">
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                disabled={isCompressingQuick}
-                onClick={() => quickGalleryRef.current?.click()}
-                className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-800 dark:text-slate-200 font-bold text-xs border border-slate-200 dark:border-slate-700 transition-all cursor-pointer active:scale-95 shadow-2xs"
-              >
-                <ImageIcon className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                <span>Buka Galeri</span>
-              </button>
-
-              <button
-                type="button"
-                disabled={isCompressingQuick}
-                onClick={() => quickCameraRef.current?.click()}
-                className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-500 dark:hover:bg-emerald-400 text-white dark:text-slate-950 font-bold text-xs transition-all cursor-pointer active:scale-95 shadow-xs"
-              >
-                <Camera className="w-3.5 h-3.5" />
-                <span>Ambil Foto</span>
-              </button>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => onNavigateTab("scan")}
-              className="w-full inline-flex items-center justify-center gap-1 text-[11px] font-bold text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors pt-1 cursor-pointer"
-            >
-              <span>Buka Ruang Scan Lengkap (Multi-Batch)</span>
-              <ArrowRight className="w-3 h-3" />
-            </button>
           </div>
         </div>
 

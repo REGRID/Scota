@@ -6,18 +6,22 @@ export const VAPID_PUBLIC_KEY =
   process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ||
   "BO_S9oK2ObAvgfSAO-osPlgLpEp6471E9BVQxYNN0CgbQPHFEojBmJAvRhcK4iOqmYkmRfmOGpK6wUOezzaoWhk"
 
-export const VAPID_PRIVATE_KEY =
-  process.env.VAPID_PRIVATE_KEY ||
-  "ZFrM4s75bYa7BITthm3kVzdKQtfQankA-Mwvhsd9TI0"
+export const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || ""
 
 export const VAPID_SUBJECT =
   process.env.VAPID_SUBJECT || "mailto:admin@notaphoto.com"
 
-// Initialize web-push details
-try {
-  webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY)
-} catch (e) {
-  console.error("[WebPush Init Error]:", e)
+// Initialize web-push details fail-closed
+if (!VAPID_PRIVATE_KEY) {
+  console.warn(
+    "[WebPush Config Warning] VAPID_PRIVATE_KEY environment variable is not configured. Web Push notification delivery is disabled."
+  )
+} else {
+  try {
+    webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY)
+  } catch (e) {
+    console.error("[WebPush Init Error]:", e)
+  }
 }
 
 export interface PushPayload {
@@ -31,7 +35,8 @@ export interface PushPayload {
 }
 
 export interface SendPushOptions {
-  tenantId?: string
+  tenantId: string
+  scope?: "TENANT" | "GLOBAL"
   title: string
   message: string
   url?: string
@@ -46,12 +51,32 @@ export interface SendPushOptions {
 import { isTenantSchemaMigrated, withTenantSchema } from "@/lib/tenantDb"
 
 export async function sendWebPushNotification(options: SendPushOptions) {
+  if (!VAPID_PRIVATE_KEY) {
+    console.error("[WebPush Delivery Aborted] VAPID_PRIVATE_KEY is not configured in environment variables.")
+    return { success: false, sentCount: 0, error: "VAPID_PRIVATE_KEY is not configured" }
+  }
+
   if (!isDatabaseConfigured) {
     return { success: true, sentCount: 0 }
   }
 
   try {
-    const { tenantId, title, message, url = "/", recipientRole = "ALL", excludeUsername, tag } = options
+    const {
+      tenantId,
+      scope = "TENANT",
+      title,
+      message,
+      url = "/",
+      recipientRole = "ALL",
+      excludeUsername,
+      tag,
+    } = options
+
+    const isGlobal = scope === "GLOBAL"
+    if (!isGlobal && !tenantId) {
+      console.error("[WebPush Error] tenantId is required when scope is not GLOBAL.")
+      return { success: false, sentCount: 0, error: "tenantId is required" }
+    }
 
     let subscriptions: {
       id: string
@@ -62,9 +87,9 @@ export async function sendWebPushNotification(options: SendPushOptions) {
       role: string
     }[] = []
 
-    const isMigrated = tenantId ? await isTenantSchemaMigrated(tenantId) : false
+    const isMigrated = (!isGlobal && tenantId) ? await isTenantSchemaMigrated(tenantId) : false
 
-    if (tenantId && isMigrated) {
+    if (!isGlobal && tenantId && isMigrated) {
       subscriptions = await withTenantSchema(tenantId, async (client) => {
         let tQuery = `SELECT id, endpoint, p256dh, auth, username, role FROM push_subscriptions WHERE 1=1`
         const tParams: any[] = []
@@ -79,9 +104,9 @@ export async function sendWebPushNotification(options: SendPushOptions) {
       let query = `SELECT id, endpoint, p256dh, auth, username, role FROM push_subscriptions WHERE 1=1`
       const params: any[] = []
 
-      if (tenantId) {
+      if (!isGlobal && tenantId) {
         params.push(tenantId)
-        query += ` AND ("tenantId" = $${params.length} OR "tenantId" IS NULL)`
+        query += ` AND "tenantId" = $${params.length}`
       }
 
       if (recipientRole !== "ALL") {
@@ -153,7 +178,7 @@ export async function sendWebPushNotification(options: SendPushOptions) {
 
     // Remove expired subscriptions in the background
     if (staleEndpointIds.length > 0) {
-      if (tenantId && isMigrated) {
+      if (!isGlobal && tenantId && isMigrated) {
         await withTenantSchema(tenantId, async (client) => {
           await client.query(`DELETE FROM push_subscriptions WHERE id = ANY($1::uuid[])`, [staleEndpointIds])
         }).catch(() => {})

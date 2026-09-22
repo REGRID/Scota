@@ -467,7 +467,7 @@ VALUES
     ('view_reports', 'Lihat Laporan Keuangan', 'Melihat ringkasan laporan kas dan pengeluaran.', FALSE),
     ('export_reports', 'Ekspor Laporan', 'Mengunduh rekap laporan dalam format Excel atau PDF.', FALSE),
     ('manage_staff', 'Kelola Staf', 'Membuat tautan undangan, melihat daftar anggota, dan mengelola staf.', FALSE),
-    ('manage_pos_stock', 'Kelola POS & Stok', 'Sinkronisasi penjualan kasir dan pengaturan stok gudang.', FALSE),
+    ('manage_pos_stock', 'Alokasi Belanja & Stok', 'Pengaturan alokasi barang dari nota belanja ke unit operasional toko.', FALSE),
     ('view_all_branches', 'Pantau Lintas Cabang', 'Melihat ringkasan kinerja dari beberapa cabang yang diotorisasi.', FALSE),
     ('delete_tenant', 'Hapus Toko / Cabang', 'Menghapus permanen profil toko atau cabang usaha.', TRUE),
     ('transfer_ownership', 'Transfer Kepemilikan', 'Memindahkan hak kepemilikan toko ke akun lain.', TRUE),

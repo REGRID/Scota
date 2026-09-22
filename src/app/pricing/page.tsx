@@ -33,12 +33,7 @@ const TIER_DESCRIPTIONS: Record<SubscriptionTier, string> = {
 
 export default function PricingPage() {
   const { isLoaded, isSignedIn, user } = useUser()
-  const [cachedUser, setCachedUser] = useState<string | null>(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("nota_admin_user")
-    }
-    return null
-  })
+  const [cachedUser, setCachedUser] = useState<string | null>(null)
   const [sessionUser, setSessionUser] = useState<string | null>(null)
 
   React.useEffect(() => {
@@ -52,9 +47,6 @@ export default function PricingPage() {
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data?.authenticated && data.user) {
-          if (data.token && typeof window !== "undefined") {
-            localStorage.setItem("nota_admin_token", data.token)
-          }
           setSessionUser(data.user.staffName || data.user.fullName || data.user.username)
         }
       })
@@ -183,9 +175,9 @@ export default function PricingPage() {
       <main className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-8 sm:py-16 space-y-12 sm:space-y-16">
         {/* Header Title */}
         <div className="text-center max-w-3xl mx-auto space-y-3 sm:space-y-4">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-emerald-700 dark:text-emerald-400 text-xs font-bold tracking-wide uppercase shadow-xs">
-            <Sparkles className="w-3.5 h-3.5" />
-            Transparan & Fleksibel Tanpa Biaya Tersembunyi
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-black tracking-wide uppercase shadow-xs">
+            <Sparkles className="w-3.5 h-3.5 text-rose-500" />
+            PENAWARAN SPESIAL: DISKON 50% SEMUA PAKET!
           </div>
           <h1 className="text-2xl xs:text-3xl sm:text-5xl font-black text-slate-900 dark:text-white tracking-tight">
             Pilih Paket yang Sesuai dengan Skala Usaha Anda
@@ -233,6 +225,7 @@ export default function PricingPage() {
             const isPopular = tierKey === "pro"
             const isFree = tierKey === "trial"
             const price = isFree ? 0 : billingCycle === "yearly" ? plan.priceYearly : plan.priceMonthly
+            const originalPrice = isFree ? 0 : billingCycle === "yearly" ? plan.originalPriceYearly : plan.originalPriceMonthly
 
             return (
               <div
@@ -256,6 +249,16 @@ export default function PricingPage() {
                   </div>
 
                   <div className="pt-2 pb-4 border-b border-slate-100 dark:border-slate-800">
+                    {!isFree && Boolean(originalPrice) && (
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <span className="text-xs font-semibold line-through text-slate-400 dark:text-slate-500">
+                          Rp {originalPrice?.toLocaleString("id-ID")}
+                        </span>
+                        <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                          Diskon 50%
+                        </span>
+                      </div>
+                    )}
                     <div className="flex items-baseline gap-1">
                       <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Rp</span>
                       <span className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">

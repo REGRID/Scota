@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { checkRateLimit, incrementRateLimit, normalizeIp } from "@/lib/rateLimiter"
+import { checkRateLimit, incrementRateLimit, normalizeIp, getClientIp, checkGlobalDemoDailyLimit } from "@/lib/rateLimiter"
 import { getLearnedKnowledgeContext, matchItemWithLearnedMemory } from "@/lib/selfLearningEngine"
 import { getOrSeedCategories } from "@/lib/categories"
 import { GoogleGenAI } from "@google/genai"
@@ -162,17 +162,27 @@ export async function POST(req: NextRequest) {
     // 1. Session Verification & Rate Limiting Enforcement
     const session = await getSession(req)
     const isBusiness = Boolean(session && session.role && session.role !== "DEMO")
-    const rawIp =
-      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-      req.headers.get("x-real-ip") ||
-      "127.0.0.1"
-    const cleanIp = normalizeIp(rawIp)
+    const cleanIp = getClientIp(req)
 
     let activeTenantId = session?.tenantId
     const isDemoMode = !isBusiness
     let currentDemoScans = 0
 
     if (isDemoMode) {
+      // Lapisan Pengaman Global: Batasi total akumulasi scan demo platform per hari
+      const globalDemoCheck = await checkGlobalDemoDailyLimit()
+      if (!globalDemoCheck.allowed) {
+        return NextResponse.json(
+          {
+            error: "GLOBAL_DEMO_LIMIT_EXCEEDED",
+            message: "Batas pemindaian demo gratis harian untuk seluruh platform telah tercapai hari ini. Silakan daftar akun bisnis Scota untuk menikmati fitur lengkap tanpa batasan kuota.",
+            upsell: true,
+            remaining: 0,
+          },
+          { status: 429 }
+        )
+      }
+
       // Dapatkan atau buat tenant demo berdasarkan IP pengunjung (tanpa perlu login)
       const demoTenant = await getOrCreateDemoTenant(cleanIp)
       activeTenantId = demoTenant.id
@@ -539,8 +549,23 @@ Keluarkan HANYA JSON:
       remainingQuota = 999
     }
 
+    const generatedRawText = [
+      parsedJson.merchantName,
+      `Tanggal: ${parsedJson.date}`,
+      "--------------------------------",
+      ...parsedJson.items.map(
+        (it) => `${it.name} x${it.quantity} @Rp ${it.price.toLocaleString("id-ID")}`
+      ),
+      "--------------------------------",
+      `Subtotal: Rp ${parsedJson.subtotal?.toLocaleString("id-ID")}`,
+      parsedJson.discountAmount ? `Diskon: -Rp ${parsedJson.discountAmount.toLocaleString("id-ID")}` : null,
+      parsedJson.taxAmount ? `Pajak: Rp ${parsedJson.taxAmount.toLocaleString("id-ID")}` : null,
+      `Total: Rp ${parsedJson.totalAmount?.toLocaleString("id-ID")}`,
+    ].filter(Boolean).join("\n")
+
     const response = NextResponse.json({
       ...parsedJson,
+      rawText: generatedRawText,
       result: parsedJson,
       parsed: parsedJson,
       mode: "gemini_multimodal_vision",

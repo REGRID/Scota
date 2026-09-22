@@ -56,7 +56,16 @@ export async function getAllPermissions(): Promise<PermissionItem[]> {
   const res = await queryPg<PermissionItem>(
     `SELECT code, name, description, "isOwnerOnly" FROM permissions ORDER BY "isOwnerOnly" ASC, code ASC`
   )
-  return res.rows || []
+  return (res.rows || []).map((p) => {
+    if (p.code === "manage_pos_stock") {
+      return {
+        ...p,
+        name: "Alokasi Belanja & Stok",
+        description: "Pengaturan alokasi barang dari nota belanja ke unit operasional toko.",
+      }
+    }
+    return p
+  })
 }
 
 /**

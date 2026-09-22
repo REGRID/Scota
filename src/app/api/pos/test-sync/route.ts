@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
 import { syncReceiptToPos } from "@/lib/posSync"
+import { requireRole } from "@/lib/roleGuard"
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requireRole(req, ["OWNER", "ADMIN"])
+    if (!auth.ok) return auth.response
+
     const body = await req.json().catch(() => ({}))
     const destination = body.destination || "BAR"
 

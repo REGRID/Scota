@@ -31,9 +31,14 @@ export interface PosSyncPayload {
 }
 
 const DEFAULT_POS_WEBHOOK_URL = process.env.POS_WEBHOOK_URL || "http://localhost:3001/api/webhooks/scota-approved"
-const POS_WEBHOOK_SECRET = process.env.POS_WEBHOOK_SECRET || "scota_pos_secret_key_2026"
+const POS_WEBHOOK_SECRET = process.env.POS_WEBHOOK_SECRET || ""
 
 export async function syncReceiptToPos(payload: PosSyncPayload): Promise<{ success: boolean; message: string; data?: any }> {
+  if (!POS_WEBHOOK_SECRET) {
+    console.warn("[POS Sync Aborted] POS_WEBHOOK_SECRET environment variable is not configured. POS sync is disabled for security.")
+    return { success: false, message: "POS_WEBHOOK_SECRET belum dikonfigurasi di environment variable" }
+  }
+
   try {
     const targetUrl = process.env.POS_WEBHOOK_URL || DEFAULT_POS_WEBHOOK_URL
 

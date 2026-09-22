@@ -38,6 +38,8 @@ export interface TierConfig {
   monthlyScanLimit: number
   priceMonthly: number
   priceYearly: number
+  originalPriceMonthly?: number
+  originalPriceYearly?: number
   maxUsers: number
   maxBranches: number
   features: string[]
@@ -72,8 +74,10 @@ export const TIER_CONFIG: Record<SubscriptionTier, TierConfig> = {
   starter: {
     name: "Starter Bisnis",
     monthlyScanLimit: 150,
-    priceMonthly: 79000,
-    priceYearly: 790000,
+    priceMonthly: 35000,
+    priceYearly: 350000,
+    originalPriceMonthly: 70000,
+    originalPriceYearly: 700000,
     maxUsers: 3,
     maxBranches: 1,
     features: [
@@ -87,8 +91,10 @@ export const TIER_CONFIG: Record<SubscriptionTier, TierConfig> = {
   pro: {
     name: "Pro Usaha",
     monthlyScanLimit: 600,
-    priceMonthly: 199000,
-    priceYearly: 1990000,
+    priceMonthly: 60000,
+    priceYearly: 600000,
+    originalPriceMonthly: 120000,
+    originalPriceYearly: 1200000,
     maxUsers: 10,
     maxBranches: 5,
     features: [
@@ -103,14 +109,16 @@ export const TIER_CONFIG: Record<SubscriptionTier, TierConfig> = {
   enterprise: {
     name: "Enterprise Multi-Cabang",
     monthlyScanLimit: 99999,
-    priceMonthly: 499000,
-    priceYearly: 4990000,
+    priceMonthly: 100000,
+    priceYearly: 1000000,
+    originalPriceMonthly: 200000,
+    originalPriceYearly: 2000000,
     maxUsers: 99,
     maxBranches: 99,
     features: [
       "Unlimited Scan Nota AI",
       "Dukungan Multi-Cabang & Multi-Usaha",
-      "Custom POS Sync / Webhook API",
+      "Webhook & Integrasi Akuntansi",
       "Dedicated Database & SLA 99.9%",
       "Onboarding & Training Tim Khusus",
     ],

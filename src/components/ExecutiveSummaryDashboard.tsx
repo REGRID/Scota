@@ -362,7 +362,7 @@ export function ExecutiveSummaryDashboard({
             </div>
 
             <div className="space-y-1">
-              <div className="text-3xl sm:text-4xl lg:text-5xl font-black font-mono tracking-tight text-slate-900 dark:text-white">
+              <div className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-slate-900 dark:text-white">
                 Rp {metrics.totalAmount.toLocaleString("id-ID")}
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -377,7 +377,7 @@ export function ExecutiveSummaryDashboard({
               <span className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400">
                 Rata-rata / Hari
               </span>
-              <span className="text-sm sm:text-base font-black font-mono text-slate-900 dark:text-slate-100 mt-0.5 block">
+              <span className="text-sm sm:text-base font-black text-slate-900 dark:text-slate-100 mt-0.5 block">
                 Rp {metrics.avgPerDay.toLocaleString("id-ID")}
               </span>
             </div>
@@ -386,7 +386,7 @@ export function ExecutiveSummaryDashboard({
               <span className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400">
                 Rata-rata / Nota
               </span>
-              <span className="text-sm sm:text-base font-black font-mono text-slate-900 dark:text-slate-100 mt-0.5 block">
+              <span className="text-sm sm:text-base font-black text-slate-900 dark:text-slate-100 mt-0.5 block">
                 Rp {metrics.avgPerReceipt.toLocaleString("id-ID")}
               </span>
             </div>
@@ -396,7 +396,7 @@ export function ExecutiveSummaryDashboard({
                 <span className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400">
                   Sisa Kuota AI Scan
                 </span>
-                <span className="text-sm sm:text-base font-black font-mono text-emerald-600 dark:text-emerald-400 mt-0.5 block">
+                <span className="text-sm sm:text-base font-black text-emerald-600 dark:text-emerald-400 mt-0.5 block">
                   {quotaInfo?.isUnlimited ? "Unlimited" : `${quotaInfo?.remaining ?? 0} Nota`}
                 </span>
               </div>
@@ -492,10 +492,10 @@ export function ExecutiveSummaryDashboard({
                         {cat.name}
                       </span>
                       <div className="flex items-center gap-2 shrink-0">
-                        <span className="font-mono font-bold text-slate-700 dark:text-slate-300">
+                        <span className="font-bold text-slate-700 dark:text-slate-300">
                           Rp {cat.amount.toLocaleString("id-ID")}
                         </span>
-                        <span className="font-mono text-[11px] font-bold text-slate-400 w-10 text-right">
+                        <span className="text-[11px] font-bold text-slate-400 w-10 text-right">
                           {cat.percent}%
                         </span>
                       </div>
@@ -551,11 +551,11 @@ export function ExecutiveSummaryDashboard({
                   <span className="flex items-center gap-1.5 font-bold text-slate-700 dark:text-slate-300">
                     <Banknote className="w-4 h-4 text-emerald-500" /> Kas Tunai
                   </span>
-                  <span className="font-mono text-[11px] font-bold text-slate-500">
+                  <span className="text-[11px] font-bold text-slate-500">
                     {metrics.cashPercent}%
                   </span>
                 </div>
-                <div className="text-lg font-black font-mono text-slate-900 dark:text-white">
+                <div className="text-lg font-black text-slate-900 dark:text-white">
                   Rp {metrics.cashTotal.toLocaleString("id-ID")}
                 </div>
                 <div className="w-full bg-slate-200 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
@@ -571,11 +571,11 @@ export function ExecutiveSummaryDashboard({
                   <span className="flex items-center gap-1.5 font-bold text-slate-700 dark:text-slate-300">
                     <CreditCard className="w-4 h-4 text-teal-500" /> Non-Tunai / Bank
                   </span>
-                  <span className="font-mono text-[11px] font-bold text-slate-500">
+                  <span className="text-[11px] font-bold text-slate-500">
                     {metrics.nonCashPercent}%
                   </span>
                 </div>
-                <div className="text-lg font-black font-mono text-slate-900 dark:text-white">
+                <div className="text-lg font-black text-slate-900 dark:text-white">
                   Rp {metrics.nonCashTotal.toLocaleString("id-ID")}
                 </div>
                 <div className="w-full bg-slate-200 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
@@ -593,7 +593,7 @@ export function ExecutiveSummaryDashboard({
                 <span className="font-bold text-emerald-700 dark:text-emerald-300">
                   Lunas Terverifikasi
                 </span>
-                <span className="font-black font-mono text-emerald-600 dark:text-emerald-400">
+                <span className="font-black text-emerald-600 dark:text-emerald-400">
                   {metrics.lunasCount} Nota
                 </span>
               </div>
@@ -602,7 +602,7 @@ export function ExecutiveSummaryDashboard({
                 <span className="font-bold text-amber-700 dark:text-amber-300">
                   Tempo / Pending
                 </span>
-                <span className="font-black font-mono text-amber-600 dark:text-amber-400">
+                <span className="font-black text-amber-600 dark:text-amber-400">
                   {metrics.tempoCount} Nota
                 </span>
               </div>
@@ -674,7 +674,7 @@ export function ExecutiveSummaryDashboard({
                   </div>
 
                   <div className="text-right shrink-0">
-                    <div className="text-xs sm:text-sm font-black font-mono text-slate-900 dark:text-white">
+                    <div className="text-xs sm:text-sm font-black text-slate-900 dark:text-white">
                       Rp {(Number(r.totalAmount) || 0).toLocaleString("id-ID")}
                     </div>
                     <span

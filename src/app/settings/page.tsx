@@ -38,13 +38,16 @@ import {
   CreditCard,
   X,
   LogOut,
+  Mail,
+  Shield,
+  Edit3,
+  Smartphone,
 } from "lucide-react"
 import { toast } from "sonner"
 import { ThemeToggle } from "@/lib/theme"
 import { BranchSwitcher, Branch } from "@/components/BranchSwitcher"
 import { getAuthHeaders } from "@/lib/authClient"
-import { useUser, useAuth, UserProfile } from "@clerk/nextjs"
-import { dark } from "@clerk/themes"
+import { useUser, useAuth, useClerk } from "@clerk/nextjs"
 import { SubscriptionInfo, TIER_CONFIG } from "@/lib/subscription"
 import {
   getNotificationPermissionStatus,
@@ -52,6 +55,7 @@ import {
   saveNotificationSettings,
   requestNotificationPermission,
   testNativeOSNotification,
+  testBackgroundPushNotification,
   registerPushSubscription,
   isPushSubscribed,
   unsubscribePushNotifications,
@@ -80,11 +84,57 @@ export type SettingsTab =
   | "notifications"
   | "security"
 
+const PERMISSION_LABELS: Record<string, string> = {
+  scan_receipt: "Scan Nota",
+  view_reports: "Laporan Keuangan",
+  export_reports: "Ekspor Laporan",
+  manage_staff: "Kelola Staf",
+  manage_pos_stock: "Alokasi Belanja",
+  view_all_branches: "Pantau Cabang",
+  delete_tenant: "Hapus Toko",
+  transfer_ownership: "Transfer Kepemilikan",
+  manage_billing: "Kelola Langganan",
+}
+
+const ROLE_SORT_PRIORITY: Record<string, number> = {
+  ADMIN: 1,
+  MANAGER: 2,
+  MANAJER: 2,
+  KASIR: 3,
+  KARYAWAN: 4,
+}
+
+function getRoleBriefExplanation(roleName: string): string {
+  const norm = (roleName || "").toUpperCase().trim()
+  if (norm === "OWNER" || norm === "PEMILIK") {
+    return "Kendali penuh: kelola cabang, persetujuan nota, staf, dan langganan kuota."
+  }
+  if (norm === "ADMIN") {
+    return "Operasional & audit: verifikasi nota, persetujuan dual-control, staf, dan ekspor laporan."
+  }
+  if (norm === "KASIR") {
+    return "Input operasional: scan nota belanja harian dan catat pengeluaran kas kecil."
+  }
+  if (norm === "KARYAWAN") {
+    return "Pemindaian nota: scan struk belanja via OCR tanpa akses laporan finansial."
+  }
+  if (norm === "MANAJER" || norm === "MANAGER") {
+    return "Audit & verifikasi: tinjau keabsahan nota belanja dan persetujuan pengeluaran."
+  }
+  return "Peran operasional toko sesuai hak akses yang ditentukan."
+}
+
 function SettingsContent() {
   const { isLoaded: isClerkLoaded, isSignedIn: isClerkSignedIn, user: clerkUser } = useUser()
   const { getToken } = useAuth()
+  const { signOut: clerkSignOut } = useClerk()
   const searchParams = useSearchParams()
   const router = useRouter()
+
+  const [isEditingName, setIsEditingName] = useState(false)
+  const [editFirstName, setEditFirstName] = useState("")
+  const [editLastName, setEditLastName] = useState("")
+  const [isSavingName, setIsSavingName] = useState(false)
 
   const tabFromQuery = searchParams.get("tab") as SettingsTab | null
   const [activeTab, setActiveTab] = useState<SettingsTab>(tabFromQuery || "profile")
@@ -170,10 +220,8 @@ function SettingsContent() {
     approvalReqEnabled: true,
   })
 
-  // 3. POS & Stock State
+  // 3. Stock Destination State
   const [stockDestination, setStockDestination] = useState<"BAR" | "WAREHOUSE">("BAR")
-  const [posWebhookUrl, setPosWebhookUrl] = useState("https://api.scotapos.com/v1/sync")
-  const [autoSyncOnPaid, setAutoSyncOnPaid] = useState(true)
   const [isTestingPos, setIsTestingPos] = useState(false)
 
   // 5. Approval Workflow & Security State
@@ -579,9 +627,6 @@ function SettingsContent() {
         if (res.ok) {
           const data = await res.json()
           if (data?.authenticated) {
-            if (data.token && typeof window !== "undefined") {
-              localStorage.setItem("nota_admin_token", data.token)
-            }
             if (data?.user?.role) {
               setCurrentUserRole(data.user.role)
             }
@@ -850,7 +895,40 @@ function SettingsContent() {
     }
   }
 
-  // Handle Test Notification
+  // Handle Push Subscription & Test Handlers
+  const [isSubscribingPush, setIsSubscribingPush] = useState(false)
+  const [isTestingBackgroundPush, setIsTestingBackgroundPush] = useState(false)
+
+  const handleTogglePushSubscription = async () => {
+    try {
+      setIsSubscribingPush(true)
+      if (isSubscribed) {
+        await unsubscribePushNotifications()
+        setIsSubscribed(false)
+        toast.info("Langganan Web Push perangkat ini telah dinonaktifkan.")
+      } else {
+        const granted = await requestNotificationPermission()
+        setPermState(granted ? "granted" : "denied")
+        if (!granted) {
+          toast.error("Izin notifikasi browser belum diberikan. Harap aktifkan izin notifikasi di pengaturan browser.")
+          return
+        }
+        const res = await registerPushSubscription(currentUser || "admin", currentUserRole || "ADMIN")
+        if (res.success) {
+          setIsSubscribed(true)
+          toast.success("Perangkat berhasil didaftarkan untuk menerima Web Push background alert!")
+        } else {
+          toast.error(res.error || "Gagal mendaftarkan Web Push.")
+        }
+      }
+    } catch (e: any) {
+      toast.error(e.message || "Gagal memperbarui langganan push.")
+    } finally {
+      setIsSubscribingPush(false)
+    }
+  }
+
+  // Handle Test Notification (Local OS)
   const handleTestNotification = async () => {
     if (permState !== "granted") {
       const granted = await requestNotificationPermission()
@@ -861,7 +939,7 @@ function SettingsContent() {
       }
     }
     testNativeOSNotification()
-    toast.success("Notifikasi uji coba telah dikirimkan ke perangkat Anda!")
+    toast.success("Notifikasi uji coba langsung dikirim ke perangkat Anda!")
   }
 
   // Handle Test POS
@@ -883,6 +961,32 @@ function SettingsContent() {
       toast.error(err.message || "Terjadi kesalahan jaringan saat menguji koneksi POS")
     } finally {
       setIsTestingPos(false)
+    }
+  }
+
+  // Handle Test Background Push (Via Server with delay)
+  const handleTestBackgroundPush = async () => {
+    try {
+      setIsTestingBackgroundPush(true)
+      if (permState !== "granted") {
+        const granted = await requestNotificationPermission()
+        setPermState(granted ? "granted" : "denied")
+        if (!granted) {
+          toast.error("Izin notifikasi browser diperlukan untuk pengujian push.")
+          return
+        }
+      }
+
+      const res = await testBackgroundPushNotification(5)
+      if (res.success) {
+        toast.success("Uji push dijadwalkan dalam 5 detik! Kunci layar HP atau minimalkan browser sekarang untuk menguji.")
+      } else {
+        toast.error(res.message || "Gagal mengirim notifikasi uji push latar belakang.")
+      }
+    } catch (e: any) {
+      toast.error(e.message || "Gagal memicu pengujian push latar belakang.")
+    } finally {
+      setIsTestingBackgroundPush(false)
     }
   }
 
@@ -1159,8 +1263,8 @@ function SettingsContent() {
                 : "bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800/80 border border-slate-200/80 dark:border-slate-800/80"
             }`}
           >
-            <Database className="w-4 h-4 shrink-0" />
-            <span>POS & Alokasi Stok</span>
+            <Layers className="w-4 h-4 shrink-0" />
+            <span>Alokasi Barang Belanja</span>
           </button>
 
           <button
@@ -1192,78 +1296,263 @@ function SettingsContent() {
 
         {/* Content Pane */}
         <main className="flex-1 min-w-0">
-          {/* TAB 0: PROFIL SAYA (CLERK USER PROFILE EMBEDDED) */}
+          {/* TAB 0: PROFIL SAYA (NATIVE SCOTA PROFILE CARD) */}
           {activeTab === "profile" && (
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 sm:p-6 space-y-6 shadow-xs">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 sm:p-7 space-y-6 shadow-xs">
               <div className="pb-4 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <h2 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
                     <User className="w-5 h-5 text-emerald-500" />
-                    <span>Profil Saya & Keamanan Akun</span>
+                    <span>Profil Saya & Identitas Akun</span>
                   </h2>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Kelola nama tampilan, akun Google terhubung, dan autentikasi login Anda.
+                    Kelola nama tampilan, status akun, dan keamanan sesi Scota Anda.
                   </p>
                 </div>
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-bold border border-emerald-500/20">
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-bold border border-emerald-500/20 self-start sm:self-auto">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                   <span>{isClerkSignedIn ? "Google SSO Terhubung" : "Sesi Akun Sistem"}</span>
                 </div>
               </div>
 
-              {!isClerkLoaded ? (
-                <div className="p-12 text-center text-slate-500">
-                  <Loader2 className="w-6 h-6 animate-spin text-emerald-500 mx-auto mb-2" />
-                  <span className="text-xs font-bold">Memuat profil akun...</span>
-                </div>
-              ) : isClerkSignedIn ? (
-                <div className="clerk-embed-wrapper w-full overflow-hidden rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-950/40 p-1 sm:p-2">
-                  <UserProfile
-                    routing="hash"
-                    appearance={{
-                      theme: dark as any,
-                      elements: {
-                        rootBox: "w-full shadow-none max-w-none",
-                        cardBox: "w-full shadow-none max-w-none border-0 rounded-xl bg-transparent",
-                        card: "shadow-none max-w-none bg-transparent",
-                        navbar: "border-r border-slate-200 dark:border-slate-800/60 bg-transparent",
-                        navbarButton: "text-slate-700 dark:text-slate-300 font-semibold hover:text-emerald-500",
-                        headerTitle: "text-slate-900 dark:text-white font-black text-base",
-                        headerSubtitle: "text-slate-500 dark:text-slate-400 text-xs",
-                        formButtonPrimary: "bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl",
-                      },
-                    }}
-                  />
-                </div>
-              ) : (
-                <div className="p-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 space-y-4">
-                  <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center font-black text-xl shadow-xs">
-                      {currentUser[0].toUpperCase()}
+              {/* Main Profile Hero Card */}
+              <div className="p-5 sm:p-6 rounded-2xl bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-800/60 dark:via-slate-900/40 dark:to-slate-950/60 border border-slate-200/80 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-5 shadow-xs">
+                <div className="flex items-center gap-4 min-w-0">
+                  {clerkUser?.imageUrl ? (
+                    <img
+                      src={clerkUser.imageUrl}
+                      alt={clerkUser.fullName || currentUser}
+                      className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover border-2 border-emerald-500/60 shadow-md shrink-0"
+                    />
+                  ) : (
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-slate-950 flex items-center justify-center font-black text-2xl sm:text-3xl shadow-md shrink-0">
+                      {((clerkUser?.fullName || currentUser || "A")[0]).toUpperCase()}
                     </div>
-                    <div>
-                      <h3 className="text-sm font-black text-slate-900 dark:text-white">
-                        {currentUser}
+                  )}
+                  <div className="min-w-0 space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white truncate">
+                        {clerkUser?.fullName || currentUser || "Pengguna Scota"}
                       </h3>
-                      <p className="text-xs text-emerald-600 dark:text-emerald-400 font-mono font-bold">
-                        {currentUser.includes("@") ? currentUser : `${currentUser}@gmail.com`}
-                      </p>
-                      <span className="inline-block mt-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-500 text-slate-950">
-                        {currentUserRole}
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wide bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                        {currentUserRole || (isClerkSignedIn ? "OWNER" : "ADMIN")}
                       </span>
                     </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5 truncate">
+                      <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <span>{clerkUser?.primaryEmailAddress?.emailAddress || (currentUser.includes("@") ? currentUser : `${currentUser}@gmail.com`)}</span>
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded-md ml-1 shrink-0">
+                        <CheckCircle2 className="w-3 h-3" />
+                        <span>Terverifikasi</span>
+                      </span>
+                    </p>
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                      ID Akun: <span className="font-mono">{clerkUser?.id ? clerkUser.id.slice(0, 16) + "..." : currentUser}</span>
+                    </p>
                   </div>
-                  <div className="pt-3 border-t border-slate-200/80 dark:border-slate-700/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
-                    <span>Untuk mengelola avatar, email sekunder, dan keamanan 2FA, masuk menggunakan akun Google Anda.</span>
-                    <Link
-                      href="/login"
-                      className="inline-flex items-center justify-center px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shrink-0"
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditFirstName(clerkUser?.firstName || currentUser.split(" ")[0] || "")
+                      setEditLastName(clerkUser?.lastName || currentUser.split(" ").slice(1).join(" ") || "")
+                      setIsEditingName(true)
+                    }}
+                    className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700/80 text-slate-800 dark:text-slate-200 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border border-slate-200/80 dark:border-slate-700"
+                  >
+                    <Edit3 className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                    <span>Ubah Nama</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (confirm("Apakah Anda yakin ingin keluar dari sesi akun ini?")) {
+                        try {
+                          if (isClerkSignedIn) await clerkSignOut()
+                        } catch {}
+                        try {
+                          await fetch("/api/auth/logout", { method: "POST" })
+                        } catch {}
+                        localStorage.removeItem("nota_admin_token")
+                        localStorage.removeItem("nota_admin_user")
+                        localStorage.removeItem("nota_staff_name")
+                        router.push("/")
+                      }
+                    }}
+                    className="px-3.5 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border border-rose-500/20"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span>Keluar Sesi</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Form Modal / Inline Editor for Display Name */}
+              {isEditingName && (
+                <div className="p-4 sm:p-5 rounded-2xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-500/30 space-y-3 animate-in fade-in zoom-in-98 duration-150">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                      <Edit3 className="w-4 h-4 text-emerald-500" />
+                      <span>Ubah Nama Tampilan Profil</span>
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingName(false)}
+                      className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors cursor-pointer"
                     >
-                      Login Google SSO
-                    </Link>
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">
+                        Nama Depan
+                      </label>
+                      <input
+                        type="text"
+                        value={editFirstName}
+                        onChange={(e) => setEditFirstName(e.target.value)}
+                        placeholder="Nama Depan"
+                        className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">
+                        Nama Belakang
+                      </label>
+                      <input
+                        type="text"
+                        value={editLastName}
+                        onChange={(e) => setEditLastName(e.target.value)}
+                        placeholder="Nama Belakang"
+                        className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingName(false)}
+                      className="px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                    >
+                      Batal
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isSavingName}
+                      onClick={async () => {
+                        setIsSavingName(true)
+                        try {
+                          if (clerkUser) {
+                            await clerkUser.update({
+                              firstName: editFirstName.trim(),
+                              lastName: editLastName.trim(),
+                            })
+                          }
+                          const full = `${editFirstName} ${editLastName}`.trim()
+                          if (full) {
+                            localStorage.setItem("nota_admin_user", full)
+                            setCurrentUser(full)
+                          }
+                          toast.success("Nama profil berhasil diperbarui!")
+                          setIsEditingName(false)
+                        } catch (err: any) {
+                          toast.error(err?.errors?.[0]?.message || "Gagal memperbarui profil")
+                        } finally {
+                          setIsSavingName(false)
+                        }
+                      }}
+                      className="px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
+                    >
+                      {isSavingName ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                      <span>Simpan Perubahan</span>
+                    </button>
                   </div>
                 </div>
               )}
+
+              {/* Information Cards Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Card 1: Informasi Autentikasi & Akun */}
+                <div className="p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 space-y-3.5">
+                  <div className="flex items-center gap-2 text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
+                    <Shield className="w-4 h-4 text-emerald-500" />
+                    <span>Autentikasi & Keamanan Sesi</span>
+                  </div>
+
+                  <div className="space-y-2.5 text-xs">
+                    <div className="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
+                      <span className="text-slate-500 dark:text-slate-400">Metode Masuk:</span>
+                      <span className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                        {isClerkSignedIn ? (
+                          <>
+                            <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                            <span>Google SSO (OAuth 2.0)</span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="w-2 h-2 rounded-full bg-blue-500" />
+                            <span>Email & Kunci Sistem</span>
+                          </>
+                        )}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
+                      <span className="text-slate-500 dark:text-slate-400">Status Keamanan:</span>
+                      <span className="font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>Enkripsi TLS & Token Aktif</span>
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
+                      <span className="text-slate-500 dark:text-slate-400">Status Akun:</span>
+                      <span className="font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md text-[10px]">
+                        AKTIF & TERVERIFIKASI
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Card 2: Workspace & Hak Akses */}
+                <div className="p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 space-y-3.5">
+                  <div className="flex items-center gap-2 text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
+                    <Building2 className="w-4 h-4 text-emerald-500" />
+                    <span>Workspace & Hak Kelola</span>
+                  </div>
+
+                  <div className="space-y-2.5 text-xs">
+                    <div className="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
+                      <span className="text-slate-500 dark:text-slate-400">Hak Akses:</span>
+                      <span className="font-black text-slate-900 dark:text-white uppercase">
+                        {currentUserRole || (isClerkSignedIn ? "OWNER" : "ADMIN")}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
+                      <span className="text-slate-500 dark:text-slate-400">Akses Cabang:</span>
+                      <span className="font-bold text-slate-800 dark:text-slate-200">
+                        {branches.length > 0 ? `${branches.length} Cabang Terhubung` : "Pusat / Tunggal"}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
+                      <span className="text-slate-500 dark:text-slate-400">Kelola Paket:</span>
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab("billing")}
+                        className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
+                      >
+                        Buka Tab Langganan &rarr;
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
@@ -1855,7 +2144,7 @@ function SettingsContent() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1 text-[11px]">
                   {/* Immutable Owner Card */}
-                  <div className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-2 flex flex-col justify-between shadow-xs">
+                  <div className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-2.5 flex flex-col justify-between shadow-xs">
                     <div>
                       <div className="flex items-center justify-between gap-1">
                         <p className="font-black text-xs text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
@@ -1865,19 +2154,30 @@ function SettingsContent() {
                           Kontrol Penuh
                         </span>
                       </div>
-                      <p className="text-slate-500 dark:text-slate-400 mt-1">
-                        Kendali absolut bisnis: kelola semua cabang, paket langganan, dan konfigurasi fitur.
+                      <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                        <span className="text-[9px] font-medium px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                          Semua Cabang
+                        </span>
+                      </div>
+                      <p className="text-slate-500 dark:text-slate-400 mt-2 text-[11px] leading-relaxed">
+                        {getRoleBriefExplanation("OWNER")}
                       </p>
                     </div>
-                    <div className="pt-2 border-t border-slate-100 dark:border-slate-800 text-[10px] text-slate-400 font-medium">
-                      Semua Izin Aktif • Akses Pemilik Toko
+                    <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[10px] text-slate-400 font-medium">
+                      <span>Semua Izin Aktif</span>
+                      <span className="text-indigo-600 dark:text-indigo-400 font-semibold">Akses Absolut</span>
                     </div>
                   </div>
 
                   {/* Dynamic Roles */}
                   {dynamicRoles.length > 0 ? (
-                    dynamicRoles
+                    [...dynamicRoles]
                       .filter((r) => r.name?.toUpperCase() !== "OWNER")
+                      .sort((a, b) => {
+                        const prioA = ROLE_SORT_PRIORITY[a.name?.toUpperCase()] || 10
+                        const prioB = ROLE_SORT_PRIORITY[b.name?.toUpperCase()] || 10
+                        return prioA - prioB
+                      })
                       .map((role) => {
                         const isDefault = role.isSystemDefault
                         const permCount = Array.isArray(role.permissions) ? role.permissions.length : 0
@@ -1913,18 +2213,22 @@ function SettingsContent() {
                                 )}
                               </div>
 
-                              <div className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
-                                <span className="font-semibold text-slate-700 dark:text-slate-300">
-                                  {permCount} izin aktif
-                                </span>
+                              <p className="text-slate-500 dark:text-slate-400 mt-2 text-[11px] leading-relaxed">
+                                {getRoleBriefExplanation(role.name)}
+                              </p>
+
+                              <div className="mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-800/80">
+                                <div className="text-[10px] text-slate-400 font-semibold mb-1.5">
+                                  {permCount} izin aktif:
+                                </div>
                                 {Array.isArray(role.permissions) && role.permissions.length > 0 && (
-                                  <div className="flex flex-wrap gap-1 mt-1.5 max-h-16 overflow-y-auto">
+                                  <div className="flex flex-wrap gap-1">
                                     {role.permissions.map((pCode: string) => (
                                       <span
                                         key={pCode}
-                                        className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700"
+                                        className="text-[9px] font-medium px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
                                       >
-                                        {pCode}
+                                        {PERMISSION_LABELS[pCode] || pCode}
                                       </span>
                                     ))}
                                   </div>
@@ -1967,17 +2271,23 @@ function SettingsContent() {
                       })
                   ) : (
                     <>
-                      <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-1">
-                        <p className="font-bold text-emerald-600 dark:text-emerald-400">ADMIN</p>
-                        <p className="text-slate-500 dark:text-slate-400">Operasional cabang: scan nota, edit data, ekspor laporan, dan kelola staf.</p>
+                      <div className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-2 flex flex-col justify-between shadow-xs">
+                        <div>
+                          <p className="font-bold text-xs text-emerald-600 dark:text-emerald-400">ADMIN</p>
+                          <p className="text-slate-500 dark:text-slate-400 mt-1">{getRoleBriefExplanation("ADMIN")}</p>
+                        </div>
                       </div>
-                      <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-1">
-                        <p className="font-bold text-blue-600 dark:text-blue-400">MANAJER</p>
-                        <p className="text-slate-500 dark:text-slate-400">Audit & verifikasi: tinjau keabsahan nota, persetujuan perubahan, dan cetak rekap.</p>
+                      <div className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-2 flex flex-col justify-between shadow-xs">
+                        <div>
+                          <p className="font-bold text-xs text-blue-600 dark:text-blue-400">KASIR</p>
+                          <p className="text-slate-500 dark:text-slate-400 mt-1">{getRoleBriefExplanation("KASIR")}</p>
+                        </div>
                       </div>
-                      <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-1">
-                        <p className="font-bold text-amber-600 dark:text-amber-400">KARYAWAN</p>
-                        <p className="text-slate-500 dark:text-slate-400">Input transaksi: scan nota dan catat pengeluaran tanpa akses edit atau setelan.</p>
+                      <div className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-2 flex flex-col justify-between shadow-xs">
+                        <div>
+                          <p className="font-bold text-xs text-amber-600 dark:text-amber-400">KARYAWAN</p>
+                          <p className="text-slate-500 dark:text-slate-400 mt-1">{getRoleBriefExplanation("KARYAWAN")}</p>
+                        </div>
                       </div>
                     </>
                   )}
@@ -2624,89 +2934,215 @@ function SettingsContent() {
 
           {/* TAB 2: NOTIFICATIONS */}
           {activeTab === "notifications" && (
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 sm:p-6 space-y-6 shadow-xs">
-              <div className="pb-4 border-b border-slate-100 dark:border-slate-800">
-                <h2 className="text-base font-black text-slate-900 dark:text-white">
-                  Notifikasi & Web Push Alert
-                </h2>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Konfigurasikan pemberitahuan instan saat nota baru masuk atau membutuhkan persetujuan.
-                </p>
-              </div>
-
-              {/* Status Banner */}
-              <div className="flex items-center justify-between p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800">
-                <div className="flex items-center gap-3">
-                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${permState === "granted" ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-amber-500/10 text-amber-600"}`}>
-                    <Bell className="w-4 h-4" />
-                  </div>
+            <div className="space-y-6">
+              {/* Main Card: Status & Web Push Management */}
+              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 sm:p-6 space-y-6 shadow-xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
                   <div>
-                    <p className="text-xs font-bold text-slate-900 dark:text-white">
-                      Status Notifikasi Browser: <span className="uppercase font-black">{permState === "granted" ? "Aktif" : "Belum Diizinkan"}</span>
-                    </p>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                      {permState === "granted" ? "Perangkat siap menerima alert transaksi real-time." : "Izinkan notifikasi agar tidak melewatkan nota penting."}
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-base font-black text-slate-900 dark:text-white">
+                        Notifikasi & Web Push Alert
+                      </h2>
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                        <ShieldCheck className="w-3 h-3" />
+                        Tenant-Isolated
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      Pemberitahuan instan saat nota baru masuk atau transaksi membutuhkan persetujuan dual-control.
                     </p>
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={handleTestNotification}
-                  className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs font-bold transition-all shadow-xs cursor-pointer shrink-0"
-                >
-                  Uji Notifikasi
-                </button>
-              </div>
-
-              {/* Toggles */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between py-2 border-b border-slate-100 dark:border-slate-800">
-                  <div>
-                    <p className="text-xs font-bold text-slate-900 dark:text-white">Pemberitahuan Nota Baru Diproses</p>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400">Kirim alert saat staf berhasil memindai atau menyimpan nota transaksi.</p>
+                {/* Status Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Browser Permission Status */}
+                  <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-800 flex items-start gap-3.5">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                      permState === "granted"
+                        ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                        : permState === "denied"
+                        ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20"
+                        : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                    }`}>
+                      <Bell className="w-5 h-5" />
+                    </div>
+                    <div className="space-y-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs font-bold text-slate-900 dark:text-white">Izin Browser</p>
+                        <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-md ${
+                          permState === "granted"
+                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                            : permState === "denied"
+                            ? "bg-rose-500/10 text-rose-600 dark:text-rose-400"
+                            : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                        }`}>
+                          {permState === "granted" ? "Diizinkan" : permState === "denied" ? "Diblokir" : "Belum Aktif"}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                        {permState === "granted"
+                          ? "Browser telah memberikan izin untuk menampilkan notifikasi pada perangkat ini."
+                          : permState === "denied"
+                          ? "Izin notifikasi diblokir pada setelan browser. Buka pengaturan browser untuk mengizinkan."
+                          : "Klik tombol aktifkan untuk mengizinkan penerimaan alert transaksi."}
+                      </p>
+                    </div>
                   </div>
-                  <input
-                    type="checkbox"
-                    checked={notifySettings.newReceiptEnabled}
-                    onChange={(e) => {
-                      const updated = { ...notifySettings, newReceiptEnabled: e.target.checked }
-                      setNotifySettings(updated)
-                      saveNotificationSettings(updated)
-                    }}
-                    className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 dark:border-slate-700 cursor-pointer"
-                  />
+
+                  {/* Background Web Push Status */}
+                  <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-800 flex items-start gap-3.5">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                      isSubscribed
+                        ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                        : "bg-slate-200 dark:bg-slate-700/60 text-slate-500 dark:text-slate-400"
+                    }`}>
+                      <Smartphone className="w-5 h-5" />
+                    </div>
+                    <div className="space-y-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs font-bold text-slate-900 dark:text-white">Web Push Latar Belakang</p>
+                        <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-md ${
+                          isSubscribed
+                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                            : "bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400"
+                        }`}>
+                          {isSubscribed ? "Terdaftar (Online)" : "Tidak Aktif"}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                        {isSubscribed
+                          ? "Perangkat siap menerima alert HP meskipun aplikasi Scota sedang tertutup."
+                          : "Daftarkan perangkat agar tetap menerima alert saat aplikasi ditutup."}
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="flex items-center justify-between py-2 border-b border-slate-100 dark:border-slate-800">
-                  <div>
-                    <p className="text-xs font-bold text-slate-900 dark:text-white">Alert Persetujuan Dual-Control Tertunda</p>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400">Kirim notifikasi kepada admin saat terdapat nota bernominal besar yang butuh verifikasi.</p>
+                {/* Push Actions / Controls */}
+                <div className="flex flex-wrap items-center gap-2.5 pt-1">
+                  <button
+                    type="button"
+                    disabled={isSubscribingPush}
+                    onClick={handleTogglePushSubscription}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center gap-2 ${
+                      isSubscribed
+                        ? "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200"
+                        : "bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white"
+                    } disabled:opacity-50`}
+                  >
+                    {isSubscribingPush ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : isSubscribed ? (
+                      <X className="w-3.5 h-3.5" />
+                    ) : (
+                      <Zap className="w-3.5 h-3.5" />
+                    )}
+                    <span>{isSubscribed ? "Nonaktifkan Web Push" : "Aktifkan Web Push di Perangkat Ini"}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleTestNotification}
+                    className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
+                  >
+                    <Bell className="w-3.5 h-3.5" />
+                    <span>Uji Notifikasi Lokal</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={isTestingBackgroundPush}
+                    onClick={handleTestBackgroundPush}
+                    className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                  >
+                    {isTestingBackgroundPush ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Smartphone className="w-3.5 h-3.5" />
+                    )}
+                    <span>Uji Push HP (Jeda 5s)</span>
+                  </button>
+                </div>
+
+                {/* Toggles & Preferences */}
+                <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-4">
+                  <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                    Preferensi Saluran Notifikasi
+                  </h3>
+
+                  <div className="flex items-center justify-between py-2 border-b border-slate-100 dark:border-slate-800">
+                    <div className="space-y-0.5">
+                      <p className="text-xs font-bold text-slate-900 dark:text-white">Pemberitahuan Nota Baru Diproses</p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">Kirim alert saat staf berhasil memindai atau menyimpan nota transaksi baru.</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={notifySettings.newReceiptEnabled}
+                      onChange={(e) => {
+                        const updated = { ...notifySettings, newReceiptEnabled: e.target.checked }
+                        setNotifySettings(updated)
+                        saveNotificationSettings(updated)
+                      }}
+                      className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 dark:border-slate-700 cursor-pointer"
+                    />
                   </div>
-                  <input
-                    type="checkbox"
-                    checked={notifySettings.approvalReqEnabled}
-                    onChange={(e) => {
-                      const updated = { ...notifySettings, approvalReqEnabled: e.target.checked }
-                      setNotifySettings(updated)
-                      saveNotificationSettings(updated)
-                    }}
-                    className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 dark:border-slate-700 cursor-pointer"
-                  />
+
+                  <div className="flex items-center justify-between py-2 border-b border-slate-100 dark:border-slate-800">
+                    <div className="space-y-0.5">
+                      <p className="text-xs font-bold text-slate-900 dark:text-white">Alert Persetujuan Dual-Control Tertunda</p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">Kirim notifikasi instan kepada pengambil keputusan saat ada nota yang butuh verifikasi.</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={notifySettings.approvalReqEnabled}
+                      onChange={(e) => {
+                        const updated = { ...notifySettings, approvalReqEnabled: e.target.checked }
+                        setNotifySettings(updated)
+                        saveNotificationSettings(updated)
+                      }}
+                      className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 dark:border-slate-700 cursor-pointer"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between py-2">
+                    <div className="space-y-0.5">
+                      <p className="text-xs font-bold text-slate-900 dark:text-white">Notifikasi Suara & Banner Sistem OS</p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">Izinkan notifikasi memicu getaran dan spanduk pop-up di layar perangkat.</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={notifySettings.osPushEnabled}
+                      onChange={(e) => {
+                        const updated = { ...notifySettings, osPushEnabled: e.target.checked }
+                        setNotifySettings(updated)
+                        saveNotificationSettings(updated)
+                      }}
+                      className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 dark:border-slate-700 cursor-pointer"
+                    />
+                  </div>
+                </div>
+
+                {/* Audit Security Note */}
+                <div className="p-3.5 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200/60 dark:border-emerald-900/40 flex items-start gap-2.5 text-xs text-emerald-800 dark:text-emerald-300">
+                  <ShieldCheck className="w-4 h-4 shrink-0 mt-0.5 text-emerald-600 dark:text-emerald-400" />
+                  <p className="text-[11px] leading-relaxed">
+                    <strong>Jaminan Keamanan & Privasi:</strong> Seluruh sistem notifikasi Scota menerapkan isolasi multi-tenant yang ketat. Notifikasi pengujian dan operasional hanya disalurkan ke perangkat staf terdaftar di dalam tenant bisnis Anda tanpa kebocoran data lintas-organisasi.
+                  </p>
                 </div>
               </div>
             </div>
           )}
 
-          {/* TAB 3: POS & STOCK */}
+          {/* TAB 3: ALOKASI BARANG BELANJA */}
           {activeTab === "pos-stock" && (
             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 sm:p-6 space-y-6 shadow-xs">
               <div className="pb-4 border-b border-slate-100 dark:border-slate-800">
                 <h2 className="text-base font-black text-slate-900 dark:text-white">
-                  POS & Sinkronisasi Alokasi Stok
+                  Alokasi Barang Belanja Nota
                 </h2>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Tentukan lokasi default penambahan stok belanja (Bar vs Gudang) dan integrasi sistem kasir POS.
+                  Tentukan tujuan default penempatan item belanja dari nota yang dipindai (Bar / Display Toko vs Gudang Logistik).
                 </p>
               </div>
 
@@ -2733,7 +3169,7 @@ function SettingsContent() {
                       <span className="text-xs font-black">Bar / Outlet Display</span>
                     </div>
                     <p className="text-[11px] font-normal opacity-80">
-                      Barang belanja langsung dialokasikan ke display toko dan siap dijual.
+                      Barang belanja langsung dialokasikan ke display toko dan siap digunakan.
                     </p>
                   </div>
 
@@ -2754,33 +3190,18 @@ function SettingsContent() {
                       <span className="text-xs font-black">Gudang Logistik (Warehouse)</span>
                     </div>
                     <p className="text-[11px] font-normal opacity-80">
-                      Barang masuk ke cadangan stok gudang sebelum ditransfer ke gerai toko.
+                      Barang masuk ke cadangan stok gudang sebelum didistribusikan ke unit kerja toko.
                     </p>
                   </div>
                 </div>
               </div>
 
-              {/* POS Webhook Config */}
-              <div className="space-y-3 pt-3 border-t border-slate-100 dark:border-slate-800">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                  POS Webhook Endpoint
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="url"
-                    value={posWebhookUrl}
-                    onChange={(e) => setPosWebhookUrl(e.target.value)}
-                    className="flex-1 px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 font-mono text-slate-900 dark:text-white"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleTestPos}
-                    disabled={isTestingPos}
-                    className="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-xs font-bold transition-all cursor-pointer shrink-0"
-                  >
-                    {isTestingPos ? "Menguji..." : "Uji Koneksi"}
-                  </button>
-                </div>
+              {/* Info Note */}
+              <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 flex items-start gap-2.5 text-xs text-slate-600 dark:text-slate-300">
+                <ShieldCheck className="w-4 h-4 shrink-0 mt-0.5 text-emerald-600 dark:text-emerald-400" />
+                <p className="text-[11px] leading-relaxed">
+                  <strong>Pencatatan Alokasi:</strong> Setiap nota belanja yang dipindai OCR dan disetujui akan mengalokasikan barang belanja ke lokasi tujuan yang dipilih untuk memudahkan audit pengeluaran dan inventaris operasional.
+                </p>
               </div>
             </div>
           )}

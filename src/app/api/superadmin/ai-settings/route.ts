@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { requireSuperadmin } from "@/lib/superadminGuard"
 import { getAiSystemSettings, getActiveGeminiApiKey, getActiveGeminiModel, setGeminiApiKey, setGeminiModel } from "@/lib/aiConfig"
 import { recordAuditLog } from "@/lib/superadmin"
+import { getClientIp } from "@/lib/rateLimiter"
 
 export async function GET(req: NextRequest) {
   const guard = await requireSuperadmin(req)
@@ -170,7 +171,7 @@ export async function POST(req: NextRequest) {
         targetTenant: "PLATFORM_GLOBAL",
         targetTenantLabel: "Platform Global AI Settings",
         detail: updatedDetails.join(", "),
-        ipAddress: req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "127.0.0.1",
+        ipAddress: getClientIp(req),
       })
     }
 

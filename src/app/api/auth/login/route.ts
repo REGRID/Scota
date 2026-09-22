@@ -3,6 +3,7 @@ import { getUserAccountDetails } from "@/lib/adminAccounts"
 import { verifyPassword } from "@/lib/password"
 import { createSessionToken } from "@/lib/session"
 import { checkAuthRateLimit, recordAuthAttempt, formatLockoutMessage } from "@/lib/authRateLimiter"
+import { getClientIp } from "@/lib/rateLimiter"
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,9 +18,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Rate Limiting Protection (Brute-force lockout: max 5 attempts per 15 minutes)
-    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || 
-               req.headers.get("x-real-ip")?.trim() || 
-               "127.0.0.1"
+    const ip = getClientIp(req)
     const identifier = `${ip}:${cleanUsername}`
 
     const rateCheck = await checkAuthRateLimit(identifier, "login")
@@ -57,7 +56,6 @@ export async function POST(req: NextRequest) {
     const response = NextResponse.json({
       success: true,
       message: `Login Pengguna (${authenticatedUser}) berhasil`,
-      token: sessionToken,
       user: {
         username: authenticatedUser,
         role: userRole,

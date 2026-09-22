@@ -6,14 +6,12 @@ import { saveSubscriptionInfo, getSubscriptionInfo } from "@/lib/subscriptionSer
 import { createSessionToken } from "@/lib/session"
 import { checkAuthRateLimit, recordAuthAttempt, formatLockoutMessage } from "@/lib/authRateLimiter"
 import { queryPg } from "@/lib/pgDb"
-import { normalizeIp } from "@/lib/rateLimiter"
+import { normalizeIp, getClientIp } from "@/lib/rateLimiter"
 import { invalidateReceiptsListCache } from "@/app/api/receipts/route"
 
 export async function POST(req: NextRequest) {
   try {
-    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || 
-               req.headers.get("x-real-ip")?.trim() || 
-               "127.0.0.1"
+    const ip = getClientIp(req)
 
     // Rate Limiting Protection (Anti-Spam Tenant/Account: max 3 attempts per 60 minutes)
     const rateCheck = await checkAuthRateLimit(ip, "register")

@@ -107,9 +107,6 @@ export function IntroductionDashboard({
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data?.authenticated && data.user) {
-          if (data.token && typeof window !== "undefined") {
-            localStorage.setItem("nota_admin_token", data.token)
-          }
           setSessionUser(data.user.staffName || data.user.fullName || data.user.username)
         }
       })
@@ -1010,7 +1007,7 @@ export function IntroductionDashboard({
                                   </span>
                                 </div>
                               </div>
-                              <span className="font-mono text-emerald-600 dark:text-emerald-400 font-bold text-xs sm:text-sm shrink-0 whitespace-nowrap">
+                              <span className="text-emerald-600 dark:text-emerald-400 font-bold text-xs sm:text-sm shrink-0 whitespace-nowrap">
                                 Rp {(item.price || 0).toLocaleString("id-ID")}
                               </span>
                             </div>
@@ -1019,7 +1016,7 @@ export function IntroductionDashboard({
 
                         <div className="p-3 rounded-2xl bg-emerald-50/70 dark:bg-gradient-to-r dark:from-emerald-950/80 dark:via-slate-900 dark:to-slate-900 border-2 border-emerald-400 dark:border-emerald-500/60 flex justify-between items-center text-xs font-bold text-slate-900 dark:text-white shadow-sm">
                           <span className="text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[11px]">TOTAL PENGELUARAN</span>
-                          <span className="text-emerald-600 dark:text-emerald-400 font-mono text-base sm:text-lg">
+                          <span className="text-emerald-600 dark:text-emerald-400 font-bold text-base sm:text-lg">
                             Rp {customParsedData.totalAmount.toLocaleString("id-ID")}
                           </span>
                         </div>
@@ -1352,6 +1349,10 @@ export function IntroductionDashboard({
       <section id="harga" className="scroll-mt-24 py-16 sm:py-24 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
           <div className="text-center max-w-2xl mx-auto space-y-3">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-black">
+              <Sparkles className="w-3.5 h-3.5 text-rose-500" />
+              <span>PENAWARAN SPESIAL: DISKON 50% SEMUA PAKET!</span>
+            </div>
             <h2 className="text-xs font-bold uppercase text-emerald-600 dark:text-emerald-400 tracking-wider">Paket Langganan</h2>
             <p className="text-2xl sm:text-4xl font-bold text-slate-900 dark:text-white tracking-tight">
               Harga Transparan Sesuai Kebutuhan
@@ -1390,6 +1391,7 @@ export function IntroductionDashboard({
               const plan = TIER_CONFIG[tierKey]
               const isPro = tierKey === "pro"
               const price = billingCycle === "yearly" ? plan.priceYearly : plan.priceMonthly
+              const originalPrice = billingCycle === "yearly" ? plan.originalPriceYearly : plan.originalPriceMonthly
 
               return (
                 <div
@@ -1408,7 +1410,17 @@ export function IntroductionDashboard({
                   <div className="space-y-5">
                     <div>
                       <h3 className="text-lg font-bold text-slate-900 dark:text-white">{plan.name}</h3>
-                      <div className="mt-3 flex items-baseline gap-1.5">
+                      {originalPrice && (
+                        <div className="mt-2.5 flex items-center gap-2">
+                          <span className="text-xs font-semibold line-through text-slate-400 dark:text-slate-500">
+                            Rp {originalPrice.toLocaleString("id-ID")}
+                          </span>
+                          <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                            Diskon 50%
+                          </span>
+                        </div>
+                      )}
+                      <div className="mt-1 flex items-baseline gap-1.5">
                         <span className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white">
                           Rp {price.toLocaleString("id-ID")}
                         </span>
@@ -1750,7 +1762,7 @@ export function IntroductionDashboard({
                 <span className="text-slate-400">Hasil:</span>
                 <strong className="text-white font-bold truncate max-w-[140px] sm:max-w-none">{customParsedData.merchantName}</strong>
                 <span className="text-slate-600">•</span>
-                <span className="font-mono text-emerald-400 font-bold text-sm whitespace-nowrap">
+                <span className="text-emerald-400 font-bold text-sm whitespace-nowrap">
                   Rp {customParsedData.totalAmount.toLocaleString("id-ID")}
                 </span>
                 <span className="text-slate-400 whitespace-nowrap">({customParsedData.items.length} item)</span>

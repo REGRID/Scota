@@ -216,19 +216,22 @@ export async function activateLicenseKey(
   let tier: SubscriptionTier = "pro"
   let durationDays = 30
 
-  if (cleanKey.startsWith("NP-STARTER-1Y") || cleanKey.startsWith("STARTER-1Y")) {
+  if (cleanKey.startsWith("NP-STARTER-1Y") || cleanKey.startsWith("SCOTA-STARTER-1Y") || cleanKey.startsWith("STARTER-1Y")) {
     tier = "starter"
     durationDays = 365
-  } else if (cleanKey.startsWith("NP-STARTER") || cleanKey.startsWith("STARTER")) {
+  } else if (cleanKey.startsWith("NP-STARTER") || cleanKey.startsWith("SCOTA-STARTER") || cleanKey.startsWith("STARTER")) {
     tier = "starter"
     durationDays = 30
-  } else if (cleanKey.startsWith("NP-ENT-1Y") || cleanKey.startsWith("ENT-1Y") || cleanKey.startsWith("ENTERPRISE")) {
+  } else if (cleanKey.startsWith("NP-ENT-1Y") || cleanKey.startsWith("SCOTA-ENT-1Y") || cleanKey.startsWith("ENT-1Y") || cleanKey.startsWith("ENTERPRISE-1Y") || cleanKey.startsWith("SCOTA-ENTERPRISE-1Y")) {
     tier = "enterprise"
     durationDays = 365
-  } else if (cleanKey.startsWith("NP-PRO-1Y") || cleanKey.startsWith("PRO-1Y")) {
+  } else if (cleanKey.startsWith("NP-ENT") || cleanKey.startsWith("SCOTA-ENT") || cleanKey.startsWith("ENT") || cleanKey.startsWith("ENTERPRISE") || cleanKey.startsWith("SCOTA-ENTERPRISE")) {
+    tier = "enterprise"
+    durationDays = 30
+  } else if (cleanKey.startsWith("NP-PRO-1Y") || cleanKey.startsWith("SCOTA-PRO-1Y") || cleanKey.startsWith("PRO-1Y")) {
     tier = "pro"
     durationDays = 365
-  } else if (cleanKey.startsWith("NP-PRO") || cleanKey.startsWith("PRO") || cleanKey.length >= 10) {
+  } else if (cleanKey.startsWith("NP-PRO") || cleanKey.startsWith("SCOTA-PRO") || cleanKey.startsWith("PRO")) {
     tier = "pro"
     durationDays = 30
   } else {

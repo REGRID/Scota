@@ -126,6 +126,20 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    const userRole = (session.role || "").toUpperCase()
+    const isAuthorized =
+      userRole === "OWNER" ||
+      userRole === "ADMIN" ||
+      userRole === "SUPERADMIN" ||
+      userRole === "DEVELOPER"
+
+    if (!isAuthorized) {
+      return NextResponse.json(
+        { error: "Akses ditolak. Fitur pemulihan (restore) cadangan data hanya dapat dilakukan oleh Pemilik (Owner) atau Administrator bisnis." },
+        { status: 403 }
+      )
+    }
+
     const backupData = await req.json()
 
     if (!backupData || !backupData.receipts) {

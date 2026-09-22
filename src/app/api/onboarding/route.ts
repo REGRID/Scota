@@ -105,9 +105,19 @@ export async function POST(req: NextRequest) {
            WHERE id = $6`,
           [cleanBusinessName, cleanPhone, cleanBusinessType, cleanEstimated, logoUrl, tenantId]
         )
+
+        // 2. Sync subscriptions business name & phone (SSOT)
+        await client.query(
+          `UPDATE subscriptions
+           SET "studioName" = $1,
+               phone = $2,
+               "updatedAt" = NOW()
+           WHERE "tenantId" = $3`,
+          [cleanBusinessName, cleanPhone, tenantId]
+        )
       }
 
-      // 2. Update user info if email exists
+      // 3. Update user info if email exists
       if (session.email) {
         await client.query(
           `UPDATE users
@@ -120,16 +130,23 @@ export async function POST(req: NextRequest) {
         )
       }
 
-      // 3. Update admin_accounts
+      // 4. Update admin_accounts: businessName for tenant, but fullName & phone strictly for current user
       if (tenantId) {
         await client.query(
           `UPDATE admin_accounts
            SET "businessName" = $1,
-               "fullName" = $2,
-               phone = $3,
                "updatedAt" = NOW()
-           WHERE "tenantId" = $4 OR username = $5`,
-          [cleanBusinessName, cleanOwnerName, cleanPhone, tenantId, session.username]
+           WHERE "tenantId" = $2`,
+          [cleanBusinessName, tenantId]
+        )
+
+        await client.query(
+          `UPDATE admin_accounts
+           SET "fullName" = $1,
+               phone = $2,
+               "updatedAt" = NOW()
+           WHERE username = $3`,
+          [cleanOwnerName, cleanPhone, session.username]
         )
       }
     })

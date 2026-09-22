@@ -552,7 +552,7 @@ function SettingsContent() {
       const res = await fetch("/api/subscription", {
         method: "POST",
         headers,
-        body: JSON.stringify({ action: "activateLicense", key: voucherKey.trim() }),
+        body: JSON.stringify({ action: "activate_license", licenseKey: voucherKey.trim() }),
       })
       const data = await res.json()
       if (res.ok && data.success) {
@@ -865,18 +865,70 @@ function SettingsContent() {
   }
 
   // Handle Test POS
-  const handleTestPos = () => {
-    setIsTestingPos(true)
-    setTimeout(() => {
+  const handleTestPos = async () => {
+    try {
+      setIsTestingPos(true)
+      const res = await fetch("/api/pos/test-sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ destination: stockDestination }),
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        toast.success(data.message || "Koneksi ke endpoint POS berhasil diverifikasi!")
+      } else {
+        toast.error(data.message || "Gagal menghubungi endpoint POS")
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Terjadi kesalahan jaringan saat menguji koneksi POS")
+    } finally {
       setIsTestingPos(false)
-      toast.success("Koneksi ke endpoint POS berhasil diverifikasi (HTTP 200 OK)!")
-    }, 1000)
+    }
   }
 
   // Handle Save Approval Workflow & Security
   const handleSaveSecurity = async () => {
     try {
       setIsSavingSecurity(true)
+
+      // 1. If password change is requested, execute change-password API first
+      let passwordChanged = false
+      if (oldPassword.trim() || newPassword.trim()) {
+        if (!oldPassword.trim() || !newPassword.trim()) {
+          toast.error("Password saat ini dan password baru harus diisi keduanya.")
+          setIsSavingSecurity(false)
+          return
+        }
+
+        if (newPassword.trim().length < 8) {
+          toast.error("Password baru minimal 8 karakter demi keamanan.")
+          setIsSavingSecurity(false)
+          return
+        }
+
+        const pwRes = await fetch("/api/auth/change-password", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            username: currentUser,
+            oldPassword: oldPassword.trim(),
+            newPassword: newPassword.trim(),
+          }),
+        })
+
+        const pwData = await pwRes.json()
+        if (!pwRes.ok) {
+          toast.error(pwData.error || "Gagal memperbarui password.")
+          setIsSavingSecurity(false)
+          return
+        }
+
+        passwordChanged = true
+        setOldPassword("")
+        setNewPassword("")
+      }
+
+      // 2. Persist approval workflow settings
       localStorage.setItem("scota_approval_threshold", minAmountThreshold)
       localStorage.setItem("scota_dual_control_enabled", String(enableApproval))
       localStorage.setItem("scota_approver_target", approverTarget)
@@ -910,10 +962,8 @@ function SettingsContent() {
       })
 
       if (res.ok) {
-        if (newPassword.trim()) {
-          toast.success("Sandi & kebijakan alur persetujuan berhasil disimpan ke database!")
-          setOldPassword("")
-          setNewPassword("")
+        if (passwordChanged) {
+          toast.success("Password baru & kebijakan alur persetujuan berhasil disimpan!")
         } else {
           toast.success("Kebijakan alur persetujuan berhasil disimpan ke database!")
         }
@@ -921,7 +971,7 @@ function SettingsContent() {
         toast.error("Gagal menyimpan alur persetujuan ke server")
       }
     } catch {
-      toast.error("Terjadi kesalahan jaringan saat menyimpan alur persetujuan")
+      toast.error("Terjadi kesalahan jaringan saat menyimpan pengaturan")
     } finally {
       setIsSavingSecurity(false)
     }

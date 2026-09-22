@@ -23,11 +23,13 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const { action, licenseKey, studioProfile, workflow } = body
 
-    if (action === "activate_license") {
-      if (!licenseKey) {
+    const resolvedKey = licenseKey || body.key || body.voucherKey
+
+    if (action === "activate_license" || action === "activateLicense") {
+      if (!resolvedKey) {
         return NextResponse.json({ success: false, message: "Kunci lisensi diperlukan" }, { status: 400 })
       }
-      const result = await activateLicenseKey(licenseKey, tenantId)
+      const result = await activateLicenseKey(resolvedKey, tenantId)
       return NextResponse.json(result, { status: result.success ? 200 : 400 })
     }
 

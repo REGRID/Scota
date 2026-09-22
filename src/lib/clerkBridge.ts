@@ -125,16 +125,34 @@ export async function provisionTenantForClerkUser(clerkId: string): Promise<Sess
     let tenantId = ""
 
     await withTransactionPg(async (client) => {
-      // 1. Upsert into users table (Global User Identity)
-      const userRes = await client.query(
-        `INSERT INTO users ("clerkId", email, name, "createdAt", "updatedAt")
-         VALUES ($1, $2, $3, NOW(), NOW())
-         ON CONFLICT ("clerkId") DO UPDATE 
-         SET name = EXCLUDED.name, email = EXCLUDED.email, "updatedAt" = NOW()
-         RETURNING id`,
-        [clerkId, email || `${username}@scota.local`, fullName]
+      // 1. Upsert into users table (Global User Identity, collision-safe on email & clerkId)
+      const cleanTargetEmail = (email || `${username}@scota.local`).trim().toLowerCase()
+      let ownerUserId: string = ""
+
+      const existingUser = await client.query(
+        `SELECT id FROM users WHERE "clerkId" = $1 OR (email = $2 AND $2 != '') LIMIT 1`,
+        [clerkId, cleanTargetEmail]
       )
-      const ownerUserId = userRes.rows[0].id
+
+      if (existingUser.rows?.[0]?.id) {
+        ownerUserId = existingUser.rows[0].id
+        await client.query(
+          `UPDATE users 
+           SET "clerkId" = $1, name = COALESCE(NULLIF($2, ''), name), "updatedAt" = NOW() 
+           WHERE id = $3`,
+          [clerkId, fullName, ownerUserId]
+        )
+      } else {
+        const userRes = await client.query(
+          `INSERT INTO users ("clerkId", email, name, "createdAt", "updatedAt")
+           VALUES ($1, $2, $3, NOW(), NOW())
+           ON CONFLICT (email) DO UPDATE 
+           SET "clerkId" = EXCLUDED."clerkId", name = EXCLUDED.name, "updatedAt" = NOW()
+           RETURNING id`,
+          [clerkId, cleanTargetEmail, fullName]
+        )
+        ownerUserId = userRes.rows[0].id
+      }
 
       // 2. Create Tenant in tenants table with ownerId
       const tenantRes = await client.query(

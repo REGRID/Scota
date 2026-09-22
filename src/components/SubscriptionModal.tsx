@@ -10,7 +10,6 @@ import {
   Phone,
   MapPin,
   FileText,
-  CreditCard,
   MessageCircle,
   Loader2,
   ShieldCheck,
@@ -45,67 +44,18 @@ export function SubscriptionModal({
 
   // Studio Profile Form State
   const [studioName, setStudioName] = useState(subscription?.studioProfile?.studioName || "Scota Business")
-  const [tagline, setTagline] = useState(subscription?.studioProfile?.tagline || "Creative Photography & Digital Imaging")
+  const [tagline, setTagline] = useState(subscription?.studioProfile?.tagline || "Digitalisasi Struk & Pengeluaran Usaha")
   const [address, setAddress] = useState(subscription?.studioProfile?.address || "")
   const [phone, setPhone] = useState(subscription?.studioProfile?.phone || "")
   const [invoiceFooter, setInvoiceFooter] = useState(
-    subscription?.studioProfile?.invoiceFooter || "Terima kasih atas kerja sama Anda dengan Studio Foto kami."
+    subscription?.studioProfile?.invoiceFooter || "Terima kasih atas kerja sama Anda dengan usaha kami."
   )
-
-  const [selectedCheckoutPlan, setSelectedCheckoutPlan] = useState<SubscriptionTier | null>(null)
-  const [isSimulatingPayment, setIsSimulatingPayment] = useState(false)
-  const [copiedVa, setCopiedVa] = useState(false)
 
   if (!isOpen) return null
 
   const currentTier = subscription?.tier || "trial"
   const currentExpiry = subscription?.validUntil ? new Date(subscription.validUntil) : new Date()
   const daysRemaining = Math.max(0, Math.ceil((currentExpiry.getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
-
-  const handleSimulatePaymentSuccess = async (tier: SubscriptionTier) => {
-    setIsSimulatingPayment(true)
-    try {
-      // Direct license upgrade call
-      const durationDays = billingCycle === "yearly" ? 365 : 30
-      const expiry = new Date()
-      expiry.setDate(expiry.getDate() + durationDays)
-      
-      const res = await fetch("/api/subscription", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "activate_license",
-          licenseKey: `NP-${tier.toUpperCase()}-${durationDays}D-AUTO-SIMULATION`,
-        }),
-      })
-
-      const data = await res.json()
-      toast.success(`Pembayaran Berhasil! Paket Anda aktif sebagai ${TIER_CONFIG[tier].name}.`)
-      setSelectedCheckoutPlan(null)
-      if (data.sub) {
-        onSubscriptionUpdated(data.sub)
-      } else {
-        onSubscriptionUpdated({
-          tier,
-          status: "active",
-          validUntil: expiry.toISOString(),
-          monthlyScanLimit: TIER_CONFIG[tier].monthlyScanLimit,
-          usedScansThisMonth: 0,
-          studioProfile: subscription?.studioProfile || {
-            studioName,
-            tagline,
-            address,
-            phone,
-            invoiceFooter,
-          },
-        })
-      }
-    } catch (err: any) {
-      toast.error(err.message || "Gagal memproses upgrade")
-    } finally {
-      setIsSimulatingPayment(false)
-    }
-  }
 
   const handleActivateLicense = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -171,7 +121,7 @@ export function SubscriptionModal({
         throw new Error(data.message || "Gagal menyimpan profil")
       }
 
-      toast.success("Profil Studio Foto berhasil disimpan!")
+      toast.success("Profil Usaha berhasil disimpan!")
       if (subscription) {
         onSubscriptionUpdated({
           ...subscription,
@@ -203,7 +153,7 @@ export function SubscriptionModal({
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-900/90">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-md text-white font-bold text-sm">
-              NP
+              <Sparkles className="w-5 h-5 text-white" />
             </div>
             <div>
               <h2 className="text-base sm:text-lg font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
@@ -314,7 +264,7 @@ export function SubscriptionModal({
                     >
                       {isPro && (
                         <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-[10px] font-bold uppercase px-3 py-0.5 rounded-full shadow-xs tracking-wider">
-                          Paling Populer Studio
+                          Paling Populer Bisnis
                         </div>
                       )}
 
@@ -343,7 +293,9 @@ export function SubscriptionModal({
 
                       <div className="pt-6 space-y-2">
                         <button
-                          onClick={() => setSelectedCheckoutPlan(tierKey)}
+                          onClick={() => {
+                            window.location.href = `/pricing?plan=${tierKey}&cycle=${billingCycle}`
+                          }}
                           className={`w-full py-2.5 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
                             isCurrent
                               ? "bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 cursor-default"
@@ -353,7 +305,7 @@ export function SubscriptionModal({
                           }`}
                         >
                           <Zap className="w-3.5 h-3.5 fill-current" />
-                          {isCurrent ? "Paket Anda Saat Ini" : "Bayar Instan QRIS / VA"}
+                          {isCurrent ? "Paket Anda Saat Ini" : "Pilih & Bayar Resmi (QRIS / VA)"}
                         </button>
 
                         {!isCurrent && (
@@ -370,86 +322,6 @@ export function SubscriptionModal({
                   )
                 })}
               </div>
-
-              {/* Interactive Checkout Modal Overlay if Selected */}
-              {selectedCheckoutPlan && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in">
-                  <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-md space-y-5 shadow-2xl text-slate-900 dark:text-slate-100 relative">
-                    <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
-                      <div className="flex items-center gap-2">
-                        <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                          <CreditCard className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <strong className="text-sm font-bold text-slate-900 dark:text-white block">Checkout {TIER_CONFIG[selectedCheckoutPlan].name}</strong>
-                          <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">Total: Rp {(billingCycle === "yearly" ? TIER_CONFIG[selectedCheckoutPlan].priceYearly : TIER_CONFIG[selectedCheckoutPlan].priceMonthly).toLocaleString("id-ID")}</span>
-                        </div>
-                      </div>
-                      <button onClick={() => setSelectedCheckoutPlan(null)} className="text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer">
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-
-                    {/* QRIS Display Box */}
-                    <div className="bg-slate-50 dark:bg-white rounded-2xl p-4 text-center space-y-2 text-slate-950 shadow-inner border border-slate-200 dark:border-none">
-                      <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-                        <span className="font-bold text-xs tracking-wider text-slate-900">QRIS STANDAR PEMBAYARAN</span>
-                        <span className="text-[10px] font-semibold text-slate-500">NMID: ID102026889912</span>
-                      </div>
-
-                      {/* Mock QR Code Pattern */}
-                      <div className="w-44 h-44 mx-auto bg-slate-950 rounded-xl p-2.5 flex items-center justify-center">
-                        <div className="w-full h-full bg-white rounded-lg p-2 grid grid-cols-6 gap-1">
-                          {Array.from({ length: 36 }).map((_, idx) => (
-                            <div
-                              key={idx}
-                              className={`rounded-xs ${
-                                idx % 2 === 0 || idx % 5 === 0 ? "bg-slate-950" : "bg-transparent"
-                              }`}
-                            />
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="text-[11px] text-slate-600 font-medium">
-                        Scan menggunakan BCA Mobile, GoPay, OVO, Dana, ShopeePay
-                      </div>
-                    </div>
-
-                    {/* Virtual Account Options */}
-                    <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-2 text-xs">
-                      <div className="flex items-center justify-between text-slate-600 dark:text-slate-400">
-                        <span>BCA Virtual Account:</span>
-                        <strong className="text-emerald-600 dark:text-emerald-400 font-mono select-all">8801 2938 4819 029</strong>
-                      </div>
-                      <div className="flex items-center justify-between text-slate-600 dark:text-slate-400">
-                        <span>Mandiri Virtual Account:</span>
-                        <strong className="text-teal-600 dark:text-teal-400 font-mono select-all">8910 8827 1029 384</strong>
-                      </div>
-                    </div>
-
-                    {/* Auto Simulator Confirmation Button */}
-                    <button
-                      type="button"
-                      disabled={isSimulatingPayment}
-                      onClick={() => handleSimulatePaymentSuccess(selectedCheckoutPlan)}
-                      className="w-full py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-500 dark:hover:bg-emerald-400 text-white dark:text-slate-950 font-bold text-xs transition-all shadow-md cursor-pointer flex items-center justify-center gap-2 active:scale-[0.98]"
-                    >
-                      {isSimulatingPayment ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          <span>Memverifikasi Pembayaran...</span>
-                        </>
-                      ) : (
-                        <>
-                          <CheckCircle2 className="w-4 h-4" />
-                          <span>Simulasi Konfirmasi Pembayaran Berhasil</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              )}
 
               {/* Guarantees / Security note */}
               <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 flex items-center gap-3 text-xs text-slate-600 dark:text-slate-400">

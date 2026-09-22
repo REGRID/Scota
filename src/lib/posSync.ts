@@ -1,6 +1,6 @@
 /**
- * POS Sync Client for Nota Photo
- * Automatically syncs approved receipts to Studio POS
+ * POS Sync Client for Scota
+ * Automatically syncs approved receipts to Business POS & Inventory
  */
 
 export interface PosReceiptItem {
@@ -60,8 +60,8 @@ export async function syncReceiptToPos(payload: PosSyncPayload): Promise<{ succe
     }
 
     const data = await res.json()
-    console.log(`[POS Sync Success] Receipt ${payload.receiptId} synced to Studio POS:`, data)
-    return { success: true, message: "Berhasil disinkronkan ke POS Studio", data }
+    console.log(`[POS Sync Success] Receipt ${payload.receiptId} synced to POS:`, data)
+    return { success: true, message: "Berhasil disinkronkan ke POS Bisnis", data }
   } catch (err: any) {
     if (err.name === "AbortError") {
       console.warn(`[POS Sync Timeout] Target POS at ${DEFAULT_POS_WEBHOOK_URL} timed out after 6 seconds.`)

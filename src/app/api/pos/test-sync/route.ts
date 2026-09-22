@@ -9,20 +9,20 @@ export async function POST(req: NextRequest) {
     // Kirim payload uji coba kecil
     const testResult = await syncReceiptToPos({
       receiptId: "TEST-PING-" + Date.now(),
-      merchantName: "Scota Studio Test Sync",
+      merchantName: "Scota POS Test Sync",
       date: new Date().toISOString().split("T")[0],
-      totalAmount: 50000,
-      subtotal: 50000,
+      totalAmount: 75000,
+      subtotal: 75000,
       paymentMethod: "Cash",
       paymentStatus: "Lunas",
-      note: "Uji Coba Integrasi POS Studio & Stok",
+      note: "Uji Coba Integrasi POS & Inventaris Stok",
       stockDestination: destination,
       items: [
         {
-          name: "Test Sync Kertas Foto Glosy",
-          category: "Bahan & Cetak Foto",
-          subCategory: "Kertas Foto & Canvas",
-          price: 50000,
+          name: "Kertas Thermal Struk Kasir 80mm",
+          category: "Operasional Toko",
+          subCategory: "Perlengkapan Kasir & ATK",
+          price: 75000,
           quantity: 1,
         },
       ],

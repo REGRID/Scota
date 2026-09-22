@@ -6,5 +6,5 @@ export const metadata = {
 }
 
 export default function DashboardPage() {
-  return <MainApp initialView="app" initialTab="scan" />
+  return <MainApp initialView="app" initialTab="overview" />
 }

@@ -97,17 +97,18 @@ export async function GET(req: NextRequest) {
           [trx.tenantId, trx.tier, durationDays, scanLimit]
         )
 
-        // Update admin_accounts
-        await queryPg(
-          `UPDATE admin_accounts
-           SET tier = $1,
-               status = 'active',
-               "validUntil" = GREATEST(COALESCE("validUntil", NOW()), NOW()) + ($2 || ' days')::interval,
-               "monthlyScanLimit" = $3,
-               "updatedAt" = NOW()
-           WHERE "tenantId" = $4`,
-          [trx.tier, durationDays, scanLimit, trx.tenantId]
-        )
+        // Update admin_accounts status
+        try {
+          await queryPg(
+            `UPDATE admin_accounts
+             SET status = 'active',
+                 "updatedAt" = NOW()
+             WHERE "tenantId" = $1`,
+            [trx.tenantId]
+          )
+        } catch (adminErr) {
+          console.warn("[Payment Status] Notice updating admin_accounts status:", adminErr)
+        }
 
         // Update tenants
         await queryPg(

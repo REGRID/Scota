@@ -407,7 +407,7 @@ export function ExecutiveSummaryDashboard({
           </div>
         </div>
 
-        {/* CARD 2: Quick-Scan Terminal (4 Cols) */}
+        {/* CARD 2: Quick-Scan Terminal (4 Cols - Desktop only) */}
         <div
           onDragOver={(e) => {
             e.preventDefault()
@@ -415,7 +415,7 @@ export function ExecutiveSummaryDashboard({
           }}
           onDragLeave={() => setIsDragOver(false)}
           onDrop={handleDrop}
-          className={`lg:col-span-4 rounded-3xl p-6 border-2 border-dashed transition-all flex flex-col justify-between text-center relative overflow-hidden ${
+          className={`hidden md:flex lg:col-span-4 rounded-3xl p-6 border-2 border-dashed transition-all flex-col justify-between text-center relative overflow-hidden ${
             isDragOver
               ? "border-emerald-500 bg-emerald-500/10 scale-[1.01]"
               : "border-slate-300 dark:border-slate-700/80 bg-white/80 dark:bg-slate-900/90 shadow-xs hover:border-emerald-500/60"
@@ -697,7 +697,7 @@ export function ExecutiveSummaryDashboard({
                 Belum ada nota transaksi yang tersimpan.
               </p>
               <p className="text-[11px] text-slate-400 max-w-sm mx-auto">
-                Gunakan Quick Scan Terminal di atas untuk memindai nota fisik pertama Anda.
+                Gunakan tombol Scan untuk memindai nota fisik pertama Anda.
               </p>
             </div>
           )}

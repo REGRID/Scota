@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useMemo } from "react"
 import {
   ZoomIn,
   ZoomOut,
@@ -316,21 +316,38 @@ export function VerificationSplitScreen({
 
   const [isKaryawanRole, setIsKaryawanRole] = useState(false)
   const [activeStaffName, setActiveStaffName] = useState("Reza")
+  const [customPaymentMethods, setCustomPaymentMethods] = useState<string[]>([])
 
   useEffect(() => {
+    // Check if current user is karyawan role
     if (typeof window !== "undefined") {
       setIsKaryawanRole(
+        localStorage.getItem("scota_user_role") === "staff" ||
+        localStorage.getItem("scota_user_role") === "karyawan" ||
         localStorage.getItem("nota_admin_role") === "KARYAWAN" ||
         localStorage.getItem("nota_admin_user") === "karyawan"
       )
       const staff = localStorage.getItem("nota_staff_name")
       if (staff) setActiveStaffName(staff)
     }
+
+    try {
+      const savedCustomMethods = localStorage.getItem("scota_custom_payment_methods")
+      if (savedCustomMethods) {
+        setCustomPaymentMethods(JSON.parse(savedCustomMethods))
+      }
+    } catch (e) {
+      console.error(e)
+    }
   }, [])
 
-  const availablePaymentMethods = isKaryawanRole
-    ? ["Cash", "Transfer Bank", "QRIS", "Talangan Karyawan"]
-    : PAYMENT_METHODS
+  const availablePaymentMethods = useMemo(() => {
+    const base = isKaryawanRole
+      ? ["Cash", "Transfer Bank", "QRIS", "Talangan Karyawan"]
+      : PAYMENT_METHODS
+    const set = new Set([...base, ...customPaymentMethods])
+    return Array.from(set)
+  }, [isKaryawanRole, customPaymentMethods])
 
   const handlePaymentMethodSelect = (selectedMethod: string) => {
     setPaymentMethod(selectedMethod)
@@ -770,7 +787,7 @@ export function VerificationSplitScreen({
                     onChange={(e) => handlePaymentMethodSelect(e.target.value)}
                     className="w-full appearance-none pl-3.5 pr-9 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 focus:border-emerald-500 text-sm font-semibold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-950 cursor-pointer transition-all"
                   >
-                    {availablePaymentMethods.map((method) => (
+                    {availablePaymentMethods.map((method: string) => (
                       <option key={method} value={method}>
                         {method}
                       </option>

@@ -57,6 +57,8 @@ import {
   DollarSign,
   FileText,
   MoreHorizontal,
+  Lock,
+  Palette,
 } from "lucide-react"
 import {
   ResponsiveContainer,
@@ -371,7 +373,45 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
   // Payment Method Multi-Select Filter State
   const [selectedPaymentMethods, setSelectedPaymentMethods] = useState<string[]>([])
 
-  // Dynamically extract all available payment methods (preserving standard order + extra)
+  // Custom Master Data State: Payment Methods & Statuses
+  const [customPaymentMethods, setCustomPaymentMethods] = useState<string[]>([])
+  const [customStatuses, setCustomStatuses] = useState<{ id: string; name: string; color: string; isSettled?: boolean }[]>([])
+
+  // Load custom payment methods and statuses from localStorage
+  useEffect(() => {
+    try {
+      const savedMethods = localStorage.getItem("scota_custom_payment_methods")
+      if (savedMethods) {
+        setCustomPaymentMethods(JSON.parse(savedMethods))
+      }
+      const savedStatuses = localStorage.getItem("scota_custom_payment_statuses")
+      if (savedStatuses) {
+        setCustomStatuses(JSON.parse(savedStatuses))
+      }
+    } catch (e) {
+      console.error(e)
+    }
+
+    const handleStorageChange = () => {
+      try {
+        const savedMethods = localStorage.getItem("scota_custom_payment_methods")
+        if (savedMethods) setCustomPaymentMethods(JSON.parse(savedMethods))
+        const savedStatuses = localStorage.getItem("scota_custom_payment_statuses")
+        if (savedStatuses) setCustomStatuses(JSON.parse(savedStatuses))
+      } catch (e) {
+        console.error(e)
+      }
+    }
+
+    window.addEventListener("scota-payment-methods-updated", handleStorageChange)
+    window.addEventListener("scota-custom-statuses-updated", handleStorageChange)
+    return () => {
+      window.removeEventListener("scota-payment-methods-updated", handleStorageChange)
+      window.removeEventListener("scota-custom-statuses-updated", handleStorageChange)
+    }
+  }, [])
+
+  // Dynamically extract all available payment methods (standard + custom + receipts)
   const availablePaymentMethods = useMemo(() => {
     const defaultList = [
       "Cash",
@@ -383,13 +423,34 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
       "Hutang Supplier",
     ]
     const methodSet = new Set<string>(defaultList)
+    customPaymentMethods.forEach((m) => {
+      if (m && m.trim()) {
+        methodSet.add(m.trim())
+      }
+    })
     allReceipts.forEach((r) => {
       if (r.paymentMethod && r.paymentMethod.trim()) {
         methodSet.add(r.paymentMethod.trim())
       }
     })
     return Array.from(methodSet)
-  }, [allReceipts])
+  }, [allReceipts, customPaymentMethods])
+
+  // Dynamically extract all available statuses (standard + custom)
+  const allStatusesList = useMemo(() => {
+    const defaultList = [
+      { label: "Lunas", value: "Lunas", color: "emerald", desc: "Transaksi telah lunas" },
+      { label: "Sudah Dilunasi", value: "Sudah Dilunasi", color: "teal", desc: "Reimburse / pelunasan selesai" },
+      { label: "Belum Lunas / Tempo", value: "Belum Direimburse / Tempo", color: "amber", desc: "Belum lunas / tempo hutang" },
+    ]
+    const customList = customStatuses.map((s) => ({
+      label: s.name,
+      value: s.name,
+      color: s.color || "sky",
+      desc: s.isSettled ? "Lunas (Kustom)" : "Belum Lunas (Kustom)",
+    }))
+    return [...defaultList, ...customList]
+  }, [customStatuses])
 
   const handleTogglePaymentMethod = (method: string) => {
     setSelectedPaymentMethods((prev) => {
@@ -638,8 +699,25 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
   const [exportConfirmFormat, setExportConfirmFormat] = useState<"xlsx" | "csv" | "statement" | null>(null)
   const [isExporting, setIsExporting] = useState(false)
 
-  // Category CRUD Management Modal State
+  // Master Settings Modal State (Kategori, Metode Bayar, Status)
   const [showManageCategoryModal, setShowManageCategoryModal] = useState(false)
+  const [masterSettingsTab, setMasterSettingsTab] = useState<"categories" | "payment_methods" | "statuses">("categories")
+
+  // Custom Payment Methods Management State
+  const [newPaymentMethodInput, setNewPaymentMethodInput] = useState("")
+  const [editingPaymentMethodName, setEditingPaymentMethodName] = useState<string | null>(null)
+  const [editedPaymentMethodValue, setEditedPaymentMethodValue] = useState("")
+
+  // Custom Statuses Management State
+  const [newStatusNameInput, setNewStatusNameInput] = useState("")
+  const [newStatusColor, setNewStatusColor] = useState("sky")
+  const [newStatusIsSettled, setNewStatusIsSettled] = useState(false)
+  const [editingStatusId, setEditingStatusId] = useState<string | null>(null)
+  const [editingStatusName, setEditingStatusName] = useState("")
+  const [editingStatusColor, setEditingStatusColor] = useState("sky")
+  const [editingStatusIsSettled, setEditingStatusIsSettled] = useState(false)
+
+  // Category CRUD Management Modal State
   const [newCatType, setNewCatType] = useState<"parent" | "sub">("parent")
   const [newCatNameInput, setNewCatNameInput] = useState("")
   const [selectedParentId, setSelectedParentId] = useState("")
@@ -957,15 +1035,23 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
   const isReceiptSettled = (paymentStatus?: string | null): boolean => {
     if (!paymentStatus) return true
     const st = paymentStatus.toLowerCase().trim()
+    const matchedCustom = customStatuses.find((cs) => cs.name.toLowerCase() === st)
+    if (matchedCustom) {
+      return !!matchedCustom.isSettled
+    }
     if (st.includes("belum") || st.includes("tempo")) {
       return false
     }
     return st === "lunas" || st.includes("sudah")
   }
 
-  // Helper to determine effective payment status display ("Lunas" vs "Sudah Dilunasi")
+  // Helper to determine effective payment status display ("Lunas" vs "Sudah Dilunasi" vs Custom)
   const getEffectivePaymentStatus = (receipt: { paymentStatus?: string | null; paymentMethod?: string | null; note?: string | null }): string => {
     const status = receipt.paymentStatus || "Lunas"
+    const isCustom = customStatuses.some((cs) => cs.name.toLowerCase() === status.toLowerCase())
+    if (isCustom) {
+      return status
+    }
     if (status.toLowerCase().includes("belum") || status.toLowerCase().includes("tempo")) {
       return status
     }
@@ -982,38 +1068,46 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
       return "Sudah Dilunasi"
     }
 
-    return "Lunas"
+    return status
   }
 
   // SEAMLESS INSTANT CLIENT-SIDE FILTERING & SORTING (Category + Sub-Category + Search + Date Range + Status + Sort)
   const filteredReceipts = useMemo(() => {
-    const todayStr = new Date().toISOString().split("T")[0]
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
-    const currentMonthStr = todayStr.substring(0, 7) // YYYY-MM
-
     const filtered = allReceipts.filter((r) => {
-      // 1. Date Range Filter
-      if (dateRangeFilter === "today" && r.date !== todayStr) return false
-      if (dateRangeFilter === "7days" && r.date < sevenDaysAgo) return false
-      if (dateRangeFilter === "month" && !r.date.startsWith(currentMonthStr)) return false
-      if (dateRangeFilter === "custom") {
-        if (startDate && r.date < startDate) return false
-        if (endDate && r.date > endDate) return false
-      }
-
-      // 2. Search Query Filter
+      // 1. Search Query Filter (Merchant / Items / Notes / Method / Status / Nominal)
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim()
-        const matchMerchant = r.merchantName.toLowerCase().includes(q)
-        const matchItem = r.items.some(
+        const matchMerchant = (r.merchantName || "").toLowerCase().includes(q)
+        const matchNote = (r.note || "").toLowerCase().includes(q)
+        const matchPayment = (r.paymentMethod || "").toLowerCase().includes(q)
+        const matchTotal = r.totalAmount.toString().includes(q)
+        const matchItems = r.items.some(
           (item) =>
             item.name.toLowerCase().includes(q) ||
             item.category.toLowerCase().includes(q) ||
             (item.subCategory && item.subCategory.toLowerCase().includes(q))
         )
-        const matchPayment = (r.paymentMethod || "").toLowerCase().includes(q)
-        const matchNote = (r.note || "").toLowerCase().includes(q)
-        if (!matchMerchant && !matchItem && !matchPayment && !matchNote) return false
+
+        if (!matchMerchant && !matchNote && !matchPayment && !matchTotal && !matchItems) {
+          return false
+        }
+      }
+
+      // 2. Date Range Filter
+      if (dateRangeFilter === "today") {
+        const todayStr = new Date().toISOString().split("T")[0]
+        if (r.date !== todayStr) return false
+      } else if (dateRangeFilter === "7days") {
+        const d = new Date()
+        d.setDate(d.getDate() - 7)
+        const sevenDaysAgo = d.toISOString().split("T")[0]
+        if (r.date < sevenDaysAgo) return false
+      } else if (dateRangeFilter === "month") {
+        const currentMonth = new Date().toISOString().substring(0, 7) // YYYY-MM
+        if (!r.date.startsWith(currentMonth)) return false
+      } else if (dateRangeFilter === "custom") {
+        if (startDate && r.date < startDate) return false
+        if (endDate && r.date > endDate) return false
       }
 
       // 3. Sub-Category Filter
@@ -1054,6 +1148,8 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
           if (st === "Lunas" && effectiveStatus === "Lunas") return true
           if (st === "Sudah Dilunasi" && effectiveStatus === "Sudah Dilunasi") return true
           if (st === "Belum Direimburse / Tempo" && !isSettled) return true
+          if (effectiveStatus.toLowerCase() === st.toLowerCase()) return true
+          if ((r.paymentStatus || "").toLowerCase() === st.toLowerCase()) return true
           return false
         })
         if (!matchesAnyStatus) return false
@@ -1065,6 +1161,8 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
           if (effectiveStatus !== "Sudah Dilunasi") return false
         } else if (selectedStatusFilter === "Belum Direimburse / Tempo") {
           if (isReceiptSettled(r.paymentStatus)) return false
+        } else {
+          if (effectiveStatus.toLowerCase() !== selectedStatusFilter.toLowerCase()) return false
         }
       }
 
@@ -1373,6 +1471,117 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
     } catch (e) {
       showAlert({ title: "Gagal Menghapus Kategori", description: "Gagal menghapus kategori dari database", variant: "destructive" })
     }
+  }
+
+  // Payment Methods CRUD Handlers
+  const handleAddPaymentMethod = () => {
+    const trimmed = newPaymentMethodInput.trim()
+    if (!trimmed) {
+      toast.error("Nama metode pembayaran tidak boleh kosong")
+      return
+    }
+    if (availablePaymentMethods.some((m) => m.toLowerCase() === trimmed.toLowerCase())) {
+      toast.error(`Metode "${trimmed}" sudah terdaftar`)
+      return
+    }
+    const updated = [...customPaymentMethods, trimmed]
+    setCustomPaymentMethods(updated)
+    try {
+      localStorage.setItem("scota_custom_payment_methods", JSON.stringify(updated))
+      window.dispatchEvent(new CustomEvent("scota-payment-methods-updated", { detail: updated }))
+    } catch (e) {
+      console.error(e)
+    }
+    setNewPaymentMethodInput("")
+    toast.success(`Metode "${trimmed}" berhasil ditambahkan`)
+  }
+
+  const handleUpdatePaymentMethod = (oldName: string, newName: string) => {
+    const trimmed = newName.trim()
+    if (!trimmed) return
+    const updated = customPaymentMethods.map((m) => (m === oldName ? trimmed : m))
+    setCustomPaymentMethods(updated)
+    try {
+      localStorage.setItem("scota_custom_payment_methods", JSON.stringify(updated))
+      window.dispatchEvent(new CustomEvent("scota-payment-methods-updated", { detail: updated }))
+    } catch (e) {
+      console.error(e)
+    }
+    setEditingPaymentMethodName(null)
+    setEditedPaymentMethodValue("")
+    toast.success(`Metode berhasil diperbarui menjadi "${trimmed}"`)
+  }
+
+  const handleDeletePaymentMethod = (name: string) => {
+    const updated = customPaymentMethods.filter((m) => m !== name)
+    setCustomPaymentMethods(updated)
+    try {
+      localStorage.setItem("scota_custom_payment_methods", JSON.stringify(updated))
+      window.dispatchEvent(new CustomEvent("scota-payment-methods-updated", { detail: updated }))
+    } catch (e) {
+      console.error(e)
+    }
+    toast.success(`Metode "${name}" berhasil dihapus`)
+  }
+
+  // Statuses CRUD Handlers
+  const handleAddStatus = () => {
+    const trimmed = newStatusNameInput.trim()
+    if (!trimmed) {
+      toast.error("Nama status tidak boleh kosong")
+      return
+    }
+    if (allStatusesList.some((s) => s.label.toLowerCase() === trimmed.toLowerCase())) {
+      toast.error(`Status "${trimmed}" sudah terdaftar`)
+      return
+    }
+    const newStatusItem = {
+      id: "status_" + Date.now(),
+      name: trimmed,
+      color: newStatusColor,
+      isSettled: newStatusIsSettled,
+    }
+    const updated = [...customStatuses, newStatusItem]
+    setCustomStatuses(updated)
+    try {
+      localStorage.setItem("scota_custom_payment_statuses", JSON.stringify(updated))
+      window.dispatchEvent(new CustomEvent("scota-custom-statuses-updated", { detail: updated }))
+    } catch (e) {
+      console.error(e)
+    }
+    setNewStatusNameInput("")
+    setNewStatusColor("sky")
+    setNewStatusIsSettled(false)
+    toast.success(`Status "${trimmed}" berhasil ditambahkan`)
+  }
+
+  const handleUpdateStatus = (id: string, newName: string, newColor: string, newIsSettled: boolean) => {
+    const trimmed = newName.trim()
+    if (!trimmed) return
+    const updated = customStatuses.map((s) =>
+      s.id === id ? { ...s, name: trimmed, color: newColor, isSettled: newIsSettled } : s
+    )
+    setCustomStatuses(updated)
+    try {
+      localStorage.setItem("scota_custom_payment_statuses", JSON.stringify(updated))
+      window.dispatchEvent(new CustomEvent("scota-custom-statuses-updated", { detail: updated }))
+    } catch (e) {
+      console.error(e)
+    }
+    setEditingStatusId(null)
+    toast.success("Status berhasil diperbarui")
+  }
+
+  const handleDeleteStatus = (id: string, name: string) => {
+    const updated = customStatuses.filter((s) => s.id !== id)
+    setCustomStatuses(updated)
+    try {
+      localStorage.setItem("scota_custom_payment_statuses", JSON.stringify(updated))
+      window.dispatchEvent(new CustomEvent("scota-custom-statuses-updated", { detail: updated }))
+    } catch (e) {
+      console.error(e)
+    }
+    toast.success(`Status "${name}" berhasil dihapus`)
   }
 
   // Backup & Restore Database Handlers
@@ -2544,11 +2753,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                         <span>Semua Status</span>
                       </div>
 
-                      {[
-                        { label: "Lunas", value: "Lunas" },
-                        { label: "Sudah Dilunasi", value: "Sudah Dilunasi" },
-                        { label: "Belum Lunas / Tempo", value: "Belum Direimburse / Tempo" },
-                      ].map((item) => {
+                      {allStatusesList.map((item) => {
                         const isChecked = selectedStatuses.includes(item.value)
                         return (
                           <div
@@ -2571,7 +2776,12 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                             >
                               {isChecked && <Check className="w-3 h-3 stroke-[3]" />}
                             </div>
-                            <span>{item.label}</span>
+                            <span className="flex-1 truncate">{item.label}</span>
+                            {item.desc && (
+                              <span className="text-[10px] text-slate-400 font-normal shrink-0">
+                                {item.desc}
+                              </span>
+                            )}
                           </div>
                         )
                       })}
@@ -3654,203 +3864,373 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
         </div>
       )}
 
-      {/* HIERARCHICAL CATEGORY MANAGEMENT MODAL */}
+      {/* MASTER DATA & TRANSACTION SETTINGS MODAL (CATEGORIES, PAYMENT METHODS, STATUSES) */}
       {showManageCategoryModal && (
         <div className="fixed inset-0 z-[80] bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-xl p-6 space-y-5 animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col overflow-hidden">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="font-extrabold text-slate-900 text-base sm:text-lg flex items-center gap-2">
-                <Settings className="w-5 h-5 text-emerald-600" />
-                Kelola Kategori & Sub-Kategori
-              </h3>
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-xl p-5 sm:p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col overflow-hidden text-slate-900 dark:text-slate-100">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-500/20 shrink-0">
+                  <Settings className="w-4.5 h-4.5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-slate-900 dark:text-white text-base sm:text-lg leading-tight">
+                    Pengaturan Master Data
+                  </h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Kustomisasi Kategori, Metode Pembayaran, & Status Transaksi
+                  </p>
+                </div>
+              </div>
               <button
                 type="button"
                 onClick={() => setShowManageCategoryModal(false)}
-                className="text-slate-400 hover:text-slate-700 p-1"
+                className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                title="Tutup"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* CREATE CATEGORY / SUB-CATEGORY FORM */}
-            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3 shrink-0">
-              <div className="flex bg-white p-1 rounded-xl border border-slate-200 text-xs font-bold w-fit">
-                <button
-                  type="button"
-                  onClick={() => setNewCatType("parent")}
-                  className={`px-3 py-1.5 rounded-lg transition-all ${
-                    newCatType === "parent" ? "bg-slate-900 text-white shadow-xs" : "text-slate-600"
-                  }`}
-                >
-                  + Kategori Utama
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setNewCatType("sub")}
-                  className={`px-3 py-1.5 rounded-lg transition-all ${
-                    newCatType === "sub" ? "bg-slate-900 text-white shadow-xs" : "text-slate-600"
-                  }`}
-                >
-                  + Sub-Kategori
-                </button>
-              </div>
+            {/* 3-Tab Selector Pills */}
+            <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shrink-0">
+              <button
+                type="button"
+                onClick={() => setMasterSettingsTab("categories")}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  masterSettingsTab === "categories"
+                    ? "bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-xs"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                }`}
+              >
+                <Layers className="w-3.5 h-3.5" />
+                <span>Kategori</span>
+              </button>
 
-              {newCatType === "sub" && (
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-700">Pilih Kategori Induk Utama</label>
-                  <select
-                    value={selectedParentId}
-                    onChange={(e) => setSelectedParentId(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold text-slate-900 bg-white"
-                  >
-                    {hierarchy.map((h) => (
-                      <option key={h.id} value={h.id}>
-                        {h.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
+              <button
+                type="button"
+                onClick={() => setMasterSettingsTab("payment_methods")}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  masterSettingsTab === "payment_methods"
+                    ? "bg-white dark:bg-slate-900 text-sky-600 dark:text-sky-400 shadow-xs"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                }`}
+              >
+                <CreditCard className="w-3.5 h-3.5" />
+                <span>Metode Bayar</span>
+              </button>
 
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={newCatNameInput}
-                  onChange={(e) => setNewCatNameInput(e.target.value)}
-                  placeholder={newCatType === "parent" ? "Nama Kategori Utama..." : "Nama Sub-Kategori Baru..."}
-                  className="flex-1 px-3.5 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-500 text-xs font-semibold text-slate-900 bg-white"
-                />
-                <button
-                  type="button"
-                  onClick={handleCreateCategory}
-                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs transition-colors shadow-sm shrink-0"
-                >
-                  <Plus className="w-4 h-4" /> Tambah
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => setMasterSettingsTab("statuses")}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  masterSettingsTab === "statuses"
+                    ? "bg-white dark:bg-slate-900 text-amber-600 dark:text-amber-400 shadow-xs"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                }`}
+              >
+                <CheckSquare className="w-3.5 h-3.5" />
+                <span>Status</span>
+              </button>
             </div>
 
-            {/* READ & UPDATE / DELETE CATEGORY LIST */}
-            <div className="space-y-2 overflow-y-auto pr-1 flex-1">
-              <div className="flex items-center justify-between text-xs font-extrabold text-slate-700 uppercase tracking-wider">
-                <span>Struktur Kategori ({hierarchy.length})</span>
-                <span className="text-[10px] text-slate-400 font-normal">Bisa Edit & Hapus</span>
-              </div>
+            {/* TAB 1: KATEGORI & SUB-KATEGORI */}
+            {masterSettingsTab === "categories" && (
+              <div className="space-y-4 flex-1 flex flex-col overflow-hidden">
+                {/* CREATE CATEGORY / SUB-CATEGORY FORM */}
+                <div className="bg-slate-50 dark:bg-slate-800/50 p-3.5 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-3 shrink-0">
+                  <div className="flex bg-white dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-bold w-fit">
+                    <button
+                      type="button"
+                      onClick={() => setNewCatType("parent")}
+                      className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                        newCatType === "parent"
+                          ? "bg-slate-900 dark:bg-emerald-600 text-white shadow-xs"
+                          : "text-slate-600 dark:text-slate-300"
+                      }`}
+                    >
+                      + Kategori Utama
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNewCatType("sub")}
+                      className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                        newCatType === "sub"
+                          ? "bg-slate-900 dark:bg-emerald-600 text-white shadow-xs"
+                          : "text-slate-600 dark:text-slate-300"
+                      }`}
+                    >
+                      + Sub-Kategori
+                    </button>
+                  </div>
 
-              <div className="space-y-3">
-                {hierarchy.length > 0 ? (
-                  hierarchy.map((parent) => (
-                    <div key={parent.id} className="p-3.5 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-2">
-                      {/* Parent Item Header */}
-                      <div className="flex items-center justify-between text-xs font-bold text-slate-900 border-b border-slate-100 pb-2">
-                        {editingCatId === parent.id ? (
-                          <div className="flex items-center gap-2 w-full">
-                            <input
-                              type="text"
-                              value={editingCatName}
-                              onChange={(e) => setEditingCatName(e.target.value)}
-                              className="flex-1 px-2 py-1 rounded-lg border border-emerald-500 text-xs font-bold text-slate-900"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => handleUpdateCategory(parent.id)}
-                              className="p-1 bg-emerald-600 text-white rounded-lg"
-                            >
-                              <Check className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setEditingCatId(null)}
-                              className="p-1 bg-slate-200 text-slate-700 rounded-lg"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        ) : (
-                          <>
-                            <span className="flex items-center gap-1.5 text-slate-900">
-                              <Tag className="w-3.5 h-3.5 text-emerald-600" />
-                              {parent.name}
-                            </span>
+                  {newCatType === "sub" && (
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Pilih Kategori Induk Utama</label>
+                      <select
+                        value={selectedParentId}
+                        onChange={(e) => setSelectedParentId(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white bg-white dark:bg-slate-900 cursor-pointer"
+                      >
+                        {hierarchy.map((h) => (
+                          <option key={h.id} value={h.id}>
+                            {h.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
 
-                            <div className="flex items-center gap-1">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setEditingCatId(parent.id)
-                                  setEditingCatName(parent.name)
-                                }}
-                                className="p-1 text-slate-400 hover:text-blue-600 rounded"
-                                title="Edit Kategori Utama"
-                              >
-                                <Edit className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteCategory(parent.id, parent.name)}
-                                className="p-1 text-slate-400 hover:text-red-600 rounded"
-                                title="Hapus Kategori Utama"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          </>
-                        )}
-                      </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={newCatNameInput}
+                      onChange={(e) => setNewCatNameInput(e.target.value)}
+                      placeholder={newCatType === "parent" ? "Nama Kategori Utama..." : "Nama Sub-Kategori Baru..."}
+                      className="flex-1 px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 focus:border-emerald-500 text-xs font-semibold text-slate-900 dark:text-white bg-white dark:bg-slate-900"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleCreateCategory}
+                      className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs transition-colors shadow-sm shrink-0 cursor-pointer active:scale-95"
+                    >
+                      <Plus className="w-4 h-4" /> Tambah
+                    </button>
+                  </div>
+                </div>
 
-                      {/* Sub-Categories List */}
-                      <div className="pl-4 space-y-1">
-                        {parent.subCategories.map((sub) => (
-                          <div key={sub.id} className="flex items-center justify-between py-1 border-b border-slate-50 last:border-none">
-                            {editingCatId === sub.id ? (
+                {/* READ & UPDATE / DELETE CATEGORY LIST */}
+                <div className="space-y-2 overflow-y-auto pr-1 flex-1">
+                  <div className="flex items-center justify-between text-xs font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                    <span>Struktur Kategori ({hierarchy.length})</span>
+                    <span className="text-[10px] text-slate-400 font-normal">Bisa Edit & Hapus</span>
+                  </div>
+
+                  <div className="space-y-3">
+                    {hierarchy.length > 0 ? (
+                      hierarchy.map((parent) => (
+                        <div key={parent.id} className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xs space-y-2">
+                          {/* Parent Item Header */}
+                          <div className="flex items-center justify-between text-xs font-bold text-slate-900 dark:text-white border-b border-slate-100 dark:border-slate-800 pb-2">
+                            {editingCatId === parent.id ? (
                               <div className="flex items-center gap-2 w-full">
                                 <input
                                   type="text"
                                   value={editingCatName}
                                   onChange={(e) => setEditingCatName(e.target.value)}
-                                  className="flex-1 px-2 py-1 rounded-lg border border-emerald-500 text-xs font-bold text-slate-900"
+                                  className="flex-1 px-2 py-1 rounded-lg border border-emerald-500 text-xs font-bold text-slate-900 dark:text-white bg-white dark:bg-slate-800"
                                 />
                                 <button
                                   type="button"
-                                  onClick={() => handleUpdateCategory(sub.id)}
-                                  className="p-1 bg-emerald-600 text-white rounded-lg"
+                                  onClick={() => handleUpdateCategory(parent.id)}
+                                  className="p-1 bg-emerald-600 text-white rounded-lg cursor-pointer"
                                 >
                                   <Check className="w-3.5 h-3.5" />
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => setEditingCatId(null)}
-                                  className="p-1 bg-slate-200 text-slate-700 rounded-lg"
+                                  className="p-1 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg cursor-pointer"
                                 >
                                   <X className="w-3.5 h-3.5" />
                                 </button>
                               </div>
                             ) : (
                               <>
-                                <span className="text-slate-600 font-medium flex items-center gap-1 text-[11px]">
-                                  <ChevronRight className="w-3 h-3 text-slate-400" />
-                                  {sub.name}
+                                <span className="flex items-center gap-1.5 text-slate-900 dark:text-white font-bold">
+                                  <Tag className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                                  {parent.name}
                                 </span>
 
                                 <div className="flex items-center gap-1">
                                   <button
                                     type="button"
                                     onClick={() => {
-                                      setEditingCatId(sub.id)
-                                      setEditingCatName(sub.name)
+                                      setEditingCatId(parent.id)
+                                      setEditingCatName(parent.name)
                                     }}
-                                    className="p-1 text-slate-400 hover:text-blue-600 rounded"
-                                    title="Edit Sub-Kategori"
+                                    className="p-1 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 rounded cursor-pointer"
+                                    title="Edit Kategori Utama"
                                   >
-                                    <Edit className="w-3 h-3" />
+                                    <Edit className="w-3.5 h-3.5" />
                                   </button>
                                   <button
                                     type="button"
-                                    onClick={() => handleDeleteCategory(sub.id, sub.name)}
-                                    className="p-1 text-slate-400 hover:text-red-600 rounded"
-                                    title="Hapus Sub-Kategori"
+                                    onClick={() => handleDeleteCategory(parent.id, parent.name)}
+                                    className="p-1 text-slate-400 hover:text-red-600 dark:hover:text-red-400 rounded cursor-pointer"
+                                    title="Hapus Kategori Utama"
                                   >
-                                    <Trash2 className="w-3 h-3" />
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                          </div>
+
+                          {/* Sub-Categories List */}
+                          <div className="pl-4 space-y-1">
+                            {parent.subCategories.map((sub) => (
+                              <div key={sub.id} className="flex items-center justify-between py-1 border-b border-slate-50 dark:border-slate-800/60 last:border-none">
+                                {editingCatId === sub.id ? (
+                                  <div className="flex items-center gap-2 w-full">
+                                    <input
+                                      type="text"
+                                      value={editingCatName}
+                                      onChange={(e) => setEditingCatName(e.target.value)}
+                                      className="flex-1 px-2 py-1 rounded-lg border border-emerald-500 text-xs font-bold text-slate-900 dark:text-white bg-white dark:bg-slate-800"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => handleUpdateCategory(sub.id)}
+                                      className="p-1 bg-emerald-600 text-white rounded-lg cursor-pointer"
+                                    >
+                                      <Check className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setEditingCatId(null)}
+                                      className="p-1 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg cursor-pointer"
+                                    >
+                                      <X className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <>
+                                    <span className="text-slate-600 dark:text-slate-300 font-medium flex items-center gap-1 text-[11px]">
+                                      <ChevronRight className="w-3 h-3 text-slate-400" />
+                                      {sub.name}
+                                    </span>
+
+                                    <div className="flex items-center gap-1">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setEditingCatId(sub.id)
+                                          setEditingCatName(sub.name)
+                                        }}
+                                        className="p-1 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 rounded cursor-pointer"
+                                        title="Edit Sub-Kategori"
+                                      >
+                                        <Edit className="w-3 h-3" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDeleteCategory(sub.id, sub.name)}
+                                        className="p-1 text-slate-400 hover:text-red-600 dark:hover:text-red-400 rounded cursor-pointer"
+                                        title="Hapus Sub-Kategori"
+                                      >
+                                        <Trash2 className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-xs text-slate-400 italic py-4 text-center">
+                        Tidak ada kategori tersisa di database. Tambahkan kategori baru di atas!
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 2: METODE PEMBAYARAN */}
+            {masterSettingsTab === "payment_methods" && (
+              <div className="space-y-4 flex-1 flex flex-col overflow-hidden">
+                {/* CREATE CUSTOM PAYMENT METHOD FORM */}
+                <div className="bg-slate-50 dark:bg-slate-800/50 p-3.5 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-2.5 shrink-0">
+                  <label className="text-xs font-extrabold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                    <CreditCard className="w-4 h-4 text-sky-600 dark:text-sky-400" />
+                    Tambah Metode Pembayaran Baru
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={newPaymentMethodInput}
+                      onChange={(e) => setNewPaymentMethodInput(e.target.value)}
+                      placeholder="Contoh: ShopeePay, GoPay, OVO, EDC BCA, Mandiri..."
+                      className="flex-1 px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 focus:border-sky-500 text-xs font-semibold text-slate-900 dark:text-white bg-white dark:bg-slate-900"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddPaymentMethod}
+                      className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-extrabold text-xs transition-colors shadow-sm shrink-0 cursor-pointer active:scale-95"
+                    >
+                      <Plus className="w-4 h-4" /> Tambah
+                    </button>
+                  </div>
+                </div>
+
+                {/* PAYMENT METHODS LIST */}
+                <div className="space-y-2 overflow-y-auto pr-1 flex-1">
+                  {/* Custom Methods */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-xs font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                      <span>Metode Kustom Saya ({customPaymentMethods.length})</span>
+                      <span className="text-[10px] text-slate-400 font-normal">Bisa Diedit & Dihapus</span>
+                    </div>
+
+                    {customPaymentMethods.length > 0 ? (
+                      <div className="space-y-1.5">
+                        {customPaymentMethods.map((method) => (
+                          <div
+                            key={method}
+                            className="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xs text-xs font-bold"
+                          >
+                            {editingPaymentMethodName === method ? (
+                              <div className="flex items-center gap-2 w-full">
+                                <input
+                                  type="text"
+                                  value={editedPaymentMethodValue}
+                                  onChange={(e) => setEditedPaymentMethodValue(e.target.value)}
+                                  className="flex-1 px-2.5 py-1 rounded-lg border border-sky-500 text-xs font-bold text-slate-900 dark:text-white bg-white dark:bg-slate-800"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => handleUpdatePaymentMethod(method, editedPaymentMethodValue)}
+                                  className="p-1 bg-sky-600 text-white rounded-lg cursor-pointer"
+                                >
+                                  <Check className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingPaymentMethodName(null)}
+                                  className="p-1 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg cursor-pointer"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ) : (
+                              <>
+                                <span className="flex items-center gap-2 text-slate-900 dark:text-white">
+                                  <CreditCard className="w-4 h-4 text-sky-600 dark:text-sky-400" />
+                                  {method}
+                                </span>
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingPaymentMethodName(method)
+                                      setEditedPaymentMethodValue(method)
+                                    }}
+                                    className="p-1 text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 rounded cursor-pointer"
+                                    title="Edit Nama Metode"
+                                  >
+                                    <Edit className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeletePaymentMethod(method)}
+                                    className="p-1 text-slate-400 hover:text-red-600 dark:hover:text-red-400 rounded cursor-pointer"
+                                    title="Hapus Metode Kustom"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
                                   </button>
                                 </div>
                               </>
@@ -3858,21 +4238,240 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                           </div>
                         ))}
                       </div>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-xs text-slate-400 italic py-4 text-center">
-                    Tidak ada kategori tersisa di database. Tambahkan kategori baru di atas!
-                  </p>
-                )}
-              </div>
-            </div>
+                    ) : (
+                      <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-800 text-center text-xs text-slate-400 italic">
+                        Belum ada metode kustom tambahan. Tambahkan di atas bila usaha Anda menerima metode khusus!
+                      </div>
+                    )}
+                  </div>
 
-            <div className="pt-2 border-t border-slate-100 flex justify-end">
+                  {/* Standard Default Methods */}
+                  <div className="space-y-1.5 pt-2">
+                    <div className="flex items-center justify-between text-xs font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                      <span>Metode Bawaan Sistem (Standar)</span>
+                      <span className="text-[10px] text-slate-400 font-normal">Tersedia Default</span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                      {[
+                        "Cash",
+                        "Transfer Bank",
+                        "QRIS",
+                        "Kredit / Debit",
+                        "Dana Pribadi Owner",
+                        "Talangan Karyawan",
+                        "Hutang Supplier",
+                      ].map((m) => (
+                        <div
+                          key={m}
+                          className="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300"
+                        >
+                          <span className="flex items-center gap-2 truncate">
+                            <CreditCard className="w-3.5 h-3.5 text-slate-400" />
+                            {m}
+                          </span>
+                          <span title="Bawaan Sistem">
+                            <Lock className="w-3 h-3 text-slate-400 shrink-0" />
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 3: STATUS TRANSAKSI & PELUNASAN */}
+            {masterSettingsTab === "statuses" && (
+              <div className="space-y-4 flex-1 flex flex-col overflow-hidden">
+                {/* CREATE CUSTOM STATUS FORM */}
+                <div className="bg-slate-50 dark:bg-slate-800/50 p-3.5 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-3 shrink-0">
+                  <label className="text-xs font-extrabold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                    <CheckSquare className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                    Tambah Status Transaksi Baru
+                  </label>
+
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                    <input
+                      type="text"
+                      value={newStatusNameInput}
+                      onChange={(e) => setNewStatusNameInput(e.target.value)}
+                      placeholder="Contoh: Pending Review, Reimburse Diproses, Dibatalkan..."
+                      className="flex-1 px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 focus:border-amber-500 text-xs font-semibold text-slate-900 dark:text-white bg-white dark:bg-slate-900"
+                    />
+
+                    {/* Color Picker Pill */}
+                    <div className="flex items-center gap-1 bg-white dark:bg-slate-900 px-2 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 shrink-0">
+                      {[
+                        { name: "sky", class: "bg-sky-500" },
+                        { name: "emerald", class: "bg-emerald-500" },
+                        { name: "amber", class: "bg-amber-500" },
+                        { name: "rose", class: "bg-rose-500" },
+                        { name: "purple", class: "bg-purple-500" },
+                        { name: "indigo", class: "bg-indigo-500" },
+                      ].map((c) => (
+                        <button
+                          key={c.name}
+                          type="button"
+                          onClick={() => setNewStatusColor(c.name)}
+                          className={`w-4.5 h-4.5 rounded-full ${c.class} transition-all cursor-pointer ${
+                            newStatusColor === c.name ? "ring-2 ring-offset-1 ring-slate-900 dark:ring-white scale-110" : "opacity-70 hover:opacity-100"
+                          }`}
+                          title={`Warna ${c.name}`}
+                        />
+                      ))}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleAddStatus}
+                      className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-xs transition-colors shadow-sm shrink-0 cursor-pointer active:scale-95"
+                    >
+                      <Plus className="w-4 h-4" /> Tambah
+                    </button>
+                  </div>
+
+                  {/* Settled Flag Checkbox */}
+                  <label className="flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={newStatusIsSettled}
+                      onChange={(e) => setNewStatusIsSettled(e.target.checked)}
+                      className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                    />
+                    <span>Tandai status ini sebagai Lunas / Selesai (bukan hutang/tempo)</span>
+                  </label>
+                </div>
+
+                {/* STATUSES LIST */}
+                <div className="space-y-2 overflow-y-auto pr-1 flex-1">
+                  {/* Custom Statuses */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-xs font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                      <span>Status Kustom Saya ({customStatuses.length})</span>
+                      <span className="text-[10px] text-slate-400 font-normal">Bisa Diedit & Dihapus</span>
+                    </div>
+
+                    {customStatuses.length > 0 ? (
+                      <div className="space-y-1.5">
+                        {customStatuses.map((st) => (
+                          <div
+                            key={st.id}
+                            className="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xs text-xs font-bold"
+                          >
+                            {editingStatusId === st.id ? (
+                              <div className="flex items-center gap-2 w-full">
+                                <input
+                                  type="text"
+                                  value={editingStatusName}
+                                  onChange={(e) => setEditingStatusName(e.target.value)}
+                                  className="flex-1 px-2.5 py-1 rounded-lg border border-amber-500 text-xs font-bold text-slate-900 dark:text-white bg-white dark:bg-slate-800"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => handleUpdateStatus(st.id, editingStatusName, editingStatusColor, editingStatusIsSettled)}
+                                  className="p-1 bg-amber-600 text-white rounded-lg cursor-pointer"
+                                >
+                                  <Check className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingStatusId(null)}
+                                  className="p-1 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg cursor-pointer"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ) : (
+                              <>
+                                <div className="flex items-center gap-2">
+                                  <span className={`w-2.5 h-2.5 rounded-full ${
+                                    st.color === "emerald" ? "bg-emerald-500" :
+                                    st.color === "sky" ? "bg-sky-500" :
+                                    st.color === "rose" ? "bg-rose-500" :
+                                    st.color === "purple" ? "bg-purple-500" :
+                                    st.color === "indigo" ? "bg-indigo-500" :
+                                    "bg-amber-500"
+                                  }`} />
+                                  <span className="text-slate-900 dark:text-white font-bold">{st.name}</span>
+                                  <span className="text-[10px] font-normal text-slate-400">
+                                    ({st.isSettled ? "Lunas" : "Belum Lunas"})
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingStatusId(st.id)
+                                      setEditingStatusName(st.name)
+                                      setEditingStatusColor(st.color || "sky")
+                                      setEditingStatusIsSettled(!!st.isSettled)
+                                    }}
+                                    className="p-1 text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 rounded cursor-pointer"
+                                    title="Edit Nama Status"
+                                  >
+                                    <Edit className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteStatus(st.id, st.name)}
+                                    className="p-1 text-slate-400 hover:text-red-600 dark:hover:text-red-400 rounded cursor-pointer"
+                                    title="Hapus Status Kustom"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-800 text-center text-xs text-slate-400 italic">
+                        Belum ada status kustom tambahan. Tambahkan di atas bila usaha Anda memiliki tahapan status tersendiri!
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Standard Default Statuses */}
+                  <div className="space-y-1.5 pt-2">
+                    <div className="flex items-center justify-between text-xs font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                      <span>Status Bawaan Sistem (Standar)</span>
+                      <span className="text-[10px] text-slate-400 font-normal">Tersedia Default</span>
+                    </div>
+                    <div className="space-y-1.5">
+                      {[
+                        { label: "Lunas", color: "bg-emerald-500", desc: "Transaksi telah dibayar lunas" },
+                        { label: "Sudah Dilunasi", color: "bg-teal-500", desc: "Reimburse / pelunasan selesai" },
+                        { label: "Belum Lunas / Tempo", color: "bg-amber-500", desc: "Belum lunas / tempo hutang supplier" },
+                      ].map((item) => (
+                        <div
+                          key={item.label}
+                          className="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300"
+                        >
+                          <div className="flex items-center gap-2 truncate">
+                            <span className={`w-2.5 h-2.5 rounded-full ${item.color}`} />
+                            <span className="font-bold text-slate-900 dark:text-white">{item.label}</span>
+                            <span className="text-[10px] text-slate-400 font-normal truncate">
+                              ({item.desc})
+                            </span>
+                          </div>
+                          <span title="Bawaan Sistem">
+                            <Lock className="w-3 h-3 text-slate-400 shrink-0" />
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Modal Footer */}
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end shrink-0">
               <button
                 type="button"
                 onClick={() => setShowManageCategoryModal(false)}
-                className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition-colors"
+                className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white font-bold text-xs transition-colors cursor-pointer active:scale-95 shadow-sm"
               >
                 Selesai
               </button>

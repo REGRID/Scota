@@ -3,28 +3,35 @@
 import React, { useState, useEffect, useMemo, useRef } from "react"
 import {
   TrendingUp,
-  TrendingDown,
   Receipt,
   Camera,
-  Layers,
-  ArrowRight,
   FileSpreadsheet,
   CheckCircle2,
   Clock,
-  AlertCircle,
   Calendar,
   Wallet,
-  Building2,
   Sparkles,
-  ShieldCheck,
   RefreshCw,
-  ExternalLink,
   ChevronRight,
   CreditCard,
   Banknote,
-  DollarSign,
-  PieChart,
+  PieChart as LucidePieChart,
+  ArrowRight,
+  Layers,
+  ArrowUpRight,
 } from "lucide-react"
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  PieChart as RechartsPieChart,
+  Pie,
+  Cell,
+} from "recharts"
 import { useAppDialog } from "@/components/ui/app-dialog"
 import { gsap } from "gsap"
 import { useGSAP } from "@gsap/react"
@@ -82,8 +89,8 @@ export function ExecutiveSummaryDashboard({
       gsap.from(".bento-card-animate", {
         opacity: 0,
         y: 18,
-        duration: 0.42,
-        stagger: 0.07,
+        duration: 0.45,
+        stagger: 0.06,
         ease: "power2.out",
       })
     }
@@ -220,6 +227,52 @@ export function ExecutiveSummaryDashboard({
     }
   }, [filteredReceipts, timeframe])
 
+  // Daily Trend Data for AreaChart
+  const dailyTrendData = useMemo(() => {
+    const daysCount = timeframe === "today" ? 1 : timeframe === "7d" ? 7 : timeframe === "30d" ? 14 : 14
+    const result: { date: string; rawDate: string; amount: number; count: number }[] = []
+    const now = new Date()
+
+    // Create day buckets
+    for (let i = daysCount - 1; i >= 0; i--) {
+      const d = new Date()
+      d.setDate(now.getDate() - i)
+      const dateStr = d.toISOString().split("T")[0]
+      const label = d.toLocaleDateString("id-ID", { day: "numeric", month: "short" })
+      result.push({
+        date: label,
+        rawDate: dateStr,
+        amount: 0,
+        count: 0,
+      })
+    }
+
+    // Populate from receipts
+    filteredReceipts.forEach((r) => {
+      const rDate = (r.date || "").split("T")[0]
+      const bucket = result.find((b) => b.rawDate === rDate)
+      if (bucket) {
+        bucket.amount += Number(r.totalAmount) || 0
+        bucket.count += 1
+      }
+    })
+
+    return result
+  }, [filteredReceipts, timeframe])
+
+  // Category Colors for Pie Chart
+  const CATEGORY_COLORS = ["#10b981", "#06b6d4", "#6366f1", "#f59e0b", "#ec4899", "#8b5cf6"]
+
+  const categoryPieData = useMemo(() => {
+    if (metrics.topCategories.length === 0) return []
+    return metrics.topCategories.map((cat, i) => ({
+      name: cat.name,
+      value: cat.amount,
+      percent: cat.percent,
+      color: CATEGORY_COLORS[i % CATEGORY_COLORS.length],
+    }))
+  }, [metrics.topCategories])
+
   // Recent 5 receipts
   const recentReceipts = useMemo(() => {
     return [...filteredReceipts]
@@ -236,18 +289,25 @@ export function ExecutiveSummaryDashboard({
     window.open(url.toString(), "_blank")
   }
 
+  const getTimeframeLabel = () => {
+    if (timeframe === "today") return "Hari Ini"
+    if (timeframe === "7d") return "7 Hari Terakhir"
+    if (timeframe === "30d") return "30 Hari Terakhir"
+    return "Seluruh Waktu"
+  }
+
   return (
     <div ref={dashboardRef} className="space-y-6">
-      {/* Top Bar: Title & Timeframe Selector */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-1 border-b border-slate-200 dark:border-slate-800">
+      {/* Top Bar: Title & Controls */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200 dark:border-slate-800">
         <div>
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shadow-xs shadow-emerald-500/50" />
             <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
               Ringkasan Kas & Operasional
             </h2>
             <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
-              {subscription?.studioProfile?.studioName || "Outlet Aktif"}
+              {subscription?.studioProfile?.studioName || "SCOTA BUSINESS"}
             </span>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
@@ -255,7 +315,17 @@ export function ExecutiveSummaryDashboard({
           </p>
         </div>
 
-        <div className="flex items-center gap-2 self-start sm:self-auto">
+        <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+          {/* Scan CTA Button */}
+          <button
+            type="button"
+            onClick={() => onNavigateTab("scan")}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs transition-all shadow-sm shadow-emerald-500/20 active:scale-95 cursor-pointer"
+          >
+            <Camera className="w-3.5 h-3.5" />
+            <span>Pindai Nota</span>
+          </button>
+
           {/* Refresh Button */}
           <button
             type="button"
@@ -294,155 +364,346 @@ export function ExecutiveSummaryDashboard({
         </div>
       </div>
 
-      {/* Bento Grid Layout (Variance: 7, Density: 6, Anti-Slop Asymmetry) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
-        {/* CARD 1: Hero Metric (Full Width 12 Cols) */}
-        <div className="bento-card-animate lg:col-span-12 bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-xs dark:shadow-xl relative overflow-hidden flex flex-col justify-between">
-          <div className="space-y-4">
+      {/* 4 BALANCED KPI METRIC CARDS ROW */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* KPI 1: Total Pengeluaran */}
+        <div className="bento-card-animate bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 hover:border-emerald-500/40 rounded-3xl p-5 shadow-xs dark:shadow-xl relative overflow-hidden flex flex-col justify-between group transition-all">
+          <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <span className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                <Wallet className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                Total Pengeluaran ({timeframe === "today" ? "Hari Ini" : timeframe === "7d" ? "7 Hari Terakhir" : timeframe === "30d" ? "30 Hari Terakhir" : "Seluruh Waktu"})
+              <span className="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                Total Pengeluaran
               </span>
-              <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">
-                {metrics.count} Nota Tercatat
-              </span>
-            </div>
-
-            <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-4">
-              <div className="space-y-1">
-                <div className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-slate-900 dark:text-white">
-                  Rp {metrics.totalAmount.toLocaleString("id-ID")}
-                </div>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Hasil ekstraksi nota belanja, bon kasir, dan faktur fisik yang telah terverifikasi.
-                </p>
+              <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 border border-emerald-500/20 flex items-center justify-center shrink-0">
+                <Wallet className="w-4 h-4" />
               </div>
-
-              <button
-                type="button"
-                onClick={() => onNavigateTab("scan")}
-                className="self-start sm:self-center inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs transition-all shadow-md shadow-emerald-500/20 active:scale-95 cursor-pointer"
-              >
-                <Camera className="w-4 h-4" />
-                <span>Pindai Nota Baru</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
             </div>
-          </div>
-
-          {/* Sub-Metrics Strip */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-6 mt-6 border-t border-slate-100 dark:border-slate-800/80">
-            <div className="bg-slate-50 dark:bg-slate-950/60 p-3.5 rounded-2xl border border-slate-200/60 dark:border-slate-800/60">
-              <span className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                Rata-rata / Hari
-              </span>
-              <span className="text-sm sm:text-base font-black text-slate-900 dark:text-slate-100 mt-0.5 block">
-                Rp {metrics.avgPerDay.toLocaleString("id-ID")}
-              </span>
-            </div>
-
-            <div className="bg-slate-50 dark:bg-slate-950/60 p-3.5 rounded-2xl border border-slate-200/60 dark:border-slate-800/60">
-              <span className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                Rata-rata / Nota
-              </span>
-              <span className="text-sm sm:text-base font-black text-slate-900 dark:text-slate-100 mt-0.5 block">
-                Rp {metrics.avgPerReceipt.toLocaleString("id-ID")}
-              </span>
-            </div>
-
-            <div className="col-span-2 sm:col-span-1 bg-slate-50 dark:bg-slate-950/60 p-3.5 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 flex items-center justify-between sm:block">
-              <div>
-                <span className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                  Sisa Kuota AI Scan
-                </span>
-                <span className="text-sm sm:text-base font-black text-emerald-600 dark:text-emerald-400 mt-0.5 block">
-                  {quotaInfo?.isUnlimited ? "Unlimited" : `${quotaInfo?.remaining ?? 0} Nota`}
+            <div>
+              <div className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+                Rp {metrics.totalAmount.toLocaleString("id-ID")}
+              </div>
+              <div className="flex items-center gap-1.5 mt-1">
+                <span className="text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                  {getTimeframeLabel()}
                 </span>
               </div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase sm:mt-1 sm:block">
-                Bulan Ini
-              </span>
             </div>
           </div>
-        </div>
-
-        {/* CARD 3: Expense Category Velocity (6 Cols) */}
-        <div className="bento-card-animate lg:col-span-6 bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-xs dark:shadow-xl flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-                <PieChart className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                Top Kategori Pengeluaran
-              </h4>
-              <span className="text-[11px] font-semibold text-slate-400">
-                Porsi Pengeluaran Toko
-              </span>
-            </div>
-
-            <div className="space-y-3.5 pt-4">
-              {metrics.topCategories.length > 0 ? (
-                metrics.topCategories.map((cat, idx) => (
-                  <div key={idx} className="space-y-1.5">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-bold text-slate-800 dark:text-slate-200 truncate max-w-[200px]">
-                        {cat.name}
-                      </span>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className="font-bold text-slate-700 dark:text-slate-300">
-                          Rp {cat.amount.toLocaleString("id-ID")}
-                        </span>
-                        <span className="text-[11px] font-bold text-slate-400 w-10 text-right">
-                          {cat.percent}%
-                        </span>
-                      </div>
-                    </div>
-                    {/* Clean Monochromatic Progress Bar */}
-                    <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-emerald-500 rounded-full transition-all duration-500"
-                        style={{ width: `${Math.max(cat.percent, 4)}%` }}
-                      />
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="py-8 text-center text-xs text-slate-400 space-y-1">
-                  <p>Belum ada rincian kategori untuk periode ini.</p>
-                  <p className="text-[11px] text-slate-500">Pindai nota pertama untuk melihat sebaran biaya.</p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="pt-4 mt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-            <span>Metode: Klasifikasi Otomatis AI</span>
+          <div className="pt-3 mt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+            <span className="font-semibold">{metrics.count} Nota Tercatat</span>
             <button
               type="button"
               onClick={() => onNavigateTab("history")}
-              className="text-emerald-600 dark:text-emerald-400 font-bold hover:underline cursor-pointer flex items-center gap-1"
+              className="text-emerald-600 dark:text-emerald-400 font-bold hover:underline flex items-center gap-0.5 text-[11px] cursor-pointer"
             >
-              <span>Audit Kategori</span>
-              <ChevronRight className="w-3 h-3" />
+              <span>Riwayat</span>
+              <ArrowUpRight className="w-3 h-3" />
             </button>
           </div>
         </div>
 
-        {/* CARD 4: Payment Flow & Cash Radar (6 Cols) */}
+        {/* KPI 2: Rata-rata / Hari */}
+        <div className="bento-card-animate bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 hover:border-sky-500/40 rounded-3xl p-5 shadow-xs dark:shadow-xl relative overflow-hidden flex flex-col justify-between group transition-all">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                Rata-rata / Hari
+              </span>
+              <div className="w-8 h-8 rounded-xl bg-sky-500/10 text-sky-500 dark:text-sky-400 border border-sky-500/20 flex items-center justify-center shrink-0">
+                <Calendar className="w-4 h-4" />
+              </div>
+            </div>
+            <div>
+              <div className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+                Rp {metrics.avgPerDay.toLocaleString("id-ID")}
+              </div>
+              <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                Beban rata-rata operasional harian
+              </div>
+            </div>
+          </div>
+          <div className="pt-3 mt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+            <span className="font-semibold">
+              Periode: {timeframe === "today" ? "1 Hari" : timeframe === "7d" ? "7 Hari" : "30 Hari"}
+            </span>
+            <span className="text-[10px] font-bold uppercase text-slate-400">Rerata</span>
+          </div>
+        </div>
+
+        {/* KPI 3: Rata-rata / Nota */}
+        <div className="bento-card-animate bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 hover:border-indigo-500/40 rounded-3xl p-5 shadow-xs dark:shadow-xl relative overflow-hidden flex flex-col justify-between group transition-all">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                Rata-rata / Nota
+              </span>
+              <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-500 dark:text-indigo-400 border border-indigo-500/20 flex items-center justify-center shrink-0">
+                <Receipt className="w-4 h-4" />
+              </div>
+            </div>
+            <div>
+              <div className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+                Rp {metrics.avgPerReceipt.toLocaleString("id-ID")}
+              </div>
+              <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                Besaran rata-rata per struk belanja
+              </div>
+            </div>
+          </div>
+          <div className="pt-3 mt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+            <span className="font-semibold">Nilai Struk Kasir</span>
+            <span className="text-[10px] font-bold uppercase text-slate-400">Per Faktur</span>
+          </div>
+        </div>
+
+        {/* KPI 4: Sisa Kuota AI Scan */}
+        <div className="bento-card-animate bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 hover:border-purple-500/40 rounded-3xl p-5 shadow-xs dark:shadow-xl relative overflow-hidden flex flex-col justify-between group transition-all">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                Sisa Kuota AI Scan
+              </span>
+              <div className="w-8 h-8 rounded-xl bg-purple-500/10 text-purple-500 dark:text-purple-400 border border-purple-500/20 flex items-center justify-center shrink-0">
+                <Sparkles className="w-4 h-4" />
+              </div>
+            </div>
+            <div>
+              <div className="text-2xl sm:text-3xl font-black text-emerald-600 dark:text-emerald-400 tracking-tight">
+                {quotaInfo?.isUnlimited ? "Unlimited" : `${quotaInfo?.remaining ?? 0} Nota`}
+              </div>
+              <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                Ekstraksi OCR otomatis & cerdas
+              </div>
+            </div>
+          </div>
+          <div className="pt-3 mt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+            <span className="font-semibold">Status Kuota</span>
+            <span className="text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded-md bg-purple-500/10 text-purple-600 dark:text-purple-400">
+              Bulan Ini
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* CHARTS & ANALYTICS VISUALIZATION ROW */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
+        {/* CHART 1: Tren Pengeluaran Harian (AreaChart) */}
+        <div className="bento-card-animate lg:col-span-7 bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-xs dark:shadow-xl flex flex-col justify-between">
+          <div>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div>
+                <h3 className="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                  <TrendingUp className="w-4 h-4 text-emerald-500" />
+                  Tren Pengeluaran Harian
+                </h3>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Fluktuasi pengeluaran berdasarkan tanggal nota terverifikasi
+                </p>
+              </div>
+              <span className="self-start sm:self-auto text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                Total: Rp {metrics.totalAmount.toLocaleString("id-ID")}
+              </span>
+            </div>
+
+            {/* AreaChart Container */}
+            <div className="w-full pt-4 min-h-[250px]">
+              <ResponsiveContainer width="100%" height={250}>
+                <AreaChart data={dailyTrendData} margin={{ top: 12, right: 10, left: -15, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="expenseTrendGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.35} />
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} opacity={0.6} />
+                  <XAxis
+                    dataKey="date"
+                    stroke="#64748b"
+                    fontSize={11}
+                    tickLine={false}
+                    interval="preserveStartEnd"
+                  />
+                  <YAxis
+                    stroke="#64748b"
+                    fontSize={10}
+                    tickLine={false}
+                    tickFormatter={(val) =>
+                      val >= 1000000
+                        ? `${(val / 1000000).toFixed(1)}jt`
+                        : val >= 1000
+                        ? `${(val / 1000).toFixed(0)}rb`
+                        : `${val}`
+                    }
+                  />
+                  <Tooltip
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        const data = payload[0].payload
+                        return (
+                          <div className="bg-slate-900/95 border border-slate-700/80 rounded-xl p-3 shadow-xl backdrop-blur-md text-xs">
+                            <p className="font-bold text-slate-300 mb-1">{data.date}</p>
+                            <p className="text-emerald-400 font-black text-sm">
+                              Rp {Number(payload[0].value || 0).toLocaleString("id-ID")}
+                            </p>
+                            <p className="text-slate-400 text-[10px] mt-0.5">
+                              {data.count || 0} nota pada tanggal ini
+                            </p>
+                          </div>
+                        )
+                      }
+                      return null
+                    }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="amount"
+                    stroke="#10b981"
+                    strokeWidth={2.5}
+                    fill="url(#expenseTrendGradient)"
+                    dot={{ r: 3, fill: "#10b981" }}
+                    activeDot={{ r: 5, fill: "#34d399", stroke: "#064e3b", strokeWidth: 2 }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          <div className="pt-3 mt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+            <span>Rerata Harian: Rp {metrics.avgPerDay.toLocaleString("id-ID")}</span>
+            <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold">
+              Live Real-Time
+            </span>
+          </div>
+        </div>
+
+        {/* CHART 2: Komposisi Top Kategori & Porsi Biaya (Donut + Progress) */}
+        <div className="bento-card-animate lg:col-span-5 bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-xs dark:shadow-xl flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                <LucidePieChart className="w-4 h-4 text-emerald-500" />
+                Top Kategori Pengeluaran
+              </h3>
+              <span className="text-[11px] font-semibold text-slate-400">
+                Porsi Biaya
+              </span>
+            </div>
+
+            {categoryPieData.length > 0 ? (
+              <div className="pt-3 space-y-3">
+                {/* Donut Chart */}
+                <div className="w-full h-[140px] flex items-center justify-center">
+                  <ResponsiveContainer width="100%" height={140}>
+                    <RechartsPieChart>
+                      <Pie
+                        data={categoryPieData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={42}
+                        outerRadius={62}
+                        paddingAngle={3}
+                        dataKey="value"
+                      >
+                        {categoryPieData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} stroke="#0f172a" strokeWidth={2} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            const item = payload[0].payload
+                            return (
+                              <div className="bg-slate-900/95 border border-slate-700/80 rounded-xl p-2.5 shadow-xl text-xs">
+                                <p className="font-bold text-white">{item.name}</p>
+                                <p className="text-emerald-400 font-bold">
+                                  Rp {Number(item.value).toLocaleString("id-ID")} ({item.percent}%)
+                                </p>
+                              </div>
+                            )
+                          }
+                          return null
+                        }}
+                      />
+                    </RechartsPieChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* Progress bars of top categories */}
+                <div className="space-y-2 max-h-[140px] overflow-y-auto pr-1">
+                  {categoryPieData.slice(0, 3).map((cat, idx) => (
+                    <div key={idx} className="space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-bold text-slate-800 dark:text-slate-200 truncate max-w-[170px] flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
+                          <span className="truncate">{cat.name}</span>
+                        </span>
+                        <div className="flex items-center gap-1.5 shrink-0 text-right">
+                          <span className="font-bold text-slate-700 dark:text-slate-300">
+                            Rp {cat.value.toLocaleString("id-ID")}
+                          </span>
+                          <span className="text-[10px] font-bold text-slate-400 w-8">
+                            {cat.percent}%
+                          </span>
+                        </div>
+                      </div>
+                      <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-500"
+                          style={{
+                            width: `${Math.max(cat.percent, 5)}%`,
+                            backgroundColor: cat.color,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="py-10 text-center text-xs text-slate-400 space-y-2">
+                <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 flex items-center justify-center mx-auto text-slate-400">
+                  <LucidePieChart className="w-6 h-6" />
+                </div>
+                <p className="font-bold text-slate-600 dark:text-slate-300">
+                  Belum ada rincian kategori untuk periode ini.
+                </p>
+                <p className="text-[11px] text-slate-500 max-w-xs mx-auto">
+                  Pindai nota pertama untuk melihat sebaran alokasi biaya otomatis oleh AI.
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="pt-3 mt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+            <span>Klasifikasi AI Otomatis</span>
+            <button
+              type="button"
+              onClick={() => onNavigateTab("history")}
+              className="text-emerald-600 dark:text-emerald-400 font-bold hover:underline cursor-pointer flex items-center gap-0.5 text-xs"
+            >
+              <span>Audit Kategori</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* FINANCIAL CASHFLOW & RECENT ACTIVITY ROW */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
+        {/* CARD: Kanal Pembayaran & Status Kas (6 Cols) */}
         <div className="bento-card-animate lg:col-span-6 bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-xs dark:shadow-xl flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-                <CreditCard className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+              <h3 className="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                <CreditCard className="w-4 h-4 text-emerald-500" />
                 Kanal Pembayaran & Status Kas
-              </h4>
+              </h3>
               <span className="text-[11px] font-semibold text-slate-400">
                 Arus Kas Keluar
               </span>
             </div>
 
             <div className="grid grid-cols-2 gap-3 pt-4">
-              {/* Tunai vs Non-Tunai */}
+              {/* Tunai */}
               <div className="bg-slate-50 dark:bg-slate-950/60 p-4 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 space-y-2">
                 <div className="flex items-center justify-between text-xs">
                   <span className="flex items-center gap-1.5 font-bold text-slate-700 dark:text-slate-300">
@@ -463,6 +724,7 @@ export function ExecutiveSummaryDashboard({
                 </div>
               </div>
 
+              {/* Non-Tunai / Bank */}
               <div className="bg-slate-50 dark:bg-slate-950/60 p-4 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 space-y-2">
                 <div className="flex items-center justify-between text-xs">
                   <span className="flex items-center gap-1.5 font-bold text-slate-700 dark:text-slate-300">
@@ -521,83 +783,95 @@ export function ExecutiveSummaryDashboard({
           </div>
         </div>
 
-        {/* CARD 5: Recent Transactions Feed (Full Width 12 Cols) */}
-        <div className="bento-card-animate lg:col-span-12 bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-xs dark:shadow-xl space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
-            <div className="flex items-center gap-2">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                Nota & Transaksi Terkini
-              </h4>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-                5 Terakhir
-              </span>
+        {/* CARD: Nota & Transaksi Terkini (6 Cols) */}
+        <div className="bento-card-animate lg:col-span-6 bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-xs dark:shadow-xl flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <h3 className="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                  <Clock className="w-4 h-4 text-emerald-500" />
+                  Nota & Transaksi Terkini
+                </h3>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                  5 Terakhir
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => onNavigateTab("history")}
+                className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 transition-colors cursor-pointer"
+              >
+                <span>Semua</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
             </div>
 
+            {recentReceipts.length > 0 ? (
+              <div className="divide-y divide-slate-100 dark:divide-slate-800/80 pt-1">
+                {recentReceipts.map((r) => (
+                  <div
+                    key={r.id}
+                    onClick={() => onNavigateTab("history")}
+                    className="py-2.5 flex items-center justify-between gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/40 px-2 rounded-xl transition-colors cursor-pointer group"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center justify-center font-bold text-xs shrink-0 group-hover:bg-emerald-500/10 group-hover:text-emerald-600 transition-colors">
+                        <Receipt className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                          {r.merchantName || "Struk Pembelian Usaha"}
+                        </p>
+                        <div className="flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-400">
+                          <span>{r.date || "Hari Ini"}</span>
+                          <span>•</span>
+                          <span className="truncate">{r.category || "Umum"}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="text-right shrink-0">
+                      <div className="text-xs font-black text-slate-900 dark:text-white">
+                        Rp {(Number(r.totalAmount) || 0).toLocaleString("id-ID")}
+                      </div>
+                      <span
+                        className={`inline-block text-[9px] font-bold px-1.5 py-0.5 rounded-full mt-0.5 ${
+                          (r.paymentStatus || "Lunas").toLowerCase().includes("tempo")
+                            ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30"
+                            : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
+                        }`}
+                      >
+                        {r.paymentStatus || "Lunas"}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="py-10 text-center text-xs text-slate-400 space-y-2">
+                <Receipt className="w-8 h-8 text-slate-300 dark:text-slate-700 mx-auto" />
+                <p className="font-semibold text-slate-600 dark:text-slate-400">
+                  Belum ada nota transaksi yang tersimpan.
+                </p>
+                <p className="text-[11px] text-slate-400 max-w-sm mx-auto">
+                  Gunakan tombol Scan untuk memindai nota fisik pertama Anda.
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="pt-3 mt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+            <span>Sinkronisasi Otomatis</span>
             <button
               type="button"
               onClick={() => onNavigateTab("history")}
-              className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 transition-colors cursor-pointer self-start sm:self-auto"
+              className="text-emerald-600 dark:text-emerald-400 font-bold hover:underline cursor-pointer flex items-center gap-0.5 text-xs"
             >
-              <span>Buka Menu Riwayat & Pencarian Lengkap</span>
+              <span>Buka Pencarian & Filter</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
-
-          {recentReceipts.length > 0 ? (
-            <div className="divide-y divide-slate-100 dark:divide-slate-800/80">
-              {recentReceipts.map((r) => (
-                <div
-                  key={r.id}
-                  onClick={() => onNavigateTab("history")}
-                  className="py-3 flex items-center justify-between gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/40 px-2 rounded-xl transition-colors cursor-pointer group"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center justify-center font-bold text-xs shrink-0 group-hover:bg-emerald-500/10 group-hover:text-emerald-600 transition-colors">
-                      <Receipt className="w-4 h-4" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate">
-                        {r.merchantName || "Struk Pembelian Usaha"}
-                      </p>
-                      <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
-                        <span>{r.date || "Hari Ini"}</span>
-                        <span>•</span>
-                        <span className="truncate">{r.category || "Umum"}</span>
-                        <span>•</span>
-                        <span>{r.paymentMethod || "Cash"}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="text-right shrink-0">
-                    <div className="text-xs sm:text-sm font-black text-slate-900 dark:text-white">
-                      Rp {(Number(r.totalAmount) || 0).toLocaleString("id-ID")}
-                    </div>
-                    <span
-                      className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full mt-0.5 ${
-                        (r.paymentStatus || "Lunas").toLowerCase().includes("tempo")
-                          ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30"
-                          : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
-                      }`}
-                    >
-                      {r.paymentStatus || "Lunas"}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="py-12 text-center text-xs text-slate-400 space-y-2">
-              <Receipt className="w-8 h-8 text-slate-300 dark:text-slate-700 mx-auto" />
-              <p className="font-semibold text-slate-600 dark:text-slate-400">
-                Belum ada nota transaksi yang tersimpan.
-              </p>
-              <p className="text-[11px] text-slate-400 max-w-sm mx-auto">
-                Gunakan tombol Scan untuk memindai nota fisik pertama Anda.
-              </p>
-            </div>
-          )}
         </div>
       </div>
     </div>

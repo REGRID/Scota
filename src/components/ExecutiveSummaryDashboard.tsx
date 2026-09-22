@@ -76,25 +76,54 @@ export function ExecutiveSummaryDashboard({
   subscription,
 }: ExecutiveSummaryDashboardProps) {
   const { showAlert } = useAppDialog()
-  const [receipts, setReceipts] = useState<RawReceipt[]>([])
-  const [isLoading, setIsLoading] = useState<boolean>(true)
+  const [receipts, setReceipts] = useState<RawReceipt[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem("nota_receipts_cache_v2")
+        if (cached) return JSON.parse(cached)
+      } catch (e) {}
+    }
+    return []
+  })
+  const [isLoading, setIsLoading] = useState<boolean>(false)
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false)
   const [timeframe, setTimeframe] = useState<TimeframeOption>("30d")
+  const [isMounted, setIsMounted] = useState<boolean>(false)
 
   const dashboardRef = useRef<HTMLDivElement>(null)
+  const hasAnimatedRef = useRef<boolean>(false)
 
-  // GSAP Staggered Card Entrance on Data Load / Timeframe change
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
+  // GSAP Entrance (Run exactly once on mount, with clearProps: all to guarantee elements are 100% visible)
   useGSAP(() => {
-    if (!isLoading && dashboardRef.current) {
-      gsap.from(".bento-card-animate", {
-        opacity: 0,
-        y: 18,
-        duration: 0.45,
-        stagger: 0.06,
-        ease: "power2.out",
-      })
+    if (!hasAnimatedRef.current && dashboardRef.current) {
+      hasAnimatedRef.current = true
+      const cards = dashboardRef.current.querySelectorAll(".bento-card-animate")
+      if (cards.length > 0) {
+        gsap.fromTo(
+          cards,
+          { opacity: 0, y: 14 },
+          {
+            opacity: 1,
+            y: 0,
+            duration: 0.35,
+            stagger: 0.04,
+            ease: "power2.out",
+            clearProps: "all",
+            onComplete: () => {
+              cards.forEach((el) => {
+                ;(el as HTMLElement).style.opacity = "1"
+                ;(el as HTMLElement).style.transform = "none"
+              })
+            },
+          }
+        )
+      }
     }
-  }, { dependencies: [isLoading, timeframe], scope: dashboardRef })
+  }, { scope: dashboardRef })
 
   // Realtime Quota
   const [quotaInfo, setQuotaInfo] = useState<{
@@ -106,7 +135,7 @@ export function ExecutiveSummaryDashboard({
   } | null>(null)
 
   const fetchReceiptsData = async (silent = false) => {
-    if (!silent) setIsLoading(true)
+    if (!silent && receipts.length === 0) setIsLoading(true)
     else setIsRefreshing(true)
 
     try {
@@ -119,6 +148,11 @@ export function ExecutiveSummaryDashboard({
         const data = await resReceipts.json()
         if (Array.isArray(data)) {
           setReceipts(data)
+          if (typeof window !== "undefined") {
+            try {
+              localStorage.setItem("nota_receipts_cache_v2", JSON.stringify(data))
+            } catch (e) {}
+          }
         }
       }
 
@@ -506,64 +540,70 @@ export function ExecutiveSummaryDashboard({
 
             {/* AreaChart Container */}
             <div className="w-full pt-4 min-h-[250px]">
-              <ResponsiveContainer width="100%" height={250}>
-                <AreaChart data={dailyTrendData} margin={{ top: 12, right: 10, left: -15, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="expenseTrendGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.35} />
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} opacity={0.6} />
-                  <XAxis
-                    dataKey="date"
-                    stroke="#64748b"
-                    fontSize={11}
-                    tickLine={false}
-                    interval="preserveStartEnd"
-                  />
-                  <YAxis
-                    stroke="#64748b"
-                    fontSize={10}
-                    tickLine={false}
-                    tickFormatter={(val) =>
-                      val >= 1000000
-                        ? `${(val / 1000000).toFixed(1)}jt`
-                        : val >= 1000
-                        ? `${(val / 1000).toFixed(0)}rb`
-                        : `${val}`
-                    }
-                  />
-                  <Tooltip
-                    content={({ active, payload }) => {
-                      if (active && payload && payload.length) {
-                        const data = payload[0].payload
-                        return (
-                          <div className="bg-slate-900/95 border border-slate-700/80 rounded-xl p-3 shadow-xl backdrop-blur-md text-xs">
-                            <p className="font-bold text-slate-300 mb-1">{data.date}</p>
-                            <p className="text-emerald-400 font-black text-sm">
-                              Rp {Number(payload[0].value || 0).toLocaleString("id-ID")}
-                            </p>
-                            <p className="text-slate-400 text-[10px] mt-0.5">
-                              {data.count || 0} nota pada tanggal ini
-                            </p>
-                          </div>
-                        )
+              {isMounted ? (
+                <ResponsiveContainer width="100%" height={250}>
+                  <AreaChart data={dailyTrendData} margin={{ top: 12, right: 10, left: -15, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="expenseTrendGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.35} />
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} opacity={0.6} />
+                    <XAxis
+                      dataKey="date"
+                      stroke="#64748b"
+                      fontSize={11}
+                      tickLine={false}
+                      interval="preserveStartEnd"
+                    />
+                    <YAxis
+                      stroke="#64748b"
+                      fontSize={10}
+                      tickLine={false}
+                      tickFormatter={(val) =>
+                        val >= 1000000
+                          ? `${(val / 1000000).toFixed(1)}jt`
+                          : val >= 1000
+                          ? `${(val / 1000).toFixed(0)}rb`
+                          : `${val}`
                       }
-                      return null
-                    }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="amount"
-                    stroke="#10b981"
-                    strokeWidth={2.5}
-                    fill="url(#expenseTrendGradient)"
-                    dot={{ r: 3, fill: "#10b981" }}
-                    activeDot={{ r: 5, fill: "#34d399", stroke: "#064e3b", strokeWidth: 2 }}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+                    />
+                    <Tooltip
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          const data = payload[0].payload
+                          return (
+                            <div className="bg-slate-900/95 border border-slate-700/80 rounded-xl p-3 shadow-xl backdrop-blur-md text-xs">
+                              <p className="font-bold text-slate-300 mb-1">{data.date}</p>
+                              <p className="text-emerald-400 font-black text-sm">
+                                Rp {Number(payload[0].value || 0).toLocaleString("id-ID")}
+                              </p>
+                              <p className="text-slate-400 text-[10px] mt-0.5">
+                                {data.count || 0} nota pada tanggal ini
+                              </p>
+                            </div>
+                          )
+                        }
+                        return null
+                      }}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="amount"
+                      stroke="#10b981"
+                      strokeWidth={2.5}
+                      fill="url(#expenseTrendGradient)"
+                      dot={{ r: 3, fill: "#10b981" }}
+                      activeDot={{ r: 5, fill: "#34d399", stroke: "#064e3b", strokeWidth: 2 }}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="w-full h-[250px] flex items-center justify-center text-xs text-slate-500 animate-pulse">
+                  Memuat visualisasi grafik...
+                </div>
+              )}
             </div>
           </div>
 
@@ -592,39 +632,45 @@ export function ExecutiveSummaryDashboard({
               <div className="pt-3 space-y-3">
                 {/* Donut Chart */}
                 <div className="w-full h-[140px] flex items-center justify-center">
-                  <ResponsiveContainer width="100%" height={140}>
-                    <RechartsPieChart>
-                      <Pie
-                        data={categoryPieData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={42}
-                        outerRadius={62}
-                        paddingAngle={3}
-                        dataKey="value"
-                      >
-                        {categoryPieData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} stroke="#0f172a" strokeWidth={2} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        content={({ active, payload }) => {
-                          if (active && payload && payload.length) {
-                            const item = payload[0].payload
-                            return (
-                              <div className="bg-slate-900/95 border border-slate-700/80 rounded-xl p-2.5 shadow-xl text-xs">
-                                <p className="font-bold text-white">{item.name}</p>
-                                <p className="text-emerald-400 font-bold">
-                                  Rp {Number(item.value).toLocaleString("id-ID")} ({item.percent}%)
-                                </p>
-                              </div>
-                            )
-                          }
-                          return null
-                        }}
-                      />
-                    </RechartsPieChart>
-                  </ResponsiveContainer>
+                  {isMounted ? (
+                    <ResponsiveContainer width="100%" height={140}>
+                      <RechartsPieChart>
+                        <Pie
+                          data={categoryPieData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={42}
+                          outerRadius={62}
+                          paddingAngle={3}
+                          dataKey="value"
+                        >
+                          {categoryPieData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} stroke="#0f172a" strokeWidth={2} />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          content={({ active, payload }) => {
+                            if (active && payload && payload.length) {
+                              const item = payload[0].payload
+                              return (
+                                <div className="bg-slate-900/95 border border-slate-700/80 rounded-xl p-2.5 shadow-xl text-xs">
+                                  <p className="font-bold text-white">{item.name}</p>
+                                  <p className="text-emerald-400 font-bold">
+                                    Rp {Number(item.value).toLocaleString("id-ID")} ({item.percent}%)
+                                  </p>
+                                </div>
+                              )
+                            }
+                            return null
+                          }}
+                        />
+                      </RechartsPieChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="w-full h-[140px] flex items-center justify-center text-xs text-slate-500 animate-pulse">
+                      Memuat grafik kategori...
+                    </div>
+                  )}
                 </div>
 
                 {/* Progress bars of top categories */}

@@ -2475,13 +2475,13 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
           </div>
 
           {/* Quick Checklist Dropdown Controls */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none shrink-0 w-full lg:w-auto -mx-1 px-1 sm:mx-0 sm:px-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 w-full lg:w-auto shrink-0">
             {/* 1. KATEGORI CHECKLIST DROPDOWN (ICON ONLY) */}
-            <div className="relative">
+            <div className="relative flex-1 lg:flex-none">
               <button
                 type="button"
                 onClick={() => setActiveFilterPopover(activeFilterPopover === "kategori" ? null : "kategori")}
-                className={`relative inline-flex items-center justify-center w-9 h-9 rounded-xl border text-xs font-bold shadow-2xs transition-all cursor-pointer active:scale-95 ${
+                className={`relative inline-flex items-center justify-center w-full lg:w-9 h-9 rounded-xl border text-xs font-bold shadow-2xs transition-all cursor-pointer active:scale-95 ${
                   selectedCategories.length > 0
                     ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 font-black"
                     : "bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-800"
@@ -2584,11 +2584,11 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
             </div>
 
             {/* 2. METODE PEMBAYARAN CHECKLIST DROPDOWN (ICON ONLY) */}
-            <div className="relative">
+            <div className="relative flex-1 lg:flex-none">
               <button
                 type="button"
                 onClick={() => setActiveFilterPopover(activeFilterPopover === "metode" ? null : "metode")}
-                className={`relative inline-flex items-center justify-center w-9 h-9 rounded-xl border text-xs font-bold shadow-2xs transition-all cursor-pointer active:scale-95 ${
+                className={`relative inline-flex items-center justify-center w-full lg:w-9 h-9 rounded-xl border text-xs font-bold shadow-2xs transition-all cursor-pointer active:scale-95 ${
                   selectedPaymentMethods.length > 0
                     ? "bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30 font-black"
                     : "bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-800"
@@ -2690,11 +2690,11 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
             </div>
 
             {/* 3. STATUS PELUNASAN CHECKLIST DROPDOWN (ICON ONLY) */}
-            <div className="relative">
+            <div className="relative flex-1 lg:flex-none">
               <button
                 type="button"
                 onClick={() => setActiveFilterPopover(activeFilterPopover === "status" ? null : "status")}
-                className={`relative inline-flex items-center justify-center w-9 h-9 rounded-xl border text-xs font-bold shadow-2xs transition-all cursor-pointer active:scale-95 ${
+                className={`relative inline-flex items-center justify-center w-full lg:w-9 h-9 rounded-xl border text-xs font-bold shadow-2xs transition-all cursor-pointer active:scale-95 ${
                   selectedStatuses.length > 0 || selectedStatusFilter !== "Semua Status"
                     ? "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30 font-black"
                     : "bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-800"
@@ -2717,7 +2717,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
               {activeFilterPopover === "status" && (
                 <>
                   <div className="fixed inset-0 z-30" onClick={() => setActiveFilterPopover(null)} />
-                  <div className="absolute left-0 sm:right-auto sm:left-0 top-full mt-1.5 w-60 max-w-[calc(100vw-2rem)] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2.5 space-y-1 z-40 animate-in fade-in zoom-in-95 duration-150">
+                  <div className="absolute left-1/2 -translate-x-1/2 sm:translate-x-0 sm:left-0 top-full mt-1.5 w-60 max-w-[calc(100vw-2rem)] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2.5 space-y-1 z-40 animate-in fade-in zoom-in-95 duration-150">
                     <div className="flex items-center justify-between px-2 py-1 text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 pb-1.5">
                       <span>Status Pelunasan</span>
                       {selectedStatuses.length > 0 && (
@@ -2801,11 +2801,11 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
             </div>
 
             {/* 4. PERIODE CHECKLIST DROPDOWN & INTERACTIVE CALENDAR RANGE SELECT (ICON ONLY) */}
-            <div className="relative">
+            <div className="relative flex-1 lg:flex-none">
               <button
                 type="button"
                 onClick={() => setActiveFilterPopover(activeFilterPopover === "periode" ? null : "periode")}
-                className={`relative inline-flex items-center justify-center w-9 h-9 rounded-xl border text-xs font-bold shadow-2xs transition-all cursor-pointer active:scale-95 ${
+                className={`relative inline-flex items-center justify-center w-full lg:w-9 h-9 rounded-xl border text-xs font-bold shadow-2xs transition-all cursor-pointer active:scale-95 ${
                   dateRangeFilter !== "all"
                     ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 font-black"
                     : "bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-800"
@@ -2848,11 +2848,11 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
             </div>
 
             {/* 5. URUTKAN CHECKLIST DROPDOWN (ICON ONLY) */}
-            <div className="relative hidden sm:block">
+            <div className="relative hidden sm:block sm:flex-1 lg:flex-none">
               <button
                 type="button"
                 onClick={() => setActiveFilterPopover(activeFilterPopover === "urutan" ? null : "urutan")}
-                className="relative inline-flex items-center justify-center w-9 h-9 rounded-xl border text-xs font-bold shadow-2xs transition-all cursor-pointer active:scale-95 bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-800"
+                className="relative inline-flex items-center justify-center w-full lg:w-9 h-9 rounded-xl border text-xs font-bold shadow-2xs transition-all cursor-pointer active:scale-95 bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-800"
                 title={`Urutan Transaksi: ${
                   sortBy === "date-desc"
                     ? "Terbaru"
@@ -2921,14 +2921,16 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
             </div>
 
             {/* 6. KELOLA MASTER KATEGORI BUTTON */}
-            <button
-              type="button"
-              onClick={() => setShowManageCategoryModal(true)}
-              className="p-2 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-all shrink-0 border border-slate-200 dark:border-slate-800 active:scale-95 flex items-center justify-center cursor-pointer"
-              title="Kelola Master Kategori & Sub-Kategori"
-            >
-              <Settings className="w-4 h-4" />
-            </button>
+            <div className="relative flex-1 lg:flex-none">
+              <button
+                type="button"
+                onClick={() => setShowManageCategoryModal(true)}
+                className="w-full lg:w-9 h-9 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-all border border-slate-200 dark:border-slate-800 active:scale-95 flex items-center justify-center cursor-pointer shadow-2xs"
+                title="Kelola Master Data (Kategori, Metode & Status)"
+              >
+                <Settings className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
 

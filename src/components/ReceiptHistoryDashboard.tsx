@@ -304,6 +304,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [selectedCategory, setSelectedCategory] = useState("Semua")
   const [selectedSubCategory, setSelectedSubCategory] = useState("Semua Sub-Kategori")
+  const [selectedSubCategories, setSelectedSubCategories] = useState<string[]>([])
   const [activeFilterPopover, setActiveFilterPopover] = useState<"kategori" | "metode" | "status" | "periode" | "urutan" | "activeFilters" | null>(null)
 
   // Date Range Filter State
@@ -378,7 +379,8 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
     return (
       selectedCategories.length > 0 ||
       (selectedCategory !== "Semua" && selectedCategories.length === 0) ||
-      selectedSubCategory !== "Semua Sub-Kategori" ||
+      selectedSubCategories.length > 0 ||
+      (selectedSubCategory !== "Semua Sub-Kategori" && selectedSubCategories.length === 0) ||
       selectedStatuses.length > 0 ||
       (selectedStatusFilter !== "Semua Status" && selectedStatuses.length === 0) ||
       selectedPersonFilter !== "Semua Penanggung Jawab" ||
@@ -388,6 +390,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
   }, [
     selectedCategories,
     selectedCategory,
+    selectedSubCategories,
     selectedSubCategory,
     selectedStatuses,
     selectedStatusFilter,
@@ -399,7 +402,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
   const activeFiltersCount = useMemo(() => {
     return (
       selectedCategories.length +
-      (selectedSubCategory !== "Semua Sub-Kategori" ? 1 : 0) +
+      selectedSubCategories.length +
       selectedPaymentMethods.length +
       selectedStatuses.length +
       (selectedStatusFilter !== "Semua Status" && selectedStatuses.length === 0 ? 1 : 0) +
@@ -408,7 +411,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
     )
   }, [
     selectedCategories,
-    selectedSubCategory,
+    selectedSubCategories,
     selectedPaymentMethods,
     selectedStatuses,
     selectedStatusFilter,
@@ -417,7 +420,8 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
   ])
 
   const activeFilterSummaryLabel = useMemo(() => {
-    if (selectedSubCategory !== "Semua Sub-Kategori") return selectedSubCategory
+    if (selectedSubCategories.length === 1) return selectedSubCategories[0]
+    if (selectedSubCategories.length > 1) return `${selectedSubCategories.length} Sub`
     if (selectedCategories.length === 1) return selectedCategories[0]
     if (selectedCategories.length > 1) return `${selectedCategories.length} Kategori`
     if (selectedPaymentMethods.length === 1) return selectedPaymentMethods[0]
@@ -431,7 +435,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
     return "Filter"
   }, [
     selectedCategories,
-    selectedSubCategory,
+    selectedSubCategories,
     selectedPaymentMethods,
     selectedStatuses,
     dateRangeFilter,
@@ -440,6 +444,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
   const handleClearAllFilters = () => {
     setSelectedCategories([])
     setSelectedCategory("Semua")
+    setSelectedSubCategories([])
     setSelectedSubCategory("Semua Sub-Kategori")
     setSelectedStatuses([])
     setSelectedStatusFilter("Semua Status")
@@ -1071,16 +1076,64 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
       setSelectedCategories([])
       setSelectedCategory("Semua")
       setSelectedSubCategory("Semua Sub-Kategori")
+      setSelectedSubCategories([])
     } else {
       setSelectedCategories((prev) => {
-        const next = prev.includes(catName) ? prev.filter((c) => c !== catName) : [...prev, catName]
+        const isRemoving = prev.includes(catName)
+        const next = isRemoving ? prev.filter((c) => c !== catName) : [...prev, catName]
         setSelectedCategory(next.length === 1 ? next[0] : next.length > 1 ? `${next.length} Kategori` : "Semua")
-        if (next.length !== 1) {
-          setSelectedSubCategory("Semua Sub-Kategori")
+
+        // If removing a parent category, also remove any of its selected sub-categories
+        if (isRemoving) {
+          const parentObj = hierarchy.find((h) => h.name === catName)
+          if (parentObj && parentObj.subCategories) {
+            const subNamesToRemove = new Set(parentObj.subCategories.map((s) => s.name))
+            setSelectedSubCategories((prevSubs) => {
+              const nextSubs = prevSubs.filter((s) => !subNamesToRemove.has(s))
+              setSelectedSubCategory(nextSubs.length === 1 ? nextSubs[0] : nextSubs.length > 1 ? `${nextSubs.length} Sub` : "Semua Sub-Kategori")
+              return nextSubs
+            })
+          }
         }
         return next
       })
     }
+    setCurrentPage(1)
+  }
+
+  // Multi-select toggle for sub-categories
+  const handleToggleSubCategory = (subName: string, parentCatName?: string) => {
+    setSelectedSubCategories((prev) => {
+      const isRemoving = prev.includes(subName)
+      const next = isRemoving ? prev.filter((s) => s !== subName) : [...prev, subName]
+      setSelectedSubCategory(next.length === 1 ? next[0] : next.length > 1 ? `${next.length} Sub` : "Semua Sub-Kategori")
+
+      // If checking a subcategory, ensure its parent category is also selected
+      if (!isRemoving && parentCatName) {
+        setSelectedCategories((prevCats) => {
+          if (!prevCats.includes(parentCatName)) {
+            const nextCats = [...prevCats, parentCatName]
+            setSelectedCategory(nextCats.length === 1 ? nextCats[0] : `${nextCats.length} Kategori`)
+            return nextCats
+          }
+          return prevCats
+        })
+      }
+      return next
+    })
+    setCurrentPage(1)
+  }
+
+  // Clear all sub-categories belonging to a specific parent category
+  const handleClearSubCategoriesForParent = (parentCatName: string) => {
+    const parentObj = hierarchy.find((h) => h.name === parentCatName)
+    if (!parentObj || !parentObj.subCategories) return
+    const subNamesToRemove = new Set(parentObj.subCategories.map((s) => s.name))
+    setSelectedSubCategories((prev) => {
+      const next = prev.filter((s) => !subNamesToRemove.has(s))
+      setSelectedSubCategory(next.length === 1 ? next[0] : next.length > 1 ? `${next.length} Sub` : "Semua Sub-Kategori")
+      return next
+    })
     setCurrentPage(1)
   }
 
@@ -1105,9 +1158,78 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
     handleToggleCategory(cat)
   }
 
+  // Check if any category or sub-category filter is active
+  const hasActiveCategoryFilters = useMemo(() => {
+    return (
+      selectedCategories.length > 0 ||
+      selectedSubCategories.length > 0 ||
+      (selectedCategory !== "Semua" && selectedCategories.length === 0) ||
+      (selectedSubCategory !== "Semua Sub-Kategori" && selectedSubCategories.length === 0)
+    )
+  }, [selectedCategories, selectedSubCategories, selectedCategory, selectedSubCategory])
+
+  const matchesCategoryFilters = (itemCategory: string = "", itemSubCategory: string = ""): boolean => {
+    const catLower = (itemCategory || "").toLowerCase()
+    const subLower = (itemSubCategory || "").toLowerCase()
+
+    const hasSub = selectedSubCategories.length > 0 || (selectedSubCategory !== "Semua Sub-Kategori" && selectedSubCategories.length === 0)
+    const hasCat = selectedCategories.length > 0 || (selectedCategory !== "Semua" && selectedCategories.length === 0)
+
+    if (!hasSub && !hasCat) return true
+
+    if (selectedSubCategories.length > 0) {
+      // Direct subcategory match
+      const matchesExplicitSub = selectedSubCategories.some((s) => {
+        const sLower = s.toLowerCase()
+        return subLower.includes(sLower) || catLower.includes(sLower)
+      })
+      if (matchesExplicitSub) return true
+
+      // If parent categories are also selected, check if item belongs to a selected parent
+      // that does not have any specific subcategories selected
+      if (selectedCategories.length > 0) {
+        const matchesUnrestrictedParent = selectedCategories.some((parentName) => {
+          const parentLower = parentName.toLowerCase().split("/")[0].trim()
+          const belongsToParent = catLower.includes(parentLower) || subLower.includes(parentLower)
+          if (!belongsToParent) return false
+
+          const parentObj = hierarchy.find((h) => h.name.toLowerCase() === parentName.toLowerCase())
+          if (!parentObj || !parentObj.subCategories || parentObj.subCategories.length === 0) {
+            return true
+          }
+          const parentSubNames = parentObj.subCategories.map((s) => s.name.toLowerCase())
+          const hasSelectedSubForThisParent = selectedSubCategories.some((s) => parentSubNames.includes(s.toLowerCase()))
+          return !hasSelectedSubForThisParent
+        })
+        if (matchesUnrestrictedParent) return true
+      }
+
+      return false
+    }
+
+    if (selectedSubCategory && selectedSubCategory !== "Semua Sub-Kategori") {
+      const sLower = selectedSubCategory.toLowerCase()
+      return subLower.includes(sLower) || catLower.includes(sLower)
+    }
+
+    if (selectedCategories.length > 0) {
+      return selectedCategories.some((catName) => {
+        const catQ = catName.toLowerCase().split("/")[0].trim()
+        return catLower.includes(catQ) || subLower.includes(catQ)
+      })
+    }
+
+    if (selectedCategory && selectedCategory !== "Semua") {
+      const catQ = selectedCategory.toLowerCase().split("/")[0].trim()
+      return catLower.includes(catQ) || subLower.includes(catQ)
+    }
+
+    return true
+  }
+
   // Check if a specific sub-category filter is active
-  const isSubCategoryActive = selectedSubCategory && selectedSubCategory !== "Semua Sub-Kategori"
-  const subQ = isSubCategoryActive ? selectedSubCategory.toLowerCase() : ""
+  const isSubCategoryActive = (selectedSubCategory && selectedSubCategory !== "Semua Sub-Kategori") || selectedSubCategories.length > 0
+  const subQ = selectedSubCategory && selectedSubCategory !== "Semua Sub-Kategori" ? selectedSubCategory.toLowerCase() : ""
 
   // Helper to check if receipt is settled (Lunas)
   const isReceiptSettled = (paymentStatus?: string | null): boolean => {
@@ -1188,34 +1310,10 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
         if (endDate && r.date > endDate) return false
       }
 
-      // 3. Sub-Category Filter
-      if (isSubCategoryActive) {
-        const hasSubItem = r.items.some((item) => {
-          const sub = (item.subCategory || "").toLowerCase()
-          const cat = (item.category || "").toLowerCase()
-          return sub.includes(subQ) || cat.includes(subQ)
-        })
-        if (!hasSubItem) return false
-      }
-      // 4. Parent Categories Filter (Multi-select OR single)
-      else if (selectedCategories.length > 0) {
-        const hasCatItem = r.items.some((item) => {
-          const cat = (item.category || "").toLowerCase()
-          const sub = (item.subCategory || "").toLowerCase()
-          return selectedCategories.some((selected) => {
-            const catQ = selected.toLowerCase().split("/")[0].trim()
-            return cat.includes(catQ) || sub.includes(catQ)
-          })
-        })
-        if (!hasCatItem) return false
-      } else if (selectedCategory && selectedCategory !== "Semua") {
-        const catQ = selectedCategory.toLowerCase().split("/")[0].trim()
-        const hasCatItem = r.items.some((item) => {
-          const cat = (item.category || "").toLowerCase()
-          const sub = (item.subCategory || "").toLowerCase()
-          return cat.includes(catQ) || sub.includes(catQ)
-        })
-        if (!hasCatItem) return false
+      // 3 & 4. Category & Sub-Category Filters (Multi-select and granular hierarchy)
+      if (hasActiveCategoryFilters) {
+        const hasMatchingItem = r.items.some((item) => matchesCategoryFilters(item.category, item.subCategory))
+        if (!hasMatchingItem) return false
       }
 
       // 5. Payment Status Filter (Multi-select OR single)
@@ -1944,8 +2042,12 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
     try {
       const url = new URL("/api/receipts/export", window.location.origin)
       if (searchQuery) url.searchParams.set("search", searchQuery)
-      if (selectedSubCategory && selectedSubCategory !== "Semua Sub-Kategori") {
+      if (selectedSubCategories.length > 0) {
+        url.searchParams.set("category", selectedSubCategories.join(","))
+      } else if (selectedSubCategory && selectedSubCategory !== "Semua Sub-Kategori") {
         url.searchParams.set("category", selectedSubCategory)
+      } else if (selectedCategories.length > 0) {
+        url.searchParams.set("category", selectedCategories.join(","))
       } else if (selectedCategory && selectedCategory !== "Semua") {
         url.searchParams.set("category", selectedCategory)
       }
@@ -1997,71 +2099,23 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
   // Calculate Total Spend dynamically: If category or sub-category filter is active, sum items belonging ONLY to matching categories
   const totalSpend = useMemo(() => {
     return filteredReceipts.reduce((acc, r) => {
-      if (isSubCategoryActive) {
-        const subItems = r.items.filter((item) => {
-          const sub = (item.subCategory || "").toLowerCase()
-          const cat = (item.category || "").toLowerCase()
-          return sub.includes(subQ) || cat.includes(subQ)
-        })
-        return acc + subItems.reduce((subAcc, item) => subAcc + item.price * item.quantity, 0)
-      }
-      if (selectedCategories.length > 0) {
-        const matchingItems = r.items.filter((item) => {
-          const cat = (item.category || "").toLowerCase()
-          const sub = (item.subCategory || "").toLowerCase()
-          return selectedCategories.some((selected) => {
-            const catQ = selected.toLowerCase().split("/")[0].trim()
-            return cat.includes(catQ) || sub.includes(catQ)
-          })
-        })
-        return acc + matchingItems.reduce((subAcc, item) => subAcc + item.price * item.quantity, 0)
-      }
-      if (selectedCategory && selectedCategory !== "Semua") {
-        const catQ = selectedCategory.toLowerCase().split("/")[0].trim()
-        const matchingItems = r.items.filter((item) => {
-          const cat = (item.category || "").toLowerCase()
-          const sub = (item.subCategory || "").toLowerCase()
-          return cat.includes(catQ) || sub.includes(catQ)
-        })
+      if (hasActiveCategoryFilters) {
+        const matchingItems = r.items.filter((item) => matchesCategoryFilters(item.category, item.subCategory))
         return acc + matchingItems.reduce((subAcc, item) => subAcc + item.price * item.quantity, 0)
       }
       return acc + r.totalAmount
     }, 0)
-  }, [filteredReceipts, isSubCategoryActive, subQ, selectedCategories, selectedCategory])
+  }, [filteredReceipts, hasActiveCategoryFilters, selectedCategories, selectedCategory, selectedSubCategories, selectedSubCategory, hierarchy])
 
   const totalItemsCount = useMemo(() => {
     return filteredReceipts.reduce((acc, r) => {
-      if (isSubCategoryActive) {
-        const subItems = r.items.filter((item) => {
-          const sub = (item.subCategory || "").toLowerCase()
-          const cat = (item.category || "").toLowerCase()
-          return sub.includes(subQ) || cat.includes(subQ)
-        })
-        return acc + subItems.length
-      }
-      if (selectedCategories.length > 0) {
-        const matchingItems = r.items.filter((item) => {
-          const cat = (item.category || "").toLowerCase()
-          const sub = (item.subCategory || "").toLowerCase()
-          return selectedCategories.some((selected) => {
-            const catQ = selected.toLowerCase().split("/")[0].trim()
-            return cat.includes(catQ) || sub.includes(catQ)
-          })
-        })
-        return acc + matchingItems.length
-      }
-      if (selectedCategory && selectedCategory !== "Semua") {
-        const catQ = selectedCategory.toLowerCase().split("/")[0].trim()
-        const matchingItems = r.items.filter((item) => {
-          const cat = (item.category || "").toLowerCase()
-          const sub = (item.subCategory || "").toLowerCase()
-          return cat.includes(catQ) || sub.includes(catQ)
-        })
+      if (hasActiveCategoryFilters) {
+        const matchingItems = r.items.filter((item) => matchesCategoryFilters(item.category, item.subCategory))
         return acc + matchingItems.length
       }
       return acc + r.items.length
     }, 0)
-  }, [filteredReceipts, isSubCategoryActive, subQ, selectedCategories, selectedCategory])
+  }, [filteredReceipts, hasActiveCategoryFilters, selectedCategories, selectedCategory, selectedSubCategories, selectedSubCategory, hierarchy])
 
   // Calculate Dominant Category and Category Chart Data
   const { categoryChartData, dominantCategoryName, maxSpend } = useMemo(() => {
@@ -2076,29 +2130,25 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
         let matchedCategory = dbParentNames.find((p) => {
           const pRoot = p.split("/")[0].trim().toLowerCase()
           return pRoot === rawRoot || p.toLowerCase() === rawCat.toLowerCase()
-        })
-
-        if (!matchedCategory) {
-          matchedCategory = rawCat.split("/")[0].trim()
-        }
+        }) || "Lain-lain"
 
         map[matchedCategory] = (map[matchedCategory] || 0) + item.price * item.quantity
       })
     })
 
-    let domName = "-"
+    let domName = "Semua Kategori"
     let max = 0
-    Object.entries(map).forEach(([cat, val]) => {
-      if (val > max) {
-        max = val
-        domName = cat
+    Object.entries(map).forEach(([name, spend]) => {
+      if (spend > max) {
+        max = spend
+        domName = name
       }
     })
 
-    const chartData = Object.keys(map).map((catName, idx) => ({
-      name: catName,
-      value: map[catName],
-      percentage: totalSpend > 0 ? Math.round((map[catName] / totalSpend) * 100) : 0,
+    const chartData = Object.entries(map).map(([name, spend], idx) => ({
+      name,
+      value: spend,
+      percent: totalSpend > 0 ? (spend / totalSpend) * 100 : 0,
       color: GRAPH_COLORS[idx % GRAPH_COLORS.length],
     }))
 
@@ -2111,13 +2161,9 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
     const sorted = [...filteredReceipts].sort((a, b) => a.date.localeCompare(b.date))
     sorted.forEach((r) => {
       const d = r.date
-      const val = isSubCategoryActive
+      const val = hasActiveCategoryFilters
         ? r.items
-            .filter((item) => {
-              const sub = (item.subCategory || "").toLowerCase()
-              const cat = (item.category || "").toLowerCase()
-              return sub.includes(subQ) || cat.includes(subQ)
-            })
+            .filter((item) => matchesCategoryFilters(item.category, item.subCategory))
             .reduce((acc, item) => acc + item.price * item.quantity, 0)
         : r.totalAmount
 
@@ -2129,7 +2175,7 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
       displayDate: d.split("-").slice(1).join("/"),
       total: dateMap[d],
     }))
-  }, [filteredReceipts, isSubCategoryActive, subQ])
+  }, [filteredReceipts, hasActiveCategoryFilters, selectedCategories, selectedCategory, selectedSubCategories, selectedSubCategory, hierarchy])
 
   // Calculate Sub-Category Breakdown Data
   const subCategoryChartData = useMemo(() => {
@@ -2595,21 +2641,21 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                 type="button"
                 onClick={() => setActiveFilterPopover(activeFilterPopover === "kategori" ? null : "kategori")}
                 className={`relative inline-flex items-center justify-center w-full lg:w-9 h-9 rounded-xl border text-xs font-bold shadow-2xs transition-all cursor-pointer active:scale-95 ${
-                  selectedCategories.length > 0 || selectedSubCategory !== "Semua Sub-Kategori"
+                  hasActiveCategoryFilters
                     ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 font-black"
                     : "bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-800"
                 }`}
                 title={
-                  selectedCategories.length === 0 && selectedSubCategory === "Semua Sub-Kategori"
+                  !hasActiveCategoryFilters
                     ? "Filter Kategori (Klik untuk memilih)"
-                    : `Kategori: ${selectedCategories.join(", ") || "Semua"} ${selectedSubCategory !== "Semua Sub-Kategori" ? `(${selectedSubCategory})` : ""}`
+                    : `Kategori: ${selectedCategories.join(", ") || "Semua"} ${selectedSubCategories.length > 0 ? `(${selectedSubCategories.join(", ")})` : selectedSubCategory !== "Semua Sub-Kategori" ? `(${selectedSubCategory})` : ""}`
                 }
                 aria-label="Filter Kategori"
               >
-                <Layers className={`w-4 h-4 ${selectedCategories.length > 0 || selectedSubCategory !== "Semua Sub-Kategori" ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400 dark:text-slate-500"}`} />
-                {(selectedCategories.length > 0 || selectedSubCategory !== "Semua Sub-Kategori") && (
+                <Layers className={`w-4 h-4 ${hasActiveCategoryFilters ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400 dark:text-slate-500"}`} />
+                {hasActiveCategoryFilters && (
                   <span className="absolute -top-1 -right-1 flex h-4 min-w-4 px-1 items-center justify-center bg-emerald-600 text-white rounded-full text-[9px] font-black leading-none shadow-xs">
-                    {selectedCategories.length + (selectedSubCategory !== "Semua Sub-Kategori" ? 1 : 0)}
+                    {selectedCategories.length + selectedSubCategories.length + (selectedSubCategories.length === 0 && selectedSubCategory !== "Semua Sub-Kategori" ? 1 : 0)}
                   </span>
                 )}
               </button>
@@ -2840,50 +2886,97 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                           </div>
 
                           {/* NESTED SUB-CATEGORIES SECTION INSIDE POPUP CARD */}
-                          {isChecked && cat.subCategories && cat.subCategories.length > 0 && (
-                            <div className="pt-2 border-t border-emerald-500/20 space-y-2 animate-in fade-in duration-150">
-                              <div className="flex items-center justify-between text-[11px] font-black text-emerald-800 dark:text-emerald-300 uppercase tracking-wider">
-                                <span className="flex items-center gap-1.5">
-                                  <ListFilter className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                                  Sub-Kategori
-                                </span>
-                                {selectedSubCategory !== "Semua Sub-Kategori" && (
+                          {isChecked && cat.subCategories && cat.subCategories.length > 0 && (() => {
+                            const parentSubNames = cat.subCategories.map((s) => s.name)
+                            const selectedInThisParent = selectedSubCategories.filter((s) => parentSubNames.includes(s))
+                            const isAllSubActive = selectedInThisParent.length === 0
+
+                            return (
+                              <div className="pt-2 border-t border-emerald-500/20 space-y-2 animate-in fade-in duration-150">
+                                <div className="flex items-center justify-between text-[11px] font-black text-emerald-800 dark:text-emerald-300 uppercase tracking-wider">
+                                  <span className="flex items-center gap-1.5">
+                                    <ListFilter className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                                    Sub-Kategori
+                                    {selectedInThisParent.length > 0 && (
+                                      <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-[10px] font-black text-emerald-700 dark:text-emerald-300">
+                                        {selectedInThisParent.length} Terpilih
+                                      </span>
+                                    )}
+                                  </span>
+                                  {selectedInThisParent.length > 0 && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        handleClearSubCategoriesForParent(cat.name)
+                                      }}
+                                      className="text-[10px] text-rose-500 hover:underline font-bold cursor-pointer"
+                                    >
+                                      Reset Sub
+                                    </button>
+                                  )}
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                                  {/* Option: Semua Sub-Kategori */}
                                   <button
                                     type="button"
                                     onClick={(e) => {
                                       e.stopPropagation()
-                                      setSelectedSubCategory("Semua Sub-Kategori")
+                                      handleClearSubCategoriesForParent(cat.name)
                                     }}
-                                    className="text-[10px] text-rose-500 hover:underline font-bold cursor-pointer"
+                                    className={`flex items-center gap-2 px-2.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer select-none active:scale-[0.98] border text-left ${
+                                      isAllSubActive
+                                        ? "bg-emerald-500 text-slate-950 border-emerald-400 font-black shadow-2xs"
+                                        : "bg-white/80 dark:bg-slate-900/80 text-slate-700 dark:text-slate-300 border-slate-200/90 dark:border-slate-800 hover:border-emerald-500/40 hover:bg-white dark:hover:bg-slate-900"
+                                    }`}
                                   >
-                                    Reset Sub
-                                  </button>
-                                )}
-                              </div>
-                              <div className="flex flex-wrap gap-1.5">
-                                {["Semua Sub-Kategori", ...cat.subCategories.map((s) => s.name)].map((subName) => {
-                                  const isSubSelected = selectedSubCategory === subName
-                                  return (
-                                    <button
-                                      key={subName}
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation()
-                                        setSelectedSubCategory(subName)
-                                      }}
-                                      className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer active:scale-95 ${
-                                        isSubSelected
-                                          ? "bg-emerald-500 text-slate-950 font-black shadow-xs"
-                                          : "bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:border-emerald-500/40"
+                                    <div
+                                      className={`w-3.5 h-3.5 rounded flex items-center justify-center shrink-0 transition-all ${
+                                        isAllSubActive
+                                          ? "bg-slate-950 text-emerald-400"
+                                          : "border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900"
                                       }`}
                                     >
-                                      {subName}
-                                    </button>
-                                  )
-                                })}
+                                      {isAllSubActive && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                                    </div>
+                                    <span className="truncate">Semua Sub-Kategori</span>
+                                  </button>
+
+                                  {/* Specific Sub-Categories with Checkboxes */}
+                                  {cat.subCategories.map((sub) => {
+                                    const isSubChecked = selectedSubCategories.includes(sub.name)
+                                    return (
+                                      <button
+                                        key={sub.id || sub.name}
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          handleToggleSubCategory(sub.name, cat.name)
+                                        }}
+                                        className={`flex items-center gap-2 px-2.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer select-none active:scale-[0.98] border text-left ${
+                                          isSubChecked
+                                            ? "bg-emerald-500 text-slate-950 border-emerald-400 font-black shadow-2xs"
+                                            : "bg-white/80 dark:bg-slate-900/80 text-slate-700 dark:text-slate-300 border-slate-200/90 dark:border-slate-800 hover:border-emerald-500/40 hover:bg-white dark:hover:bg-slate-900"
+                                        }`}
+                                      >
+                                        <div
+                                          className={`w-3.5 h-3.5 rounded flex items-center justify-center shrink-0 transition-all ${
+                                            isSubChecked
+                                              ? "bg-slate-950 text-emerald-400"
+                                              : "border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900"
+                                          }`}
+                                        >
+                                          {isSubChecked && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                                        </div>
+                                        <span className="truncate" title={sub.name}>{sub.name}</span>
+                                      </button>
+                                    )
+                                  })}
+                                </div>
                               </div>
-                            </div>
-                          )}
+                            )
+                          })()}
                         </div>
                       )
                     })}
@@ -3262,7 +3355,21 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
                     )}
 
                     {/* Subcategory */}
-                    {selectedSubCategory !== "Semua Sub-Kategori" && (
+                    {selectedSubCategories.length > 0 ? (
+                      <div className="space-y-1.5">
+                        <div className="text-[11px] font-black text-slate-400 uppercase tracking-wider">Sub-Kategori ({selectedSubCategories.length})</div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {selectedSubCategories.map((sub) => (
+                            <span key={sub} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/25 text-xs font-bold">
+                              {sub}
+                              <button type="button" onClick={() => handleToggleSubCategory(sub)} className="hover:text-rose-500 cursor-pointer">
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ) : selectedSubCategory !== "Semua Sub-Kategori" && (
                       <div className="space-y-1.5">
                         <div className="text-[11px] font-black text-slate-400 uppercase tracking-wider">Sub-Kategori</div>
                         <div className="flex flex-wrap gap-1.5">
@@ -3517,18 +3624,10 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
               </p>
             </div>
             <div className="flex items-center justify-center gap-2.5 flex-wrap pt-1">
-              {(searchQuery || selectedCategory !== "Semua" || selectedStatusFilter !== "Semua Status" || selectedPersonFilter !== "Semua Penanggung Jawab" || selectedPaymentMethods.length > 0 || dateRangeFilter !== "all") && (
+              {(searchQuery || hasActiveFilters) && (
                 <button
                   type="button"
-                  onClick={() => {
-                    setSearchQuery("")
-                    setSelectedCategory("Semua")
-                    setSelectedSubCategory("Semua Sub-Kategori")
-                    setSelectedStatusFilter("Semua Status")
-                    setSelectedPersonFilter("Semua Penanggung Jawab")
-                    setSelectedPaymentMethods([])
-                    setDateRangeFilter("all")
-                  }}
+                  onClick={handleClearAllFilters}
                   className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-950 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs transition-all border border-slate-200 dark:border-slate-800 active:scale-[0.98] cursor-pointer"
                 >
                   Reset Filter
@@ -3551,15 +3650,11 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
               const isSelected = selectedReceiptIds.includes(receipt.id)
               const pendingReq = pendingApprovalMap[receipt.id]
 
-              const cardPreviewItems = isSubCategoryActive
-                ? receipt.items.filter((item) => {
-                    const sub = (item.subCategory || "").toLowerCase()
-                    const cat = (item.category || "").toLowerCase()
-                    return sub.includes(subQ) || cat.includes(subQ)
-                  })
+              const cardPreviewItems = hasActiveCategoryFilters
+                ? receipt.items.filter((item) => matchesCategoryFilters(item.category, item.subCategory))
                 : receipt.items
 
-              const cardDisplayNetto = isSubCategoryActive
+              const cardDisplayNetto = hasActiveCategoryFilters
                 ? cardPreviewItems.reduce((acc, item) => acc + item.price * item.quantity, 0)
                 : receipt.totalAmount
 

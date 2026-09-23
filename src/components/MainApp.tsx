@@ -78,36 +78,36 @@ export function MainApp({
   const historyIconRef = useRef<HTMLDivElement>(null)
   const tabContentAreaRef = useRef<HTMLDivElement>(null)
 
-  // GSAP Elastic Bounce on Tab Switch (Uniform across all 3 tabs)
+  // GSAP Smooth Icon Transition on Tab Switch (Zero Vertical Displacement)
   useGSAP(() => {
     if (activeTab === "overview" && overviewIconRef.current) {
       gsap.fromTo(
         overviewIconRef.current,
-        { scale: 0.75, y: -4 },
-        { scale: 1, y: 0, duration: 0.45, ease: "back.out(2.2)" }
+        { scale: 0.9 },
+        { scale: 1, duration: 0.2, ease: "power2.out" }
       )
     } else if (activeTab === "scan" && scanIconRef.current) {
       gsap.fromTo(
         scanIconRef.current,
-        { scale: 0.75, y: -4 },
-        { scale: 1, y: 0, duration: 0.45, ease: "back.out(2.2)" }
+        { scale: 0.9 },
+        { scale: 1, duration: 0.2, ease: "power2.out" }
       )
     } else if (activeTab === "history" && historyIconRef.current) {
       gsap.fromTo(
         historyIconRef.current,
-        { scale: 0.75, y: -4 },
-        { scale: 1, y: 0, duration: 0.45, ease: "back.out(2.2)" }
+        { scale: 0.9 },
+        { scale: 1, duration: 0.2, ease: "power2.out" }
       )
     }
   }, { dependencies: [activeTab], scope: bottomNavRef })
 
-  // 3. GSAP Tab Content Entrance
+  // 3. GSAP Tab Content Smooth Fade (No y-offset jump)
   useGSAP(() => {
     if (tabContentAreaRef.current) {
       gsap.fromTo(
         tabContentAreaRef.current,
-        { opacity: 0.5, y: 10 },
-        { opacity: 1, y: 0, duration: 0.3, ease: "power2.out" }
+        { opacity: 0.8 },
+        { opacity: 1, duration: 0.15, ease: "power1.out" }
       )
     }
   }, { dependencies: [activeTab] })
@@ -127,8 +127,18 @@ export function MainApp({
     } else if (pathname === "/register" || pathname === "/signup" || pathname === "/daftar") {
       setShowLanding(false)
       setAuthInitialMode("register")
-    } else if (pathname === "/scan" || pathname === "/history" || pathname === "/dashboard" || pathname === "/app" || pathname === "/overview") {
+    } else if (pathname === "/scan") {
       setShowLanding(false)
+      setActiveTab("scan")
+      setImagePreviewUrl(null)
+    } else if (pathname === "/history") {
+      setShowLanding(false)
+      setActiveTab("history")
+      setImagePreviewUrl(null)
+    } else if (pathname === "/dashboard" || pathname === "/app" || pathname === "/overview") {
+      setShowLanding(false)
+      setActiveTab("overview")
+      setImagePreviewUrl(null)
     }
   }, [pathname, isAuthenticated, isClerkSignedIn])
 
@@ -155,10 +165,15 @@ export function MainApp({
     if (isProcessing) return
     setImagePreviewUrl(null)
     setActiveTab(tab)
+    if (typeof window !== "undefined") {
+      window.scrollTo(0, 0)
+    }
     const targetPath = tab === "overview" ? "/dashboard" : `/${tab}`
     if (typeof window !== "undefined") {
       try {
-        window.history.pushState({ tab }, "", targetPath)
+        if (window.location.pathname !== targetPath) {
+          window.history.pushState({ tab }, "", targetPath)
+        }
         if (adminUser) {
           localStorage.setItem(`nota_active_tab_${adminUser.toLowerCase()}`, tab)
           localStorage.setItem("nota_active_tab", tab)
@@ -171,7 +186,7 @@ export function MainApp({
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null)
-  const [dualControlEnabled, setDualControlEnabled] = useState<boolean>(true)
+  const [dualControlEnabled, setDualControlEnabled] = useState<boolean>(false)
   const [pendingApprovalsCount, setPendingApprovalsCount] = useState<number>(0)
 
   // Listen for Dual Control setting and pending approvals count
@@ -179,7 +194,7 @@ export function MainApp({
     const updateDualControl = () => {
       if (typeof window !== "undefined") {
         const stored = localStorage.getItem("scota_dual_control_enabled")
-        setDualControlEnabled(stored !== "false")
+        setDualControlEnabled(stored === "true")
       }
     }
     updateDualControl()
@@ -239,6 +254,13 @@ export function MainApp({
       .then((data) => {
         if (data.success && data.subscription) {
           setSubscription(data.subscription)
+          if (data.subscription?.approvalWorkflow?.enabled !== undefined) {
+            const isWorkflowEnabled = Boolean(data.subscription.approvalWorkflow.enabled)
+            setDualControlEnabled(isWorkflowEnabled)
+            if (typeof window !== "undefined") {
+              localStorage.setItem("scota_dual_control_enabled", String(isWorkflowEnabled))
+            }
+          }
         }
       })
       .catch((err) => console.warn("Failed to fetch subscription:", err))
@@ -816,9 +838,11 @@ export function MainApp({
           }
           if (options?.tier) setAuthInitialTier(options.tier)
           setShowLanding(false)
-          setActiveTab("scan")
           if (options?.initialFile && options?.initialBase64) {
+            setActiveTab("scan")
             handleImageSelected(options.initialFile, options.initialBase64)
+          } else {
+            setActiveTab("overview")
           }
         }}
         onOpenPricingModal={() => router.push("/pricing")}
@@ -1008,7 +1032,7 @@ export function MainApp({
 
           {/* Right: Dual Control + Notifications + Theme Toggle + Unified User Profile Menu */}
           <div className="flex items-center gap-1 sm:gap-2 shrink-0 relative z-10">
-            {dualControlEnabled && (
+            {(dualControlEnabled || pendingApprovalsCount > 0) && (
               <button
                 type="button"
                 onClick={() => {
@@ -1256,6 +1280,7 @@ export function MainApp({
                 }}
                 onEditReceipt={handleEditReceipt}
                 currentAdminUser={adminUser}
+                dualControlEnabled={dualControlEnabled}
               />
             )}
           </>

@@ -40,6 +40,7 @@ export async function getSubscriptionInfo(tenantId: string = DEFAULT_TENANT_ID):
     try {
       const res = await queryPg<any>(
         `SELECT s.*, t."businessName", t.tagline as "tenantTagline", t.status as "tenantStatus",
+                t."createdAt" as "tenantCreatedAt", t."expiresAt" as "tenantExpiresAt",
                 EXISTS (
                   SELECT 1 FROM admin_accounts a 
                   WHERE a."tenantId" = s."tenantId" 
@@ -56,14 +57,93 @@ export async function getSubscriptionInfo(tenantId: string = DEFAULT_TENANT_ID):
          WHERE s."tenantId" = $1 LIMIT 1`,
         [targetTenant, masterEmail]
       )
-      const data = res.rows?.[0]
+      let data = res.rows?.[0]
+
+      // If subscription row not found for this tenant, look up tenant and recent transactions
+      if (!data) {
+        const tenantLookup = await queryPg<any>(
+          `SELECT t.*, u.email as "ownerEmail",
+                  EXISTS (
+                    SELECT 1 FROM admin_accounts a 
+                    WHERE a."tenantId" = t.id 
+                      AND (a.role = 'SUPERADMIN' OR a.role = 'DEVELOPER' OR LOWER(a.username) IN ('superadmin', 'developer') OR LOWER(a.email) = LOWER($2))
+                  ) as "isSuperadminTenant",
+                  (LOWER(u.email) = LOWER($2)) as "isSuperadminOwner"
+           FROM tenants t 
+           LEFT JOIN users u ON u.id = t."ownerId" 
+           WHERE t.id = $1 LIMIT 1`,
+          [targetTenant, masterEmail]
+        )
+        const tenantRow = tenantLookup.rows?.[0]
+
+        if (tenantRow) {
+          // Check if there is any completed billing transaction
+          const trxLookup = await queryPg<any>(
+            `SELECT tier, "billingCycle", "completedAt"
+             FROM billing_transactions
+             WHERE "tenantId" = $1 AND (status = 'lunas' OR status = 'completed')
+             ORDER BY "completedAt" DESC, "createdAt" DESC LIMIT 1`,
+            [targetTenant]
+          )
+          const latestTrx = trxLookup.rows?.[0]
+
+          const assignedTier: SubscriptionTier = latestTrx?.tier || "trial"
+          const scanLimit = TIER_CONFIG[assignedTier]?.monthlyScanLimit || 30
+          const durationDays = latestTrx?.billingCycle === "yearly" ? 365 : 30
+          const baseExpiry = latestTrx?.completedAt 
+            ? new Date(new Date(latestTrx.completedAt).getTime() + durationDays * 86400000)
+            : tenantRow.expiresAt
+            ? new Date(tenantRow.expiresAt)
+            : new Date(Date.now() + 14 * 86400000)
+
+          try {
+            await queryPg(
+              `INSERT INTO subscriptions ("tenantId", tier, status, "validUntil", "monthlyScanLimit", "usedScansThisMonth", "studioName", "createdAt", "updatedAt")
+               VALUES ($1, $2, $3, $4, $5, 0, $6, NOW(), NOW())
+               ON CONFLICT ("tenantId") DO NOTHING`,
+              [
+                targetTenant,
+                assignedTier,
+                assignedTier === "trial" ? "trial" : "active",
+                baseExpiry.toISOString(),
+                scanLimit,
+                tenantRow.businessName || "Bisnis Scota",
+              ]
+            )
+          } catch (seedErr) {
+            console.warn("Could not auto-seed missing subscription row:", seedErr)
+          }
+
+          data = {
+            tenantId: targetTenant,
+            tier: assignedTier,
+            status: assignedTier === "trial" ? "trial" : "active",
+            validUntil: baseExpiry.toISOString(),
+            monthlyScanLimit: scanLimit,
+            usedScansThisMonth: 0,
+            businessName: tenantRow.businessName,
+            tenantTagline: tenantRow.tagline,
+            tenantStatus: tenantRow.status,
+            isSuperadminTenant: tenantRow.isSuperadminTenant,
+            isSuperadminOwner: tenantRow.isSuperadminOwner,
+          }
+        }
+      }
 
       if (data) {
-        const isDeveloperTier = data.tier === "developer" || targetTenant === DEFAULT_TENANT_ID
+        const isDeveloperTier =
+          data.tier === "developer" ||
+          targetTenant === DEFAULT_TENANT_ID ||
+          data.isSuperadminTenant ||
+          data.isSuperadminOwner
 
+        const rawValidUntil = data.validUntil || (data as any).validuntil || data.tenantExpiresAt
         const validUntil = isDeveloperTier
           ? new Date("2099-12-31T23:59:59.999Z")
-          : new Date(data.validUntil || Date.now() + 14 * 86400000)
+          : rawValidUntil
+          ? new Date(rawValidUntil)
+          : new Date(Date.now() + 14 * 86400000)
+
         const now = new Date()
         const isExpired = !isDeveloperTier && validUntil < now
         const isExpiring = !isDeveloperTier && !isExpired && validUntil.getTime() - now.getTime() < 5 * 24 * 60 * 60 * 1000
@@ -113,20 +193,20 @@ export async function getSubscriptionInfo(tenantId: string = DEFAULT_TENANT_ID):
 
         const resolvedTier: SubscriptionTier =
           (data.tier as SubscriptionTier) ||
-          (targetTenant === DEFAULT_TENANT_ID ? "developer" : "trial")
+          (isDeveloperTier ? "developer" : "trial")
 
         const resolvedMonthlyScanLimit = isDeveloperTier
           ? 999999
-          : (data.monthlyScanLimit || TIER_CONFIG[resolvedTier]?.monthlyScanLimit || 30)
+          : (data.monthlyScanLimit || (data as any).monthlyscanlimit || TIER_CONFIG[resolvedTier]?.monthlyScanLimit || 30)
 
         const result: SubscriptionInfo = {
           tier: resolvedTier,
           status,
-          validUntil: isDeveloperTier ? "2099-12-31T23:59:59.999Z" : (data.validUntil || validUntil.toISOString()),
+          validUntil: isDeveloperTier ? "2099-12-31T23:59:59.999Z" : validUntil.toISOString(),
           monthlyScanLimit: resolvedMonthlyScanLimit,
-          usedScansThisMonth: isDeveloperTier ? 0 : (data.usedScansThisMonth || 0),
+          usedScansThisMonth: isDeveloperTier ? 0 : (data.usedScansThisMonth || (data as any).usedscansthismonth || 0),
           studioProfile: profile,
-          activeLicenseKey: data.activeLicenseKey,
+          activeLicenseKey: data.activeLicenseKey || (data as any).activelicensekey,
           approvalWorkflow: workflow,
         }
 
@@ -212,41 +292,49 @@ export async function activateLicenseKey(
   let tier: SubscriptionTier = "pro"
   let durationDays = 30
 
-  if (cleanKey.startsWith("NP-STARTER-1Y") || cleanKey.startsWith("SCOTA-STARTER-1Y") || cleanKey.startsWith("STARTER-1Y")) {
+  if (cleanKey.includes("DEV") || cleanKey.includes("DEVELOPER") || cleanKey.includes("MASTER")) {
+    tier = "developer"
+    durationDays = 36500
+  } else if (cleanKey.includes("STARTER") && (cleanKey.includes("1Y") || cleanKey.includes("YEAR") || cleanKey.includes("TAHUN"))) {
     tier = "starter"
     durationDays = 365
-  } else if (cleanKey.startsWith("NP-STARTER") || cleanKey.startsWith("SCOTA-STARTER") || cleanKey.startsWith("STARTER")) {
+  } else if (cleanKey.includes("STARTER")) {
     tier = "starter"
     durationDays = 30
-  } else if (cleanKey.startsWith("NP-ENT-1Y") || cleanKey.startsWith("SCOTA-ENT-1Y") || cleanKey.startsWith("ENT-1Y") || cleanKey.startsWith("ENTERPRISE-1Y") || cleanKey.startsWith("SCOTA-ENTERPRISE-1Y")) {
+  } else if ((cleanKey.includes("ENT") || cleanKey.includes("ENTERPRISE")) && (cleanKey.includes("1Y") || cleanKey.includes("YEAR") || cleanKey.includes("TAHUN"))) {
     tier = "enterprise"
     durationDays = 365
-  } else if (cleanKey.startsWith("NP-ENT") || cleanKey.startsWith("SCOTA-ENT") || cleanKey.startsWith("ENT") || cleanKey.startsWith("ENTERPRISE") || cleanKey.startsWith("SCOTA-ENTERPRISE")) {
+  } else if (cleanKey.includes("ENT") || cleanKey.includes("ENTERPRISE")) {
     tier = "enterprise"
     durationDays = 30
-  } else if (cleanKey.startsWith("NP-PRO-1Y") || cleanKey.startsWith("SCOTA-PRO-1Y") || cleanKey.startsWith("PRO-1Y")) {
+  } else if (cleanKey.includes("PRO") && (cleanKey.includes("1Y") || cleanKey.includes("YEAR") || cleanKey.includes("TAHUN"))) {
     tier = "pro"
     durationDays = 365
-  } else if (cleanKey.startsWith("NP-PRO") || cleanKey.startsWith("SCOTA-PRO") || cleanKey.startsWith("PRO")) {
+  } else if (cleanKey.includes("PRO")) {
     tier = "pro"
     durationDays = 30
+  } else if (cleanKey.includes("TRIAL")) {
+    tier = "trial"
+    durationDays = 14
   } else {
     return { success: false, message: "Format kunci lisensi tidak valid. Hubungi tim sales/billing." }
   }
 
   const currentInfo = await getSubscriptionInfo(targetTenant)
   const currentExpiry = new Date(currentInfo.validUntil)
-  const baseDate = currentExpiry > new Date() ? currentExpiry : new Date()
-  const newValidUntil = new Date(baseDate.getTime() + durationDays * 24 * 60 * 60 * 1000).toISOString()
+  const baseDate = currentExpiry > new Date() && currentInfo.tier === tier ? currentExpiry : new Date()
+  const newValidUntil = tier === "developer" 
+    ? "2099-12-31T23:59:59.999Z" 
+    : new Date(baseDate.getTime() + durationDays * 24 * 60 * 60 * 1000).toISOString()
   const monthlyScanLimit = TIER_CONFIG[tier].monthlyScanLimit
 
   if (isDatabaseConfigured) {
     try {
       await queryPg(
-        `INSERT INTO subscriptions ("tenantId", tier, "validUntil", "monthlyScanLimit", "usedScansThisMonth", "activeLicenseKey", "studioName", tagline, address, phone, "invoiceFooter", "createdAt", "updatedAt")
-         VALUES ($1, $2, $3, $4, 0, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+        `INSERT INTO subscriptions ("tenantId", tier, status, "validUntil", "monthlyScanLimit", "usedScansThisMonth", "activeLicenseKey", "studioName", tagline, address, phone, "invoiceFooter", "createdAt", "updatedAt")
+         VALUES ($1, $2, 'active', $3, $4, 0, $5, $6, $7, $8, $9, $10, NOW(), NOW())
          ON CONFLICT ("tenantId")
-         DO UPDATE SET tier = EXCLUDED.tier, "validUntil" = EXCLUDED."validUntil", "monthlyScanLimit" = EXCLUDED."monthlyScanLimit", "activeLicenseKey" = EXCLUDED."activeLicenseKey", "updatedAt" = NOW()`,
+         DO UPDATE SET tier = EXCLUDED.tier, status = 'active', "validUntil" = EXCLUDED."validUntil", "monthlyScanLimit" = EXCLUDED."monthlyScanLimit", "activeLicenseKey" = EXCLUDED."activeLicenseKey", "updatedAt" = NOW()`,
         [
           targetTenant,
           tier,
@@ -259,6 +347,15 @@ export async function activateLicenseKey(
           currentInfo.studioProfile.phone,
           currentInfo.studioProfile.invoiceFooter,
         ]
+      )
+
+      await queryPg(
+        `UPDATE tenants
+         SET status = 'active',
+             "expiresAt" = $1,
+             "updatedAt" = NOW()
+         WHERE id = $2`,
+        [newValidUntil, targetTenant]
       )
     } catch (err) {
       console.warn("Could not save to PostgreSQL subscriptions table:", err)

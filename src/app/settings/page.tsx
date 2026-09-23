@@ -48,7 +48,8 @@ import { ThemeToggle } from "@/lib/theme"
 import { BranchSwitcher, Branch } from "@/components/BranchSwitcher"
 import { getAuthHeaders } from "@/lib/authClient"
 import { useUser, useAuth, useClerk } from "@clerk/nextjs"
-import { SubscriptionInfo, TIER_CONFIG } from "@/lib/subscription"
+import { SubscriptionInfo, TIER_CONFIG, SubscriptionTier } from "@/lib/subscription"
+import { PakasirCheckoutModal } from "@/components/PakasirCheckoutModal"
 import {
   getNotificationPermissionStatus,
   getNotificationSettings,
@@ -208,8 +209,12 @@ function SettingsContent() {
 
   // Subscription & Voucher State
   const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null)
+  const [loadingSubscription, setLoadingSubscription] = useState<boolean>(true)
   const [voucherKey, setVoucherKey] = useState("")
   const [isActivatingVoucher, setIsActivatingVoucher] = useState(false)
+  const [checkoutModal, setCheckoutModal] = useState<{ isOpen: boolean; tier: SubscriptionTier; billingCycle: "monthly" | "yearly" } | null>(null)
+  const [showPlanPicker, setShowPlanPicker] = useState<boolean>(false)
+  const [pickerBillingCycle, setPickerBillingCycle] = useState<"monthly" | "yearly">("monthly")
 
   // 2. Notification Settings State
   const [permState, setPermState] = useState<string>("default")
@@ -556,6 +561,7 @@ function SettingsContent() {
   // Fetch subscription info (profile and workflow) from database
   const fetchSubscription = useCallback(async () => {
     try {
+      setLoadingSubscription(true)
       const headers = await getAuthenticatedHeaders()
       const res = await fetch("/api/subscription", { headers })
       if (res.ok) {
@@ -585,6 +591,8 @@ function SettingsContent() {
       }
     } catch (err) {
       console.warn("Failed to load subscription details:", err)
+    } finally {
+      setLoadingSubscription(false)
     }
   }, [getAuthenticatedHeaders])
 
@@ -620,11 +628,12 @@ function SettingsContent() {
 
   // Fetch & synchronize session
   useEffect(() => {
+    let isMounted = true
     const initSession = async () => {
       try {
         const headers = await getAuthenticatedHeaders()
         const res = await fetch("/api/auth/session", { headers })
-        if (res.ok) {
+        if (res.ok && isMounted) {
           const data = await res.json()
           if (data?.authenticated) {
             if (data?.user?.role) {
@@ -638,17 +647,24 @@ function SettingsContent() {
             }
           }
         }
-        await fetchSubscription()
-        await fetchAccounts()
-        await fetchInvites()
-        await fetchBranches()
-        await fetchRoles()
-        await fetchFeatures()
-      } catch {}
+        if (isMounted) {
+          await Promise.allSettled([
+            fetchSubscription(),
+            fetchAccounts(),
+            fetchInvites(),
+            fetchBranches(),
+            fetchRoles(),
+            fetchFeatures(),
+          ])
+        }
+      } catch (err) {
+        console.warn("Init session notice:", err)
+      }
     }
 
-    if (isClerkLoaded) {
-      initSession()
+    initSession()
+    return () => {
+      isMounted = false
     }
   }, [isClerkLoaded, isClerkSignedIn, getAuthenticatedHeaders, fetchSubscription, fetchAccounts, fetchInvites, fetchBranches, fetchRoles, fetchFeatures])
 
@@ -2697,21 +2713,27 @@ function SettingsContent() {
 
           {/* TAB: LANGGANAN & KUOTA */}
           {activeTab === "billing" && (() => {
-            const subTier = subscription?.tier || "trial"
+            const subTier: SubscriptionTier = (subscription?.tier as SubscriptionTier) || "trial"
             const tierConfig = TIER_CONFIG[subTier] || TIER_CONFIG.trial
             const subExpiryDate = subscription?.validUntil ? new Date(subscription.validUntil) : null
-            const formattedExpiry = subExpiryDate
-              ? subExpiryDate.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })
-              : "-"
-            const daysRemaining = subExpiryDate
-              ? Math.max(0, Math.ceil((subExpiryDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+            const isValidDate = Boolean(subExpiryDate && !isNaN(subExpiryDate.getTime()))
+            const default14Days = new Date(Date.now() + 14 * 86400000)
+            const resolvedDate = isValidDate ? subExpiryDate! : default14Days
+            const formattedExpiry = resolvedDate.toLocaleDateString("id-ID", {
+              day: "numeric",
+              month: "long",
+              year: "numeric",
+            })
+            const daysRemaining = isValidDate
+              ? Math.max(0, Math.ceil((subExpiryDate!.getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
               : 14
-            const isSubExpired = subscription?.status === "expired" || daysRemaining === 0
+            const isSubExpired = subscription?.status === "expired" || (isValidDate && daysRemaining === 0)
             const isSubActive = subscription?.status === "active"
             const isTrial = subTier === "trial"
+            const isDev = subTier === "developer"
             const monthlyLimit = subscription?.monthlyScanLimit || tierConfig.monthlyScanLimit
-            const isUnlimitedScans = monthlyLimit >= 99999
-            const usedScans = subscription?.usedScansThisMonth || 0
+            const isUnlimitedScans = isDev || monthlyLimit >= 99999
+            const usedScans = isDev ? 0 : (subscription?.usedScansThisMonth || 0)
             const scanPercent = isUnlimitedScans ? 0 : Math.min(100, Math.round((usedScans / monthlyLimit) * 100))
             const maxBranches = tierConfig.maxBranches || 1
             const maxUsers = tierConfig.maxUsers || 2
@@ -2728,34 +2750,75 @@ function SettingsContent() {
                       Status paket aktif, kapasitas cabang, dan penggunaan kuota scan AI.
                     </p>
                   </div>
-                  <Link
-                    href="/pricing"
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-black shadow-xs transition-all cursor-pointer"
-                  >
-                    <Sparkles className="w-4 h-4" />
-                    <span>{isTrial ? "Upgrade ke Pro / Enterprise" : "Kelola / Upgrade Paket"}</span>
-                  </Link>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowPlanPicker(true)}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-black shadow-xs transition-all cursor-pointer"
+                    >
+                      <Sparkles className="w-4 h-4" />
+                      <span>
+                        {subTier === "trial"
+                          ? "Upgrade ke Pro / Enterprise"
+                          : subTier === "starter"
+                          ? "Upgrade ke Pro / Enterprise"
+                          : subTier === "pro"
+                          ? "Upgrade ke Enterprise"
+                          : "Pilih / Ganti Paket"}
+                      </span>
+                    </button>
+                    <Link
+                      href="/pricing"
+                      className="inline-flex items-center gap-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold transition-all cursor-pointer"
+                      title="Lihat Halaman Pricing Lengkap"
+                    >
+                      <span>Tabel Pricing</span>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </Link>
+                  </div>
                 </div>
 
                 {/* Status Banner */}
-                <div className="p-5 rounded-2xl bg-gradient-to-br from-emerald-500/10 via-teal-500/5 to-slate-900/60 border border-emerald-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className={`p-5 rounded-2xl bg-gradient-to-br border flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+                  isDev
+                    ? "from-violet-500/10 via-purple-500/5 to-slate-900/60 border-violet-500/30"
+                    : isSubExpired
+                    ? "from-rose-500/10 via-red-500/5 to-slate-900/60 border-rose-500/30"
+                    : subTier === "enterprise"
+                    ? "from-amber-500/10 via-emerald-500/5 to-slate-900/60 border-amber-500/30"
+                    : subTier === "pro"
+                    ? "from-emerald-500/10 via-teal-500/5 to-slate-900/60 border-emerald-500/30"
+                    : subTier === "starter"
+                    ? "from-teal-500/10 via-cyan-500/5 to-slate-900/60 border-teal-500/30"
+                    : "from-amber-500/10 via-teal-500/5 to-slate-900/60 border-amber-500/30"
+                }`}>
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${
-                        subTier === "developer"
-                          ? "bg-violet-600 text-white shadow-xs font-black"
+                        isDev
+                          ? "bg-violet-600 text-white shadow-xs"
                           : isSubExpired
                           ? "bg-rose-500 text-white"
-                          : isTrial
-                          ? "bg-amber-500 text-slate-950"
-                          : "bg-emerald-500 text-slate-950"
+                          : subTier === "enterprise"
+                          ? "bg-amber-400 text-slate-950"
+                          : subTier === "pro"
+                          ? "bg-emerald-500 text-slate-950"
+                          : subTier === "starter"
+                          ? "bg-teal-500 text-white"
+                          : "bg-amber-500 text-slate-950"
                       }`}>
-                        {subTier === "developer"
+                        {isDev
                           ? "Developer Master (Aktif Selamanya)"
                           : isSubExpired
                           ? "Kadaluarsa"
                           : isTrial
                           ? `Trial 14 Hari (${daysRemaining} Hari Tersisa)`
+                          : subTier === "enterprise"
+                          ? `Enterprise Aktif (${daysRemaining} Hari Tersisa)`
+                          : subTier === "pro"
+                          ? `Pro Usaha Aktif (${daysRemaining} Hari Tersisa)`
+                          : subTier === "starter"
+                          ? `Starter Bisnis Aktif (${daysRemaining} Hari Tersisa)`
                           : `Aktif (${daysRemaining} Hari Tersisa)`}
                       </span>
                       <span className="text-base font-black text-slate-900 dark:text-white">
@@ -2763,24 +2826,39 @@ function SettingsContent() {
                       </span>
                     </div>
                     <p className="text-xs text-slate-500 dark:text-slate-400">
-                      {subTier === "developer"
+                      {isDev
                         ? "Akun Developer Master memiliki akses tanpa batasan kuota OCR, multi-cabang bebas, dan seluruh fitur platform terbuka selamanya."
                         : isSubExpired
-                        ? "Masa aktif paket Anda telah habis. Perpanjang sekarang agar proses scan struk tetap berjalan."
-                        : isTrial
-                        ? `Masa evaluasi 14 hari aktif hingga ${formattedExpiry}. Semua fitur AI & multi-cabang terbuka.`
-                        : `Langganan resmi aktif hingga ${formattedExpiry}. Fitur ${tierConfig.name} berjalan penuh.`}
+                        ? `Masa aktif paket Anda telah habis pada ${formattedExpiry}. Perpanjang sekarang agar proses scan struk tetap berjalan.`
+                        : subTier === "enterprise"
+                        ? `Langganan Enterprise Multi-Cabang aktif hingga ${formattedExpiry}. Kuota Unlimited Scan AI dan kapasitas cabang & staf tanpa batas.`
+                        : subTier === "pro"
+                        ? `Langganan Pro Usaha aktif hingga ${formattedExpiry}. Kuota 600 nota/bulan, kapasitas 5 cabang, 10 anggota staf, dan fitur Dual Approval aktif.`
+                        : subTier === "starter"
+                        ? `Langganan Starter Bisnis aktif hingga ${formattedExpiry}. Kuota 150 nota/bulan, ekspor PDF & Excel resmi, dan branding usaha aktif.`
+                        : `Masa evaluasi 14 hari aktif hingga ${formattedExpiry}. Semua fitur AI & multi-cabang terbuka.`}
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-3 shrink-0">
-                    <Link
-                      href="/pricing"
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setShowPlanPicker(true)}
                       className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
                     >
-                      <span>{isSubExpired ? "Perpanjang Sekarang" : "Pilih / Ganti Paket"}</span>
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </Link>
+                      <span>
+                        {isSubExpired
+                          ? "Perpanjang Sekarang"
+                          : isTrial
+                          ? "Pilih / Ganti Paket"
+                          : subTier === "starter"
+                          ? "Tingkatkan ke Pro"
+                          : subTier === "pro"
+                          ? "Tingkatkan ke Enterprise"
+                          : "Pilih / Ganti Paket"}
+                      </span>
+                      <Zap className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
 
@@ -2840,7 +2918,9 @@ function SettingsContent() {
                     </div>
                     <p className="text-[11px] text-slate-400">
                       {branches.length >= maxBranches && maxBranches < 99
-                        ? "Kapasitas cabang telah maksimal. Upgrade untuk menambah cabang."
+                        ? `Kapasitas cabang telah maksimal (${maxBranches} cabang). Upgrade paket untuk menambah cabang.`
+                        : maxBranches >= 99
+                        ? "Bebas menambah lokasi cabang usaha tanpa batasan."
                         : "Dukungan multi-cabang dengan data nota terpisah per lokasi."}
                     </p>
                   </div>
@@ -2869,7 +2949,9 @@ function SettingsContent() {
                     </div>
                     <p className="text-[11px] text-slate-400">
                       {accounts.length >= maxUsers && maxUsers < 99
-                        ? "Kapasitas staf penuh. Upgrade paket untuk menambah kasir/manajer."
+                        ? `Kapasitas staf penuh (${maxUsers} anggota). Upgrade paket untuk menambah kasir/manajer.`
+                        : maxUsers >= 99
+                        ? "Bebas mengundang seluruh kasir & manajer tanpa batasan."
                         : "Undang kasir dan manajer melalui tautan Google SSO aman."}
                     </p>
                   </div>
@@ -2898,14 +2980,14 @@ function SettingsContent() {
                     <span>Aktivasi Kode Voucher / License Key</span>
                   </h3>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Punya kode voucher lisensi dari promosi atau kemitraan Scota? Masukkan di bawah ini untuk mengaktifkan paket secara instan.
+                    Punya kode voucher lisensi dari promosi atau kemitraan Scota? Masukkan di bawah ini untuk mengaktifkan paket secara instan (Contoh: SCOTA-STARTER-1M-XXXX, SCOTA-PRO-1YEAR-XXXX, SCOTA-ENT-1YEAR-XXXX).
                   </p>
                   <div className="flex flex-col sm:flex-row items-center gap-2">
                     <input
                       type="text"
                       value={voucherKey}
                       onChange={(e) => setVoucherKey(e.target.value)}
-                      placeholder="Contoh: SCOTA-PRO-1YEAR-XXXX"
+                      placeholder="CONTOH: SCOTA-PRO-1YEAR-XXXX"
                       className="w-full sm:flex-1 px-3.5 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs font-mono uppercase tracking-wider outline-none focus:border-emerald-500 transition-all"
                     />
                     <button
@@ -3680,7 +3762,198 @@ function SettingsContent() {
               </div>
             </div>
           )}
-        </main>
+        {/* MODAL: Plan Picker */}
+        {showPlanPicker && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
+            <div className="relative w-full max-w-3xl bg-white dark:bg-[#0c1322] border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+              {/* Header */}
+              <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-black">
+                    <Sparkles className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                      Pilih / Upgrade Paket Usaha
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Tingkatkan kuota scan AI, cabang toko, dan staf kasir untuk akun Anda.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowPlanPicker(false)}
+                  className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Billing Cycle Switcher */}
+              <div className="px-5 sm:px-6 pt-4 pb-2 flex items-center justify-center">
+                <div className="inline-flex items-center p-1 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs">
+                  <button
+                    type="button"
+                    onClick={() => setPickerBillingCycle("monthly")}
+                    className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      pickerBillingCycle === "monthly"
+                        ? "bg-emerald-600 text-white shadow-xs"
+                        : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                    }`}
+                  >
+                    Bayar Bulanan
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPickerBillingCycle("yearly")}
+                    className={`flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      pickerBillingCycle === "yearly"
+                        ? "bg-emerald-600 text-white shadow-xs"
+                        : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                    }`}
+                  >
+                    <span>Bayar Tahunan</span>
+                    <span className="px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-400/20 text-emerald-800 dark:text-emerald-300 text-[10px] font-black">
+                      Hemat 17%
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Plan Options Grid */}
+              <div className="p-5 sm:px-6 overflow-y-auto grid grid-cols-1 md:grid-cols-3 gap-4">
+                {(["starter", "pro", "enterprise"] as SubscriptionTier[]).map((tierKey) => {
+                  const plan = TIER_CONFIG[tierKey]
+                  const isCurrent = (subscription?.tier || "trial") === tierKey
+                  const isPopular = tierKey === "pro"
+                  const price = pickerBillingCycle === "yearly" ? plan.priceYearly : plan.priceMonthly
+                  const originalPrice = pickerBillingCycle === "yearly" ? plan.originalPriceYearly : plan.originalPriceMonthly
+
+                  return (
+                    <div
+                      key={tierKey}
+                      className={`relative flex flex-col justify-between rounded-2xl p-4.5 border transition-all ${
+                        isPopular
+                          ? "bg-emerald-50/30 dark:bg-emerald-950/20 border-emerald-500/70 shadow-lg ring-1 ring-emerald-500/30"
+                          : "bg-white dark:bg-slate-900/60 border-slate-200 dark:border-slate-800"
+                      }`}
+                    >
+                      {isPopular && (
+                        <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-2.5 py-0.5 bg-emerald-600 text-white font-black text-[10px] rounded-full uppercase tracking-wider">
+                          Paling Populer
+                        </div>
+                      )}
+
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-sm font-black text-slate-900 dark:text-white">{plan.name}</h4>
+                          {isCurrent && (
+                            <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold">
+                              Paket Aktif
+                            </span>
+                          )}
+                        </div>
+
+                        <div>
+                          {Boolean(originalPrice) && (
+                            <span className="text-[10px] font-semibold line-through text-slate-400 dark:text-slate-500 mr-1.5">
+                              Rp {originalPrice?.toLocaleString("id-ID")}
+                            </span>
+                          )}
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-xs font-bold text-slate-500">Rp</span>
+                            <span className="text-xl font-black text-slate-900 dark:text-white">
+                              {price.toLocaleString("id-ID")}
+                            </span>
+                            <span className="text-[11px] text-slate-500">
+                              {pickerBillingCycle === "yearly" ? "/thn" : "/bln"}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/40 text-[11px] space-y-1 text-slate-600 dark:text-slate-300">
+                          <div className="font-bold text-emerald-600 dark:text-emerald-400">
+                            {plan.monthlyScanLimit >= 99999 ? "Unlimited Scan Nota AI" : `${plan.monthlyScanLimit} Scan Nota AI / bln`}
+                          </div>
+                          <div>Cabang: <span className="font-semibold text-slate-800 dark:text-slate-200">{plan.maxBranches >= 99 ? "Bebas Cabang" : `${plan.maxBranches} Cabang`}</span></div>
+                          <div>Staf: <span className="font-semibold text-slate-800 dark:text-slate-200">{plan.maxUsers >= 99 ? "Bebas Staf" : `${plan.maxUsers} Akun`}</span></div>
+                        </div>
+
+                        <ul className="space-y-1.5 text-xs text-slate-600 dark:text-slate-300">
+                          {plan.features.slice(0, 4).map((f, i) => (
+                            <li key={i} className="flex items-start gap-1.5">
+                              <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                              <span className="text-[11px]">{f}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      <div className="pt-3">
+                        <button
+                          type="button"
+                          disabled={isCurrent}
+                          onClick={() => {
+                            setShowPlanPicker(false)
+                            setCheckoutModal({
+                              isOpen: true,
+                              tier: tierKey,
+                              billingCycle: pickerBillingCycle,
+                            })
+                          }}
+                          className={`w-full py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                            isCurrent
+                              ? "bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed"
+                              : isPopular
+                              ? "bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs"
+                              : "bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white"
+                          }`}
+                        >
+                          <Zap className="w-3.5 h-3.5" />
+                          <span>{isCurrent ? "Paket Saat Ini" : `Pilih ${plan.name}`}</span>
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Footer link to pricing */}
+              <div className="px-6 py-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 flex items-center justify-between">
+                <Link
+                  href="/pricing"
+                  className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
+                >
+                  <span>Lihat tabel perbandingan fitur lengkap di halaman Pricing</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => setShowPlanPicker(false)}
+                  className="px-4 py-1.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                >
+                  Tutup
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL: Pakasir Checkout Modal */}
+        {checkoutModal?.isOpen && (
+          <PakasirCheckoutModal
+            isOpen={checkoutModal.isOpen}
+            tier={checkoutModal.tier}
+            billingCycle={checkoutModal.billingCycle}
+            onClose={() => setCheckoutModal(null)}
+            onSuccess={async () => {
+              await fetchSubscription()
+              toast.success("Pembayaran berhasil! Paket usaha Anda telah diperbarui.")
+            }}
+          />
+        )}
+      </main>
       </div>
     </div>
   )

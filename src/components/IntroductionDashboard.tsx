@@ -183,11 +183,16 @@ export function IntroductionDashboard({
   }, [])
 
   // Scrollspy to detect active section dynamically on scroll
+  const isSmoothScrollingRef = useRef(false)
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
   useEffect(() => {
     const sectionIds = ["simulasi", "jenis-usaha", "komparasi", "fitur", "harga", "faq"]
 
     const handleScroll = () => {
       setHasScrolled(window.scrollY > 10)
+      if (isSmoothScrollingRef.current) return
+
       const scrollPosition = window.scrollY + 140
 
       for (let i = sectionIds.length - 1; i >= 0; i--) {
@@ -205,7 +210,10 @@ export function IntroductionDashboard({
 
     window.addEventListener("scroll", handleScroll, { passive: true })
     handleScroll()
-    return () => window.removeEventListener("scroll", handleScroll)
+    return () => {
+      window.removeEventListener("scroll", handleScroll)
+      if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current)
+    }
   }, [])
 
   const businessTypes = [
@@ -264,11 +272,19 @@ export function IntroductionDashboard({
     e.preventDefault()
     setIsMobileMenuOpen(false)
     setActiveSection(id)
+    isSmoothScrollingRef.current = true
+    if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current)
+
     const el = document.getElementById(id)
     if (el) {
       const yOffset = -75
       const y = el.getBoundingClientRect().top + window.pageYOffset + yOffset
       window.scrollTo({ top: y, behavior: "smooth" })
+      scrollTimeoutRef.current = setTimeout(() => {
+        isSmoothScrollingRef.current = false
+      }, 850)
+    } else {
+      isSmoothScrollingRef.current = false
     }
   }
 

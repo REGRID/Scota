@@ -107,14 +107,15 @@ export default function PricingPage() {
   ]
 
   const comparisonFeatures = [
-    { name: "Batas Scan Nota Bulanan", trial: "30 Nota/bln", starter: "150 Nota/bln", pro: "500 Nota/bln", enterprise: "Tanpa Batas" },
+    { name: "Batas Scan Nota Bulanan", trial: "30 Nota/bln", starter: "150 Nota/bln", pro: "600 Nota/bln", enterprise: "Tanpa Batas" },
     { name: "Kecepatan AI Vision OCR", trial: "Standar", starter: "Prioritas Cepat", pro: "Prioritas Turbo", enterprise: "Ultra Fast Dedicated" },
+    { name: "Kapasitas Cabang Usaha", trial: "1 Cabang", starter: "1 Cabang", pro: "Hingga 5 Cabang", enterprise: "Bebas Cabang Tanpa Batas" },
+    { name: "Multi-Admin & Akses Karyawan", trial: "2 Akun", starter: "3 Akun", pro: "Hingga 10 Akun", enterprise: "Multi-Cabang Unlimited" },
     { name: "Ekspor Excel & CSV", trial: true, starter: true, pro: true, enterprise: true },
     { name: "Ekspor Dokumen Laporan PDF", trial: false, starter: true, pro: true, enterprise: true },
     { name: "Dual-Control Approval (Otorisasi 2 Admin)", trial: false, starter: false, pro: true, enterprise: true },
     { name: "Kustomisasi Logo & Kop Surat", trial: false, starter: true, pro: true, enterprise: true },
     { name: "Integrasi POS / Cloud Sync", trial: false, starter: false, pro: true, enterprise: true },
-    { name: "Multi-Admin & Akses Karyawan", trial: "1 Akun", starter: "2 Akun", pro: "Hingga 5 Akun", enterprise: "Multi-Cabang Unlimited" },
     { name: "Dukungan CS & Bantuan Teknis", trial: "Forum Bantuan", starter: "Email & Chat", pro: "WhatsApp Priority", enterprise: "Dedicated Account Manager" },
   ]
 

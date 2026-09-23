@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { SignIn, SignUp } from "@clerk/nextjs"
 import { dark } from "@clerk/themes"
 import { ArrowLeft, ShieldCheck, Zap } from "lucide-react"
@@ -22,6 +23,7 @@ export function AdminLoginScreen({
   const { theme } = useTheme()
   const isDark = theme === "dark"
 
+  const router = useRouter()
   const [authMode, setAuthMode] = useState<"login" | "register">(
     initialMode === "register" ? "register" : "login"
   )
@@ -34,11 +36,9 @@ export function AdminLoginScreen({
 
   const switchMode = (mode: "login" | "register") => {
     setAuthMode(mode)
-    if (typeof window !== "undefined") {
-      const targetPath = mode === "register" ? "/register" : "/login"
-      if (window.location.pathname !== targetPath) {
-        window.history.pushState(null, "", targetPath)
-      }
+    const targetPath = mode === "register" ? "/register" : "/login"
+    if (typeof window !== "undefined" && window.location.pathname !== targetPath) {
+      router.replace(targetPath)
     }
   }
 

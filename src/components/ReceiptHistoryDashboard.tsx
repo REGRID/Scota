@@ -59,6 +59,7 @@ import {
   MoreHorizontal,
   Lock,
   Palette,
+  ArrowRight,
 } from "lucide-react"
 import {
   ResponsiveContainer,
@@ -142,10 +143,19 @@ interface ReceiptHistoryDashboardProps {
   onScanNewReceipt: () => void
   onEditReceipt?: (receipt: ReceiptData) => void
   currentAdminUser?: string
+  dualControlEnabled?: boolean
 }
 
-export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, currentAdminUser = "" }: ReceiptHistoryDashboardProps) {
+export function ReceiptHistoryDashboard({
+  onScanNewReceipt,
+  onEditReceipt,
+  currentAdminUser = "",
+  dualControlEnabled: propDualControlEnabled,
+}: ReceiptHistoryDashboardProps) {
   const router = useRouter()
+  const isDualControlActive = propDualControlEnabled !== undefined
+    ? propDualControlEnabled
+    : (typeof window !== "undefined" && localStorage.getItem("scota_dual_control_enabled") === "true")
   const { showAlert, showConfirm } = useAppDialog()
   const [allReceipts, setAllReceipts] = useState<ReceiptData[]>(() => {
     if (typeof window !== "undefined") {
@@ -5511,49 +5521,150 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
       {/* DUAL-ADMIN APPROVAL MODAL */}
       {showApprovalModal && (
         <div className="fixed inset-0 z-[80] bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white text-slate-900 w-full max-w-2xl rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
-            {/* Modal Header */}
-            <div className="p-5 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-emerald-500 text-slate-950 flex items-center justify-center font-black shrink-0">
-                  <ShieldCheck className="w-5 h-5" />
+          <div className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 w-full max-w-2xl rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[90vh]">
+            {!isDualControlActive && pendingApprovals.length === 0 ? (
+              /* TAMPILAN PENJELASAN SINGKAT DUAL APPROVAL (JIKA NONAKTIF) */
+              <div className="flex flex-col flex-1">
+                {/* Modal Header */}
+                <div className="p-5 bg-slate-50 dark:bg-slate-950/80 border-b border-slate-200/80 dark:border-slate-800/80 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-black shrink-0 border border-emerald-500/20">
+                      <ShieldCheck className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-extrabold text-base text-slate-900 dark:text-white">Alur Persetujuan (Dual Control)</h3>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400">Nonaktif</span>
+                      </div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Prinsip Empat Mata untuk otorisasi silang transaksi nota</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowApprovalModal(false)}
+                    className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
                 </div>
-                <div>
-                  <h3 className="font-extrabold text-base flex items-center gap-2">
-                    Verifikasi Persetujuan Admin <span className="text-emerald-400 text-xs font-normal">(Dual Control)</span>
-                  </h3>
-                  <p className="text-xs text-slate-400">
-                    Empat Mata: Persetujuan Silang Tindakan Sensitif (Hapus, Edit, Pelunasan)
-                  </p>
+
+                {/* Modal Body */}
+                <div className="p-6 space-y-4 overflow-y-auto flex-1">
+                  <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200/70 dark:border-emerald-800/40 space-y-2">
+                    <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-400 font-extrabold text-xs">
+                      <Zap className="w-4 h-4 fill-current" />
+                      <span>Mode Saat Ini: Langsung Terbit (Auto-Publish)</span>
+                    </div>
+                    <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+                      Fitur Dual Approval saat ini <strong>belum diaktifkan</strong> pada akun Anda. Setiap tindakan penginputan, pengeditan, atau penghapusan nota langsung dipublikasikan secara instan tanpa memerlukan persetujuan dari admin lain.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2.5">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Apa Manfaat Mengaktifkan Dual Approval?</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                      <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 space-y-1">
+                        <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                        <h5 className="font-extrabold text-xs text-slate-900 dark:text-white">Cegah Fraud</h5>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">Menghindari manipulasi kas atau penghapusan bon sepihak tanpa izin.</p>
+                      </div>
+                      <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 space-y-1">
+                        <User className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                        <h5 className="font-extrabold text-xs text-slate-900 dark:text-white">Bagi Wewenang</h5>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">Staf menginput nota, pemilik/manajer memeriksa dan menyetujui.</p>
+                      </div>
+                      <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 space-y-1">
+                        <FileText className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                        <h5 className="font-extrabold text-xs text-slate-900 dark:text-white">Audit Trail</h5>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">Seluruh riwayat pengajuan dan persetujuan terekam secara transparan.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Modal Footer */}
+                <div className="p-4 bg-slate-50 dark:bg-slate-950/80 border-t border-slate-200/80 dark:border-slate-800/80 flex items-center justify-end gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setShowApprovalModal(false)}
+                    className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-200/70 dark:hover:bg-slate-800 transition-colors"
+                  >
+                    Tutup
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowApprovalModal(false)
+                      router.push("/settings")
+                    }}
+                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs transition-all shadow-xs active:scale-95 flex items-center gap-1.5"
+                  >
+                    <span>Buka Pengaturan Keamanan</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setShowApprovalModal(false)}
-                className="p-2 rounded-xl text-slate-400 hover:text-white transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Modal Body */}
-            <div className="p-5 overflow-y-auto space-y-4 flex-1">
-              <div className="bg-amber-50 border border-amber-200 p-3.5 rounded-2xl text-xs text-amber-900 flex items-start gap-2.5 font-medium">
-                <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                <span>
-                  Setiap tindakan Hapus, Edit, atau Pelunasan Nota memerlukan persetujuan dari <strong>Admin lain</strong>. Anda sedang aktif sebagai <strong>{currentAdminUser}</strong>.
-                </span>
-              </div>
-
-              {pendingApprovals.length === 0 ? (
-                <div className="text-center py-12 space-y-3">
-                  <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto" />
-                  <h4 className="font-extrabold text-slate-800 text-sm sm:text-base">Tidak Ada Permintaan Pending</h4>
-                  <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                    Semua tindakan Hapus, Edit, dan Pelunasan Nota telah selesai atau tidak ada yang menunggu verifikasi.
-                  </p>
+            ) : (
+              /* TAMPILAN AKTIF: VERIFIKASI PERSETUJUAN DUAL CONTROL */
+              <div className="flex flex-col flex-1">
+                {/* Modal Header */}
+                <div className="p-5 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-emerald-500 text-slate-950 flex items-center justify-center font-black shrink-0">
+                      <ShieldCheck className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-extrabold text-base">Verifikasi Persetujuan Admin</h3>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Dual Control Aktif</span>
+                      </div>
+                      <p className="text-xs text-slate-400">
+                        Empat Mata: Persetujuan Silang Tindakan Sensitif (Hapus, Edit, Pelunasan)
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowApprovalModal(false)}
+                    className="p-2 rounded-xl text-slate-400 hover:text-white transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
                 </div>
-              ) : (
+
+                {/* Modal Body */}
+                <div className="p-5 overflow-y-auto space-y-4 flex-1">
+                  <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 p-3.5 rounded-2xl text-xs text-slate-700 dark:text-slate-300 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                    <div className="flex items-start sm:items-center gap-2">
+                      <Info className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5 sm:mt-0" />
+                      <span>Setiap tindakan Hapus, Edit, atau Pelunasan Nota memerlukan persetujuan dari <strong>Admin lain</strong>.</span>
+                    </div>
+                    <span className="self-start sm:self-auto px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 font-bold text-[11px] text-slate-800 dark:text-slate-200 shrink-0">
+                      Aktif: {currentAdminUser || "Admin"}
+                    </span>
+                  </div>
+
+                  {pendingApprovals.length === 0 ? (
+                    <div className="text-center py-10 px-4 space-y-3 bg-slate-50/60 dark:bg-slate-950/40 rounded-2xl border border-slate-200/60 dark:border-slate-800/60">
+                      <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center mx-auto border border-emerald-500/20">
+                        <CheckCircle2 className="w-6 h-6" />
+                      </div>
+                      <h4 className="font-extrabold text-slate-800 dark:text-white text-sm sm:text-base">Tidak Ada Permintaan Pending</h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+                        Semua tindakan Hapus, Edit, dan Pelunasan Nota telah selesai atau tidak ada yang menunggu verifikasi saat ini.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowApprovalModal(false)
+                          router.push("/settings")
+                        }}
+                        className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline font-semibold inline-block pt-1 cursor-pointer"
+                      >
+                        Atur batas nominal persetujuan di Pengaturan Keamanan
+                      </button>
+                    </div>
+                  ) : (
                 <div className="space-y-2.5">
                   <div className="flex items-center justify-between text-[11px] font-extrabold text-slate-500 uppercase tracking-wider px-1 pb-1">
                     <span>Daftar Permintaan ({pendingApprovals.length})</span>
@@ -6086,8 +6197,10 @@ export function ReceiptHistoryDashboard({ onScanNewReceipt, onEditReceipt, curre
               )}
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
+    </div>
+  )}
 
       {/* KELOLA DATA & EXPORT COMBINED MODAL */}
       {showDataOptionsModal && (

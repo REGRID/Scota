@@ -36,6 +36,8 @@ import {
   ArrowRight,
   Maximize2,
   User,
+  Copy,
+  Check,
 } from "lucide-react"
 import { ParsedItem, ParsedReceiptResult } from "@/app/api/parse-receipt/route"
 import { ImageInteractiveLightbox } from "@/components/ImageInteractiveLightbox"
@@ -387,6 +389,58 @@ export function VerificationSplitScreen({
   const currentTaxNum = Number(taxAmount) || 0
   const calculatedTotal = Math.max(0, itemsSubtotal - currentDiscountNum + currentTaxNum)
 
+  // Generate clean, readable raw OCR text from the receipt without form card plotting
+  const [isCopied, setIsCopied] = useState(false)
+
+  const displayRawText = useMemo(() => {
+    if (rawOcrText && rawOcrText.trim() !== "" && rawOcrText !== "Nota Belanja") {
+      return rawOcrText
+    }
+    // Clean formatted text directly from the receipt items without being plotted into inputs
+    const lines: string[] = []
+    if (merchantName) lines.push(merchantName)
+    if (date) lines.push(`Tanggal: ${date}`)
+    if (paymentMethod) lines.push(`Metode Pembayaran: ${paymentMethod}`)
+    lines.push("----------------------------------------")
+    items.forEach((it, idx) => {
+      const q = it.quantity || 1
+      const p = Number(it.price) || 0
+      lines.push(`${idx + 1}. ${it.name || "Item"} x${q} @ Rp ${p.toLocaleString("id-ID")}`)
+    })
+    lines.push("----------------------------------------")
+    lines.push(`Subtotal : Rp ${itemsSubtotal.toLocaleString("id-ID")}`)
+    if (currentDiscountNum > 0) {
+      lines.push(`Diskon   : - Rp ${currentDiscountNum.toLocaleString("id-ID")}`)
+    }
+    if (currentTaxNum > 0) {
+      lines.push(`Pajak    : + Rp ${currentTaxNum.toLocaleString("id-ID")}`)
+    }
+    lines.push(`Total    : Rp ${calculatedTotal.toLocaleString("id-ID")}`)
+    return lines.join("\n")
+  }, [
+    rawOcrText,
+    merchantName,
+    date,
+    paymentMethod,
+    items,
+    itemsSubtotal,
+    currentDiscountNum,
+    currentTaxNum,
+    calculatedTotal,
+  ])
+
+  const handleCopyRawText = async () => {
+    if (!displayRawText) return
+    try {
+      await navigator.clipboard.writeText(displayRawText)
+      setIsCopied(true)
+      toast.success("Teks mentah nota berhasil disalin!")
+      setTimeout(() => setIsCopied(false), 2000)
+    } catch {
+      toast.error("Gagal menyalin teks")
+    }
+  }
+
   // Handle percent discount calculation
   const handleDiscountPercentChange = (percent: number | "") => {
     setDiscountPercentValue(percent)
@@ -726,6 +780,38 @@ export function VerificationSplitScreen({
               )}
             </div>
 
+            {/* Teks Hasil Mentah OCR (Data Bersih Nota Tanpa Di-plot Form) */}
+            <div className="p-3.5 sm:p-4 bg-slate-50 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black text-slate-800 dark:text-slate-200 flex items-center gap-1.5 uppercase tracking-wider">
+                  <FileText className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                  Hasil Mentah OCR (Data Bersih Nota)
+                </span>
+                <button
+                  type="button"
+                  onClick={handleCopyRawText}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-200/80 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-[11px] font-bold transition-all active:scale-95 cursor-pointer"
+                  title="Salin Teks Mentah Nota"
+                >
+                  {isCopied ? (
+                    <>
+                      <Check className="w-3 h-3 text-emerald-500" />
+                      <span className="text-emerald-500 font-bold">Tersalin</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3 h-3 text-slate-400" />
+                      <span>Salin</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Clean Text Box - Non-plotted data */}
+              <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 text-[11px] sm:text-xs font-mono text-slate-800 dark:text-slate-200 leading-relaxed whitespace-pre-wrap max-h-56 overflow-y-auto select-text shadow-2xs">
+                {displayRawText}
+              </div>
+            </div>
           </div>
         </div>
 

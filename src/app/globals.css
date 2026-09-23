@@ -173,6 +173,10 @@ body {
     touch-action: manipulation;
   }
 
+  textarea {
+    resize: none;
+  }
+
   /* Support dark-mode native controls (date picker icon, number spinners, select arrows) */
   .dark {
     color-scheme: dark;

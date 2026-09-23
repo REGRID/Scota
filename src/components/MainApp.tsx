@@ -792,6 +792,14 @@ export function MainApp({
     setParsedResult(null)
     setEditingReceiptId(null)
     clearVerificationDraft(adminUser)
+    setActiveTab("overview")
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href)
+      if (url.searchParams.has("draft")) {
+        url.searchParams.delete("draft")
+        window.history.replaceState({}, "", url.pathname + (url.search ? url.search : ""))
+      }
+    }
   }
 
   // 1. Show Introduction Dashboard if in landing mode

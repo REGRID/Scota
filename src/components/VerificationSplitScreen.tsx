@@ -537,7 +537,7 @@ export function VerificationSplitScreen({
   }
 
   return (
-    <div className="w-full flex flex-col space-y-4 pb-20 lg:pb-0">
+    <div className="w-full flex flex-col space-y-4 pb-20 sm:pb-0">
       {/* Fullscreen Interactive Lightbox Modal */}
       {showLightbox && (
         <ImageInteractiveLightbox

@@ -1186,10 +1186,15 @@ export function MainApp({
       />
 
       {/* Main Container Body */}
-      <div ref={tabContentAreaRef} className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 pb-28 md:pb-8">
+      <div
+        ref={tabContentAreaRef}
+        className={`flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 ${
+          imagePreviewUrl && parsedResult ? "pb-2 sm:pb-6" : "pb-28 md:pb-8"
+        }`}
+      >
         {/* Verification Split Screen View */}
         {imagePreviewUrl && parsedResult ? (
-          <div className="mb-8">
+          <div className="mb-0">
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h2 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">

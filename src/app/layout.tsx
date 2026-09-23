@@ -9,6 +9,7 @@ import { Toaster } from "sonner"
 import { AppDialogProvider } from "@/components/ui/app-dialog"
 import { ThemeProvider } from "@/lib/theme"
 import { JsonLd } from "@/components/seo/JsonLd"
+import { OpeningScreen } from "@/components/OpeningScreen"
 
 const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -147,7 +148,9 @@ export default function RootLayout({
         >
           <ThemeProvider>
           <AppDialogProvider>
-          {children}
+          <OpeningScreen>
+            {children}
+          </OpeningScreen>
           <Toaster position="top-right" richColors />
           </AppDialogProvider>
           </ThemeProvider>

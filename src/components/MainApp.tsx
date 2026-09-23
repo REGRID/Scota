@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react"
 import Link from "next/link"
 import { useRouter, usePathname } from "next/navigation"
-import { useUser, useClerk, UserButton } from "@clerk/nextjs"
+import { useUser, useClerk, useAuth, UserButton } from "@clerk/nextjs"
 import { ReceiptImageUpload, BatchFileItem } from "@/components/ReceiptImageUpload"
 import { VerificationSplitScreen } from "@/components/VerificationSplitScreen"
 import { ReceiptHistoryDashboard, ReceiptData } from "@/components/ReceiptHistoryDashboard"
@@ -56,6 +56,7 @@ export function MainApp({
   const { showAlert } = useAppDialog()
   const { isLoaded: isClerkLoaded, isSignedIn: isClerkSignedIn, user: clerkUser } = useUser()
   const { signOut: clerkSignOut, openUserProfile } = useClerk()
+  const { getToken } = useAuth()
 
   // Admin Auth Gate State
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
@@ -374,7 +375,14 @@ export function MainApp({
 
     const checkSession = async () => {
       try {
-        const res = await fetch("/api/auth/session")
+        const headers: Record<string, string> = {}
+        if (isClerkSignedIn) {
+          try {
+            const token = await getToken()
+            if (token) headers["Authorization"] = `Bearer ${token}`
+          } catch {}
+        }
+        const res = await fetch("/api/auth/session", { headers })
         if (res.ok) {
           const data = await res.json()
           if (data.authenticated) {
@@ -663,11 +671,19 @@ export function MainApp({
     setOcrStatus(`Memproses Nota #${index + 1} dari ${queue.length}...`)
     setOcrPercent(0.3)
 
+    const reqHeaders: Record<string, string> = {
+      "Content-Type": "application/json",
+    }
+    if (isClerkSignedIn) {
+      try {
+        const token = await getToken()
+        if (token) reqHeaders["Authorization"] = `Bearer ${token}`
+      } catch {}
+    }
+
     const parsePromise = fetchWithRetry("/api/parse-receipt", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: reqHeaders,
       signal: controller.signal,
       body: JSON.stringify({
         rawText: "",

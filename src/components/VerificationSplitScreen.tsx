@@ -39,6 +39,7 @@ import {
   Copy,
   Check,
 } from "lucide-react"
+import { useAuth } from "@clerk/nextjs"
 import { ParsedItem, ParsedReceiptResult } from "@/app/api/parse-receipt/route"
 import { ImageInteractiveLightbox } from "@/components/ImageInteractiveLightbox"
 import { getAuthHeaders } from "@/lib/authClient"
@@ -96,6 +97,7 @@ export function VerificationSplitScreen({
   onDraftUpdate,
 }: VerificationSplitScreenProps) {
   const { showAlert, showConfirm } = useAppDialog()
+  const { getToken, isSignedIn: isClerkSignedIn } = useAuth()
   const [mobileView, setMobileView] = useState<"form" | "image">("form")
 
   // Interactive Lightbox State
@@ -557,9 +559,17 @@ export function VerificationSplitScreen({
       const endpoint = editingReceiptId ? `/api/receipts/${editingReceiptId}` : "/api/receipts"
       const method = editingReceiptId ? "PUT" : "POST"
 
+      let headers: Record<string, string> = { ...getAuthHeaders() }
+      if (isClerkSignedIn) {
+        try {
+          const token = await getToken()
+          if (token) headers["Authorization"] = `Bearer ${token}`
+        } catch {}
+      }
+
       const response = await fetch(endpoint, {
         method,
-        headers: getAuthHeaders(),
+        headers,
         body: JSON.stringify({
           merchantName: merchantName.trim() || "Nota / Toko",
           date,

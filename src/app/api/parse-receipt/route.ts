@@ -5,7 +5,7 @@ import { getOrSeedCategories } from "@/lib/categories"
 import { GoogleGenAI } from "@google/genai"
 import { getSession } from "@/lib/authHelper"
 import { queryPg } from "@/lib/pgDb"
-import { getOrCreateDemoTenant, issueDemoSession, DEMO_SCAN_LIMIT, DEMO_RECEIPT_LIMIT } from "@/lib/demoTenant"
+import { getOrCreateDemoTenant, DEMO_SCAN_LIMIT, DEMO_RECEIPT_LIMIT } from "@/lib/demoTenant"
 import { invalidateReceiptsListCache } from "@/app/api/receipts/route"
 import { getSubscriptionInfo } from "@/lib/subscriptionServer"
 
@@ -574,24 +574,6 @@ Keluarkan HANYA JSON:
       isDemo: isDemoMode,
       tenantId: activeTenantId,
     })
-
-    // Pasang cookie sesi demo untuk anonymous visitor agar struk demo dapat dilihat di browser
-    if (isDemoMode && activeTenantId && (!session || session.role === "DEMO")) {
-      try {
-        const demoToken = await issueDemoSession(activeTenantId, cleanIp)
-        response.cookies.set({
-          name: "nota_admin_session",
-          value: demoToken,
-          httpOnly: true,
-          secure: process.env.NODE_ENV === "production",
-          sameSite: "lax",
-          path: "/",
-          maxAge: 60 * 60 * 24, // 1 hari
-        })
-      } catch (sessErr) {
-        console.warn("Gagal membuat token sesi demo:", sessErr)
-      }
-    }
 
     response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate")
     return response

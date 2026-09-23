@@ -199,6 +199,17 @@ export async function getSession(req: NextRequest): Promise<SessionPayload | nul
       // 2e. JIT Provisioning if account does not exist in local DB yet
       const provisioned = await provisionTenantForClerkUser(userId)
       if (provisioned) return provisioned
+
+      // Fallback: If user is authenticated in Clerk but provisioning encountered a transient DB issue,
+      // return a safe OWNER session instead of falling back to a DEMO visitor session!
+      return {
+        username: `owner_${userId.slice(-8)}`,
+        role: "OWNER",
+        tenantId: DEFAULT_TENANT_ID,
+        staffName: "Owner",
+        fullName: "Owner",
+        onboardingCompleted: true,
+      }
     }
   } catch (err) {
     console.warn("[AuthHelper] Clerk auth resolution warning:", err)
@@ -206,9 +217,21 @@ export async function getSession(req: NextRequest): Promise<SessionPayload | nul
 
   // 2. Check legacy internal JWT session (superadmin, internal login) or anonymous demo visitor cookie
   // Only used if the user is NOT authenticated via Clerk!
+  const hasClerkCookie = Boolean(
+    req.cookies.get("__session")?.value ||
+    req.cookies.get("__client_uat")?.value ||
+    req.cookies.get("clerk_session")?.value
+  )
+
   if (legacyToken) {
     const legacySession = await verifySessionToken(legacyToken)
     if (legacySession) {
+      // Never treat a user as DEMO if they have active Clerk authentication cookies
+      if (legacySession.role === "DEMO" && hasClerkCookie) {
+        console.warn("[AuthHelper] Discarding stale demo session cookie because user has active Clerk session.")
+        return null
+      }
+
       if (isDatabaseConfigured && legacySession.tenantId) {
         const tenantExists = await queryPg<{ id: string }>(
           `SELECT id FROM tenants WHERE id = $1 LIMIT 1`,

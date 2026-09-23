@@ -1318,13 +1318,20 @@ export function VerificationSplitScreen({
 
             {/* Total Grand Hero Banner */}
             <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-950 text-white border border-slate-800 shadow-lg">
-              <div className="flex items-center justify-between text-xs sm:text-sm">
-                <span className="font-extrabold text-slate-400 uppercase tracking-wider text-[11px]">
-                  Total Netto Akhir Nota
-                </span>
-                <span className="text-xl sm:text-3xl font-black text-emerald-400 font-mono tracking-tight">
-                  Rp {calculatedTotal.toLocaleString("id-ID")}
-                </span>
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <span className="font-black text-slate-400 uppercase tracking-wider text-xs block">
+                    Total Akhir
+                  </span>
+                  <span className="text-[10px] sm:text-[11px] text-slate-500 font-medium">
+                    Netto transaksi
+                  </span>
+                </div>
+                <div className="shrink-0 text-right">
+                  <span className="font-mono font-black text-emerald-400 text-lg sm:text-2xl md:text-3xl tracking-tight whitespace-nowrap">
+                    Rp {calculatedTotal.toLocaleString("id-ID")}
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -1447,7 +1454,7 @@ export function VerificationSplitScreen({
           <span className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 font-extrabold block">
             {batchInfo ? `Nota ${batchInfo.currentIndex + 1}/${batchInfo.totalCount}` : `${items.length} Item Produk`}
           </span>
-          <p className="text-base font-black text-emerald-600 dark:text-emerald-400 font-mono">
+          <p className="text-base font-black text-emerald-600 dark:text-emerald-400 font-mono whitespace-nowrap">
             Rp {calculatedTotal.toLocaleString("id-ID")}
           </p>
         </div>

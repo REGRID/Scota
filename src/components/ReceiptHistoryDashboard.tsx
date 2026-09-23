@@ -4948,37 +4948,37 @@ export function ReceiptHistoryDashboard({
       {selectedReceipt && (
         <div
           onClick={() => setSelectedReceipt(null)}
-          className="fixed inset-0 z-[70] bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
+          className="fixed inset-0 z-[70] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+            className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200"
           >
-            <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-              <div className="space-y-0.5">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-200">
+            <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-950/50 shrink-0">
+              <div className="space-y-0.5 min-w-0 pr-2">
+                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                  <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/60 px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
                     {selectedReceipt.date}
                   </span>
-                  <span className="text-xs font-semibold text-slate-700 bg-slate-200 px-2.5 py-0.5 rounded-full">
+                  <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-200 dark:bg-slate-800 px-2.5 py-0.5 rounded-full">
                     {selectedReceipt.paymentMethod || "Cash"}
                   </span>
                 </div>
-                <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2 pt-1">
-                  <Store className="w-5 h-5 text-slate-600" />
-                  {selectedReceipt.merchantName}
+                <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2 pt-1 truncate">
+                  <Store className="w-5 h-5 text-slate-600 dark:text-slate-400 shrink-0" />
+                  <span className="truncate">{selectedReceipt.merchantName}</span>
                 </h3>
               </div>
 
               <button
                 onClick={() => setSelectedReceipt(null)}
-                className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors"
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors shrink-0 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-6 overflow-y-auto grid grid-cols-1 md:grid-cols-12 gap-6">
+            <div className="p-4 sm:p-6 overflow-y-auto grid grid-cols-1 md:grid-cols-12 gap-5 sm:gap-6">
               {(() => {
                 const imgSizeKb = getImageSizeKb(selectedReceipt.imageUrl)
                 const isHeavy = imgSizeKb > 200
@@ -4991,7 +4991,7 @@ export function ReceiptHistoryDashboard({
                         setLightboxImageUrl(selectedReceipt.imageUrl)
                       }
                     }}
-                    className={`md:col-span-5 bg-slate-900 rounded-2xl p-4 flex flex-col items-center justify-center min-h-[320px] relative group border border-slate-800 ${
+                    className={`md:col-span-5 bg-slate-950 rounded-2xl p-2 sm:p-4 flex flex-col items-center justify-center min-h-[260px] h-[340px] sm:h-[420px] relative group border border-slate-800 overflow-hidden shadow-inner select-none ${
                       selectedReceipt.imageUrl && isRevealed ? "cursor-zoom-in" : ""
                     }`}
                   >
@@ -5007,13 +5007,13 @@ export function ReceiptHistoryDashboard({
                           <img
                             src={selectedReceipt.imageUrl}
                             alt="Original Receipt"
-                            className="max-h-[420px] w-auto object-contain rounded-xl shadow-lg group-hover:opacity-90 transition-opacity"
+                            className="w-full h-full max-h-full object-contain rounded-xl shadow-lg group-hover:opacity-90 transition-opacity"
                           />
-                          <div className="absolute top-3 left-3 bg-slate-950/75 border border-slate-700/80 px-2 py-0.5 rounded-md text-[10px] font-bold text-slate-300 backdrop-blur-xs pointer-events-none">
+                          <div className="absolute top-3 left-3 bg-slate-950/85 border border-slate-700/80 px-2.5 py-1 rounded-lg text-[10px] font-bold text-slate-300 backdrop-blur-md pointer-events-none z-10 shadow-md">
                             {imgSizeKb} KB
                           </div>
-                          <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-2xs rounded-2xl">
-                            <span className="px-4 py-2 rounded-2xl bg-slate-900/90 text-white font-extrabold text-xs border border-slate-700 flex items-center gap-2 shadow-2xl">
+                          <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-2xs rounded-2xl z-10">
+                            <span className="px-3.5 py-2 rounded-xl bg-slate-900/90 text-white font-extrabold text-xs border border-slate-700 flex items-center gap-2 shadow-2xl">
                               <Maximize2 className="w-4 h-4 text-emerald-400" /> Klik Untuk Pop-Up Lightbox Zoom
                             </span>
                           </div>
@@ -5104,9 +5104,9 @@ export function ReceiptHistoryDashboard({
               })()}
 
               <div className="md:col-span-7 space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                  <h4 className="font-bold text-slate-800 text-sm flex items-center gap-2">
-                    <Tag className="w-4 h-4 text-emerald-600" />
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                  <h4 className="font-bold text-slate-800 dark:text-slate-100 text-sm flex items-center gap-2">
+                    <Tag className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                     Seluruh Item Nota ({selectedReceipt.items.length})
                   </h4>
                 </div>
@@ -5115,16 +5115,16 @@ export function ReceiptHistoryDashboard({
                   {selectedReceipt.items.map((item) => (
                     <div
                       key={item.id}
-                      className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs"
+                      className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 flex items-center justify-between text-xs transition-colors"
                     >
                       <div className="space-y-0.5">
-                        <p className="font-bold text-slate-900">{item.name}</p>
+                        <p className="font-bold text-slate-900 dark:text-white">{item.name}</p>
                         <div className="flex items-center gap-1.5">
-                          <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-200 text-slate-700">
+                          <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
                             {item.category}
                           </span>
                           {item.subCategory && item.subCategory !== "Umum" && (
-                            <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-200">
+                            <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                               {item.subCategory}
                             </span>
                           )}
@@ -5132,16 +5132,16 @@ export function ReceiptHistoryDashboard({
                       </div>
 
                       <div className="text-right">
-                        <p className="font-bold text-slate-900">
+                        <p className="font-bold text-slate-900 dark:text-emerald-400">
                           Rp {item.price.toLocaleString("id-ID")}
                         </p>
-                        <span className="text-[10px] text-slate-500">Qty: {item.quantity}</span>
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400">Qty: {item.quantity}</span>
                       </div>
                     </div>
                   ))}
                 </div>
 
-                <div className="p-4 rounded-xl bg-slate-900 text-white space-y-2 text-xs">
+                <div className="p-4 rounded-xl bg-slate-900 dark:bg-slate-950 text-white space-y-2 text-xs border border-slate-800">
                   <div className="flex items-center justify-between text-slate-300">
                     <span>Subtotal Barang</span>
                     <span>Rp {(selectedReceipt.subtotal || selectedReceipt.items.reduce((a, b) => a + b.price * b.quantity, 0)).toLocaleString("id-ID")}</span>
@@ -5165,14 +5165,14 @@ export function ReceiptHistoryDashboard({
                 </div>
 
                 {selectedReceipt.note && (
-                  <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs space-y-1">
+                  <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-amber-800 dark:text-amber-300 text-xs space-y-1">
                     <span className="font-bold">Catatan:</span>
                     <p>{selectedReceipt.note}</p>
                   </div>
                 )}
 
                 {/* BUKTI TRANSFER & HISTORI PENGEDITAN (DUAL-CONTROL AUDIT LOG) */}
-                <div className="pt-3 border-t border-slate-200 space-y-3">
+                <div className="pt-3 border-t border-slate-200 dark:border-slate-800 space-y-3">
                   <h5 className="font-extrabold text-slate-800 text-xs flex items-center gap-1.5 uppercase tracking-wider">
                     <ShieldCheck className="w-4 h-4 text-emerald-600" />
                     Bukti Transfer Pelunasan & Histori Approval

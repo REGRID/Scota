@@ -351,8 +351,8 @@ export function MainApp({
     const localUser = typeof window !== "undefined" ? localStorage.getItem("nota_admin_user") : null
     const localStaff = typeof window !== "undefined" ? localStorage.getItem("nota_staff_name") : null
 
-    if (localStaff) setStaffName(localStaff)
-    if (localUser) {
+    if (localStaff && !localStaff.startsWith("demo_") && !localStaff.includes("Demo")) setStaffName(localStaff)
+    if (localUser && !localUser.startsWith("demo_visitor_") && !localUser.startsWith("owner_") && !localUser.startsWith("staff_")) {
       setIsAuthenticated(true)
       setAdminUser(localUser)
       if (pathname === "/") {
@@ -379,15 +379,36 @@ export function MainApp({
           const data = await res.json()
           if (data.authenticated) {
             setIsAuthenticated(true)
-            if (data.user?.username) setAdminUser(data.user.username)
-            if (data.user?.role) setUserRole(data.user.role)
+
+            // Prioritize user's real name over internal IDs like owner_xxx or demo_visitor_xxx
+            const resolvedName =
+              (clerkUser && (clerkUser.fullName || clerkUser.username)) ||
+              data.user?.fullName ||
+              data.user?.staffName ||
+              (data.user?.username && !data.user.username.startsWith("owner_") && !data.user.username.startsWith("staff_") && !data.user.username.startsWith("demo_")
+                ? data.user.username
+                : "Admin")
+            setAdminUser(resolvedName)
+
+            // If Clerk is signed in, user is NEVER a DEMO account
+            if (isClerkSignedIn) {
+              const realRole = data.user?.role && data.user.role !== "DEMO" ? data.user.role : "OWNER"
+              setUserRole(realRole)
+            } else if (data.user?.role) {
+              setUserRole(data.user.role)
+            }
+
             if (data.user?.staffName) setStaffName(data.user.staffName)
+            if (typeof window !== "undefined") {
+              localStorage.setItem("nota_admin_user", resolvedName)
+              if (data.user?.staffName) localStorage.setItem("nota_staff_name", data.user.staffName)
+            }
 
             const completed = data.user?.onboardingCompleted ?? true
             setIsOnboardingCompleted(completed)
 
             // Auto-redirect new OWNER who hasn't completed onboarding to /onboarding
-            if (!completed && data.user?.role === "OWNER") {
+            if (!completed && (data.user?.role === "OWNER" || isClerkSignedIn)) {
               const skipped = typeof window !== "undefined" && localStorage.getItem("nota_seen_onboarding") === "true"
               if (!skipped && pathname !== "/onboarding") {
                 router.replace("/onboarding")
@@ -426,6 +447,7 @@ export function MainApp({
         localStorage.setItem("nota_staff_name", displayStaff)
       }
       setIsAuthenticated(true)
+      setUserRole((prev) => (prev === "DEMO" ? "OWNER" : prev))
       const isExplicitLanding = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("view") === "landing"
       if (!isExplicitLanding) {
         setShowLanding(false)

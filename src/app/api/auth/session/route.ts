@@ -24,7 +24,8 @@ export async function GET(req: NextRequest) {
     const response = NextResponse.json({
       authenticated: true,
       user: {
-        username: session.username,
+        username: session.fullName || session.staffName || session.username,
+        displayUsername: session.username,
         role: session.role || "ADMIN",
         staffName: session.staffName || session.fullName || "",
         fullName: session.fullName || session.name || session.username,
@@ -35,7 +36,7 @@ export async function GET(req: NextRequest) {
       },
     })
 
-    // Issue/refresh first-party session cookie so Safari ITP / Clerk dev mode never drops the session
+    // Issue/refresh first-party session cookie
     response.cookies.set({
       name: "nota_admin_session",
       value: sessionToken,
@@ -43,7 +44,7 @@ export async function GET(req: NextRequest) {
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
-      maxAge: 60 * 60 * 24 * 30, // 30 days
+      maxAge: session.role === "DEMO" ? 60 * 60 * 24 : 60 * 60 * 24 * 30, // 1 day for demo, 30 days for real
     })
 
     return response

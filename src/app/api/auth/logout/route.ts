@@ -14,6 +14,7 @@ export async function POST() {
     path: "/",
     maxAge: 0,
   })
+  response.cookies.delete("scota_active_tenant")
 
   return response
 }

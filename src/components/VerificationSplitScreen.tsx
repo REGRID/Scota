@@ -734,9 +734,9 @@ export function VerificationSplitScreen({
             mobileView === "form" ? "flex" : "hidden lg:flex"
           }`}
         >
-          {/* Section 1: Main Header & Receipt Info */}
-          <div className="bg-white dark:bg-slate-900/90 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 sm:p-6 shadow-sm dark:shadow-xl space-y-5 transition-colors duration-200">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-3">
+          {/* Section 1: Main Header & Receipt Info Card */}
+          <div className="bg-white dark:bg-slate-900/90 rounded-2xl border border-slate-200/90 dark:border-slate-800/90 p-4 sm:p-6 shadow-sm dark:shadow-xl space-y-4 sm:space-y-5 transition-colors duration-200">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800/80 pb-3">
               <h3 className="font-black text-slate-900 dark:text-white text-sm sm:text-base flex items-center gap-2">
                 <Receipt className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> Informasi Utama Nota
               </h3>
@@ -744,42 +744,42 @@ export function VerificationSplitScreen({
               <button
                 type="button"
                 onClick={() => openAddCategoryModal("parent")}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-950 text-emerald-700 dark:text-emerald-400 hover:bg-slate-200 dark:hover:bg-slate-800 text-xs font-bold transition-colors border border-slate-200 dark:border-slate-800 cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-emerald-700 dark:text-emerald-400 text-xs font-bold transition-colors border border-slate-200 dark:border-slate-700 cursor-pointer"
               >
-                <FolderPlus className="w-4 h-4" /> + Kategori Baru
+                <FolderPlus className="w-3.5 h-3.5" /> + Kategori Baru
               </button>
             </div>
 
             {/* Header Fields: Merchant Name, Date, Payment Method & Status */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
-                  <Store className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" /> Nama Toko / Merchant / PT
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  <Store className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> Nama Toko / Merchant / PT
                 </label>
                 <input
                   type="text"
                   value={merchantName}
                   onChange={(e) => setMerchantName(e.target.value)}
-                  placeholder="Nama toko..."
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 focus:border-emerald-500 text-sm text-slate-900 dark:text-white font-semibold transition-all bg-slate-50 dark:bg-slate-950 placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                  placeholder="Contoh: Indomaret, SPBU Pertamina..."
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 text-sm text-slate-900 dark:text-white font-semibold transition-all bg-slate-50 dark:bg-slate-950 placeholder:text-slate-400 dark:placeholder:text-slate-600"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
-                  <Calendar className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" /> Tanggal Nota
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> Tanggal Nota
                 </label>
                 <input
                   type="date"
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 focus:border-emerald-500 text-sm text-slate-900 dark:text-white font-semibold transition-all bg-slate-50 dark:bg-slate-950"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 text-sm text-slate-900 dark:text-white font-semibold transition-all bg-slate-50 dark:bg-slate-950"
                 />
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
-                  <CreditCard className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" /> Metode Pembayaran
+              <div className="space-y-1.5 sm:col-span-2">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  <CreditCard className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> Metode Pembayaran
                 </label>
                 <div className="relative">
                   <select
@@ -788,7 +788,7 @@ export function VerificationSplitScreen({
                     className="w-full appearance-none pl-3.5 pr-9 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 focus:border-emerald-500 text-sm font-semibold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-950 cursor-pointer transition-all"
                   >
                     {availablePaymentMethods.map((method: string) => (
-                      <option key={method} value={method}>
+                      <option key={method} value={method} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
                         {method}
                       </option>
                     ))}
@@ -801,52 +801,50 @@ export function VerificationSplitScreen({
               {(paymentMethod === "Dana Pribadi Owner" || paymentMethod === "Talangan Karyawan") && (
                 <>
                   <div className="space-y-1.5 animate-in fade-in duration-200">
-                    <label className="text-xs font-bold text-slate-700 flex items-center gap-1">
-                      <User className="w-3.5 h-3.5 text-emerald-600" /> Penanggung Jawab / Talangan
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                      <User className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> Penanggung Jawab / Talangan
                     </label>
 
                     {paymentMethod === "Dana Pribadi Owner" ? (
-                      <div className="relative">
-                        <input
-                          type="text"
-                          value={paidByPerson || "Owner"}
-                          onChange={(e) => setPaidByPerson(e.target.value)}
-                          placeholder="Nama Owner / Pemilik"
-                          className="w-full pl-3.5 pr-3.5 py-2 rounded-xl border border-emerald-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 text-sm font-bold text-slate-900 bg-emerald-50/50 transition-all"
-                        />
-                      </div>
+                      <input
+                        type="text"
+                        value={paidByPerson || "Owner"}
+                        onChange={(e) => setPaidByPerson(e.target.value)}
+                        placeholder="Nama Owner / Pemilik"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-emerald-300 dark:border-emerald-800 focus:border-emerald-500 text-sm font-bold text-slate-900 dark:text-white bg-emerald-50/50 dark:bg-emerald-950/30 transition-all"
+                      />
                     ) : (
                       <div className="relative">
                         <select
                           value={paidByPerson || activeStaffName}
                           onChange={(e) => setPaidByPerson(e.target.value)}
-                          className="w-full appearance-none pl-3.5 pr-9 py-2.5 rounded-xl border border-amber-300 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 text-sm font-bold text-slate-900 bg-amber-50/50 cursor-pointer transition-all"
+                          className="w-full appearance-none pl-3.5 pr-9 py-2.5 rounded-xl border border-amber-300 dark:border-amber-800 focus:border-amber-500 text-sm font-bold text-slate-900 dark:text-white bg-amber-50/50 dark:bg-amber-950/30 cursor-pointer transition-all"
                         >
-                          <option value="Reza">Reza</option>
-                          <option value="Ummu">Ummu</option>
-                          <option value="Cheisa">Cheisa</option>
-                          <option value="Novi">Novi</option>
-                          <option value="Titis">Titis</option>
+                          <option value="Reza" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Reza</option>
+                          <option value="Ummu" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Ummu</option>
+                          <option value="Cheisa" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Cheisa</option>
+                          <option value="Novi" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Novi</option>
+                          <option value="Titis" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Titis</option>
                         </select>
-                        <ChevronDown className="w-4 h-4 text-amber-600 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        <ChevronDown className="w-4 h-4 text-amber-600 dark:text-amber-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                       </div>
                     )}
                   </div>
 
                   <div className="space-y-1.5 animate-in fade-in duration-200">
-                    <label className="text-xs font-bold text-slate-700 flex items-center gap-1">
-                      <CheckSquare className="w-3.5 h-3.5 text-slate-500" /> Status Reimburse
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                      <CheckSquare className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" /> Status Reimburse
                     </label>
                     <div className="relative">
                       <select
                         value={paymentStatus}
                         onChange={(e) => setPaymentStatus(e.target.value)}
-                        className="w-full appearance-none pl-3.5 pr-9 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-500 text-sm font-semibold text-slate-900 bg-white cursor-pointer transition-all"
+                        className="w-full appearance-none pl-3.5 pr-9 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 focus:border-emerald-500 text-sm font-semibold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-950 cursor-pointer transition-all"
                       >
-                        <option value="Belum Direimburse">Belum Direimburse</option>
-                        <option value="Sudah Dilunasi">Sudah Dilunasi / Reimburse</option>
+                        <option value="Belum Direimburse" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Belum Direimburse</option>
+                        <option value="Sudah Dilunasi" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Sudah Dilunasi / Reimburse</option>
                       </select>
-                      <ChevronDown className="w-4 h-4 text-slate-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                     </div>
                   </div>
                 </>
@@ -854,100 +852,107 @@ export function VerificationSplitScreen({
 
               {/* Conditional Rendering: Hutang Supplier (Tempo) */}
               {paymentMethod === "Hutang Supplier" && (
-                <div className="space-y-1.5 animate-in fade-in duration-200">
-                  <label className="text-xs font-bold text-slate-700 flex items-center gap-1">
-                    <CheckSquare className="w-3.5 h-3.5 text-slate-500" /> Status Pembayaran Supplier
+                <div className="space-y-1.5 sm:col-span-2 animate-in fade-in duration-200">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                    <CheckSquare className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" /> Status Pembayaran Supplier
                   </label>
                   <div className="relative">
                     <select
                       value={paymentStatus}
                       onChange={(e) => setPaymentStatus(e.target.value)}
-                      className="w-full appearance-none pl-3.5 pr-9 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-500 text-sm font-semibold text-slate-900 bg-white cursor-pointer transition-all"
+                      className="w-full appearance-none pl-3.5 pr-9 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 focus:border-emerald-500 text-sm font-semibold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-950 cursor-pointer transition-all"
                     >
-                      <option value="Tempo (Hutang Supplier)">Tempo (Belum Lunas)</option>
-                      <option value="Sudah Dilunasi">Sudah Dilunasi</option>
+                      <option value="Tempo (Hutang Supplier)" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Tempo (Belum Lunas)</option>
+                      <option value="Sudah Dilunasi" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Sudah Dilunasi</option>
                     </select>
-                    <ChevronDown className="w-4 h-4 text-slate-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                   </div>
                 </div>
               )}
             </div>
+          </div>
 
-            {/* Itemized Products Table with Dynamic Fuzzy Matched Sub-Categories */}
-            <div className="space-y-4 pt-2">
-              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2.5">
-                <label className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
-                  <ShoppingBag className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> RINCIAN ITEM PRODUK & SUB-KATEGORI ({items.length})
+          {/* Section 2: Itemized Product Cards (Mobile Optimized Layout) */}
+          <div className="space-y-3.5 pt-1">
+            <div className="flex items-center justify-between px-1">
+              <div>
+                <label className="text-xs sm:text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                  <ShoppingBag className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> Rincian Barang
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-extrabold border border-emerald-500/20">
+                    {items.length} Item
+                  </span>
                 </label>
-
-                <button
-                  type="button"
-                  onClick={handleAddItem}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 font-extrabold text-xs transition-colors border border-emerald-200 dark:border-emerald-800 shadow-2xs active:scale-95"
-                >
-                  <Plus className="w-4 h-4" /> Tambah Item Baru
-                </button>
               </div>
 
-              <div className="space-y-4">
-                {items.map((item, idx) => {
-                  // Fuzzy parent category match
-                  const currentCategoryClean = (item.category || "").toLowerCase().trim()
-                  const currentParentObj = categoryHierarchy.find(
-                    (h) =>
-                      h.name.toLowerCase().trim() === currentCategoryClean ||
-                      currentCategoryClean.includes(h.name.toLowerCase()) ||
-                      h.name.toLowerCase().includes(currentCategoryClean)
-                  )
+              <button
+                type="button"
+                onClick={handleAddItem}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/50 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 font-extrabold text-xs transition-colors border border-emerald-200 dark:border-emerald-800 shadow-2xs active:scale-95"
+              >
+                <Plus className="w-3.5 h-3.5" /> Tambah Item
+              </button>
+            </div>
 
-                  const itemTotal = (item.price || 0) * (item.quantity || 1)
+            {/* List of Mobile-First Cards */}
+            <div className="space-y-3.5">
+              {items.map((item, idx) => {
+                const itemTotal = (item.price || 0) * (item.quantity || 1)
 
-                  return (
-                    <div
-                      key={idx}
-                      className="p-3.5 sm:p-5 rounded-2xl bg-slate-50/80 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 transition-all space-y-3 sm:space-y-4 shadow-2xs"
-                    >
-                      {/* Header Row of Item Card */}
-                      <div className="flex items-center justify-between border-b border-slate-200/80 dark:border-slate-800 pb-2.5">
-                        <div className="flex items-center gap-2">
-                          <span className="w-6 h-6 rounded-lg bg-slate-900 dark:bg-slate-800 text-white text-xs font-bold flex items-center justify-center">
-                            #{idx + 1}
-                          </span>
-                          <span className="text-xs font-bold text-slate-700 dark:text-slate-300 hidden xs:inline">Subtotal:</span>
-                          <span className="text-xs font-extrabold text-emerald-700 dark:text-emerald-400 bg-emerald-100/90 dark:bg-emerald-950/80 px-2.5 py-0.5 rounded-lg border border-emerald-200 dark:border-emerald-800">
-                            Rp {itemTotal.toLocaleString("id-ID")}
-                          </span>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveItem(idx)}
-                          className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 p-1.5 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-xl transition-colors flex items-center gap-1 text-xs font-bold cursor-pointer"
-                          title="Hapus Item"
-                        >
-                          <Trash2 className="w-4 h-4" /> Hapus
-                        </button>
+                return (
+                  <div
+                    key={idx}
+                    className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-900/90 border border-slate-200/90 dark:border-slate-800/90 hover:border-slate-300 dark:hover:border-slate-700 transition-all space-y-3.5 shadow-xs dark:shadow-md"
+                  >
+                    {/* Header Row: Index Pill, Subtotal & Delete Action */}
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800/80">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-xs font-black border border-slate-200 dark:border-slate-700">
+                          #{idx + 1}
+                        </span>
+                        <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                          Subtotal:
+                        </span>
+                        <span className="text-xs sm:text-sm font-black text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-0.5 rounded-lg border border-emerald-200 dark:border-emerald-800 font-mono">
+                          Rp {itemTotal.toLocaleString("id-ID")}
+                        </span>
                       </div>
 
-                      {/* Row 1: Nama Barang, Harga Satuan, Qty */}
-                      <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 sm:gap-3.5">
-                        <div className="sm:col-span-6 space-y-1.5">
-                          <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
-                            <ShoppingBag className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" /> Nama Produk / Barang
-                          </label>
-                          <input
-                            type="text"
-                            value={item.name}
-                            onChange={(e) => handleItemChange(idx, "name", e.target.value)}
-                            placeholder="Contoh: Syrup Romma 1L"
-                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 focus:border-emerald-500 text-xs font-semibold text-slate-900 dark:text-white bg-white dark:bg-slate-900"
-                          />
-                        </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveItem(idx)}
+                        className="text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 p-1.5 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition-colors flex items-center gap-1 text-xs font-bold cursor-pointer active:scale-95"
+                        title="Hapus Item"
+                      >
+                        <Trash2 className="w-4 h-4 text-rose-500 dark:text-rose-400" />
+                        <span className="hidden xs:inline text-rose-500 dark:text-rose-400">Hapus</span>
+                      </button>
+                    </div>
 
-                        <div className="sm:col-span-3 space-y-1.5">
-                          <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
-                            <Coins className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" /> Harga Satuan (Rp)
-                          </label>
+                    {/* Field 1: Nama Produk / Barang */}
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <ShoppingBag className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" /> Nama Produk / Barang
+                      </label>
+                      <input
+                        type="text"
+                        value={item.name}
+                        onChange={(e) => handleItemChange(idx, "name", e.target.value)}
+                        placeholder="Contoh: Kopi Kenangan Mantan, Syrup Romma..."
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 text-sm font-bold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-950 placeholder:text-slate-400 dark:placeholder:text-slate-600 transition-all"
+                      />
+                    </div>
+
+                    {/* Field 2 & 3: Harga Satuan & Qty (Ergonomic Side-by-Side Grid on Mobile) */}
+                    <div className="grid grid-cols-12 gap-2.5 items-end">
+                      {/* Harga Satuan */}
+                      <div className="col-span-7 sm:col-span-8 space-y-1.5">
+                        <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                          <Coins className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" /> Harga Satuan
+                        </label>
+                        <div className="relative">
+                          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 dark:text-slate-500 pointer-events-none">
+                            Rp
+                          </span>
                           <input
                             type="number"
                             min="0"
@@ -957,14 +962,20 @@ export function VerificationSplitScreen({
                               handleItemChange(idx, "price", val === "" ? "" : parseFloat(val))
                             }}
                             placeholder="0"
-                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 focus:border-emerald-500 text-xs font-bold text-slate-900 dark:text-white bg-white dark:bg-slate-900"
+                            className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 text-sm font-bold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-950 font-mono transition-all"
                           />
                         </div>
+                      </div>
 
-                        <div className="sm:col-span-3 space-y-1.5">
-                          <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
-                            <Package className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" /> Jumlah (Qty)
-                          </label>
+                      {/* Jumlah Qty */}
+                      <div className="col-span-5 sm:col-span-4 space-y-1.5">
+                        <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                          <Package className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" /> Jumlah (Qty)
+                        </label>
+                        <div className="relative">
+                          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 dark:text-slate-500 pointer-events-none">
+                            x
+                          </span>
                           <input
                             type="number"
                             min="1"
@@ -974,167 +985,190 @@ export function VerificationSplitScreen({
                               handleItemChange(idx, "quantity", val === "" ? "" : parseInt(val, 10))
                             }}
                             placeholder="1"
-                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 focus:border-emerald-500 text-xs font-bold text-slate-900 dark:text-white bg-white dark:bg-slate-900"
+                            className="w-full pl-8 pr-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 text-sm font-bold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-950 font-mono text-center transition-all"
                           />
                         </div>
                       </div>
+                    </div>
 
-                      {/* Row 2: Dynamic Category & Sub-Category Selection */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
-                        {/* Parent Category Field */}
-                        <div className="space-y-1.5">
-                          <div className="flex items-center justify-between">
-                            <label className="text-xs font-bold text-slate-700">Kategori Utama Produk</label>
-                            <button
-                              type="button"
-                              onClick={() => openAddCategoryModal("parent", undefined, idx)}
-                              className="text-[11px] font-extrabold text-emerald-700 hover:text-emerald-800 flex items-center gap-1"
-                            >
-                              <Plus className="w-3.5 h-3.5 text-emerald-600" /> Tambah
-                            </button>
-                          </div>
-                          <div className="relative">
-                            <select
-                              value={
-                                (() => {
-                                  const match = categoryHierarchy.find(
-                                    (h) => h.name.toLowerCase().trim() === (item.category || "").toLowerCase().trim()
-                                  )
-                                  return match ? match.name : item.category || categoryHierarchy[0]?.name || "Lain-lain"
-                                })()
-                              }
-                              onChange={(e) => {
-                                const newParent = e.target.value
-                                const matchingParent = categoryHierarchy.find(
-                                  (h) => h.name.toLowerCase().trim() === newParent.toLowerCase().trim()
-                                )
-                                const defaultSub = matchingParent?.subCategories[0]?.name || "Umum"
-                                handleItemChange(idx, "category", newParent)
-                                handleItemChange(idx, "subCategory", defaultSub)
-                              }}
-                              className="w-full appearance-none pl-3.5 pr-8 py-2.5 rounded-xl border border-slate-300 text-xs font-bold text-slate-900 bg-white cursor-pointer"
-                            >
-                              {(() => {
-                                const parentNames = categoryHierarchy.map((h) => h.name)
-                                const hasMatch = parentNames.some(
-                                  (p) => p.toLowerCase().trim() === (item.category || "").toLowerCase().trim()
-                                )
-                                const options = item.category && !hasMatch
-                                  ? [item.category, ...parentNames]
-                                  : parentNames.length > 0
-                                  ? parentNames
-                                  : ["Bahan Baku", "Operasional & Perlengkapan", "Peralatan & Aset", "Lain-lain"]
-
-                                return options.map((catName) => (
-                                  <option key={catName} value={catName}>
-                                    {catName}
-                                  </option>
-                                ))
-                              })()}
-                            </select>
-                            <ChevronDown className="w-3.5 h-3.5 text-slate-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                          </div>
+                    {/* Field 4 & 5: Kategori Utama & Sub-Kategori (Side-by-Side Grid) */}
+                    <div className="grid grid-cols-2 gap-2.5 pt-1 border-t border-slate-100 dark:border-slate-800/60">
+                      {/* Parent Category Field */}
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                            Kategori
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => openAddCategoryModal("parent", undefined, idx)}
+                            className="text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-0.5"
+                          >
+                            <Plus className="w-3 h-3" /> Tambah
+                          </button>
                         </div>
+                        <div className="relative">
+                          <select
+                            value={
+                              (() => {
+                                const match = categoryHierarchy.find(
+                                  (h) => h.name.toLowerCase().trim() === (item.category || "").toLowerCase().trim()
+                                )
+                                return match ? match.name : item.category || categoryHierarchy[0]?.name || "Lain-lain"
+                              })()
+                            }
+                            onChange={(e) => {
+                              const newParent = e.target.value
+                              const matchingParent = categoryHierarchy.find(
+                                (h) => h.name.toLowerCase().trim() === newParent.toLowerCase().trim()
+                              )
+                              const defaultSub = matchingParent?.subCategories[0]?.name || "Umum"
+                              handleItemChange(idx, "category", newParent)
+                              handleItemChange(idx, "subCategory", defaultSub)
+                            }}
+                            className="w-full appearance-none pl-3 pr-7 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-950 cursor-pointer focus:border-emerald-500 transition-all truncate"
+                          >
+                            {(() => {
+                              const parentNames = categoryHierarchy.map((h) => h.name)
+                              const hasMatch = parentNames.some(
+                                (p) => p.toLowerCase().trim() === (item.category || "").toLowerCase().trim()
+                              )
+                              const options = item.category && !hasMatch
+                                ? [item.category, ...parentNames]
+                                : parentNames.length > 0
+                                ? parentNames
+                                : ["Bahan Baku", "Operasional & Perlengkapan", "Peralatan & Aset", "Lain-lain"]
 
-                        {/* Sub-Category Field */}
-                        <div className="space-y-1.5">
-                          <div className="flex items-center justify-between">
-                            <label className="text-xs font-bold text-slate-700">Sub-Kategori Produk</label>
-                            <button
-                              type="button"
-                              onClick={() => openAddCategoryModal("sub", item.category, idx)}
-                              className="text-[11px] font-extrabold text-emerald-700 hover:text-emerald-800 flex items-center gap-1"
-                            >
-                              <Plus className="w-3.5 h-3.5 text-emerald-600" /> Tambah Sub
-                            </button>
-                          </div>
-                          <div className="relative">
-                            <select
-                              value={
-                                (() => {
-                                  const matchingParent = categoryHierarchy.find(
-                                    (h) => h.name.toLowerCase().trim() === (item.category || "").toLowerCase().trim()
-                                  )
-                                  const dbSubNames = matchingParent ? matchingParent.subCategories.map((s) => s.name) : []
-                                  const validSubList = ["Umum", ...dbSubNames]
-                                  const subMatch = validSubList.find(
-                                    (s) => s.toLowerCase().trim() === (item.subCategory || "").toLowerCase().trim()
-                                  )
-                                  return subMatch || (dbSubNames.length > 0 ? dbSubNames[0] : "Umum")
-                                })()
-                              }
-                              onChange={(e) => handleItemChange(idx, "subCategory", e.target.value)}
-                              className="w-full appearance-none pl-3.5 pr-8 py-2.5 rounded-xl border border-emerald-300 focus:border-emerald-500 text-xs font-bold text-emerald-900 bg-emerald-50/50 cursor-pointer"
-                            >
-                              {(() => {
+                              return options.map((catName) => (
+                                <option key={catName} value={catName} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
+                                  {catName}
+                                </option>
+                              ))
+                            })()}
+                          </select>
+                          <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        </div>
+                      </div>
+
+                      {/* Sub-Category Field */}
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                            Sub-Kategori
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => openAddCategoryModal("sub", item.category, idx)}
+                            className="text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-0.5"
+                          >
+                            <Plus className="w-3 h-3" /> Tambah
+                          </button>
+                        </div>
+                        <div className="relative">
+                          <select
+                            value={
+                              (() => {
                                 const matchingParent = categoryHierarchy.find(
                                   (h) => h.name.toLowerCase().trim() === (item.category || "").toLowerCase().trim()
                                 )
                                 const dbSubNames = matchingParent ? matchingParent.subCategories.map((s) => s.name) : []
-                                const subOptions = Array.from(new Set(["Umum", ...dbSubNames]))
+                                const validSubList = ["Umum", ...dbSubNames]
+                                const subMatch = validSubList.find(
+                                  (s) => s.toLowerCase().trim() === (item.subCategory || "").toLowerCase().trim()
+                                )
+                                return subMatch || (dbSubNames.length > 0 ? dbSubNames[0] : "Umum")
+                              })()
+                            }
+                            onChange={(e) => handleItemChange(idx, "subCategory", e.target.value)}
+                            className="w-full appearance-none pl-3 pr-7 py-2 rounded-xl border border-emerald-300/80 dark:border-emerald-800/80 focus:border-emerald-500 text-xs font-bold text-emerald-900 dark:text-emerald-300 bg-emerald-50/50 dark:bg-emerald-950/40 cursor-pointer transition-all truncate"
+                          >
+                            {(() => {
+                              const matchingParent = categoryHierarchy.find(
+                                (h) => h.name.toLowerCase().trim() === (item.category || "").toLowerCase().trim()
+                              )
+                              const dbSubNames = matchingParent ? matchingParent.subCategories.map((s) => s.name) : []
+                              const subOptions = Array.from(new Set(["Umum", ...dbSubNames]))
 
-                                return subOptions.map((subName) => (
-                                  <option key={subName} value={subName}>
-                                    {subName}
-                                  </option>
-                                ))
-                              })()}
-                            </select>
-                            <ChevronDown className="w-3.5 h-3.5 text-emerald-600 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                          </div>
+                              return subOptions.map((subName) => (
+                                <option key={subName} value={subName} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
+                                  {subName}
+                                </option>
+                              ))
+                            })()}
+                          </select>
+                          <ChevronDown className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                         </div>
                       </div>
                     </div>
-                  )
-                })}
-              </div>
+                  </div>
+                )
+              })}
             </div>
 
-            {/* Subtotal & Tax (PPN) Fields */}
-            <div className="p-4 sm:p-5 rounded-2xl bg-slate-50/80 border border-slate-200 space-y-3.5">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
-                <Receipt className="w-4 h-4 text-emerald-600" /> Ringkasan Subtotal, Diskon & Pajak (PPN)
-              </h4>
+            {/* Quick Add Bottom Button */}
+            <button
+              type="button"
+              onClick={handleAddItem}
+              className="w-full py-3.5 rounded-2xl border-2 border-dashed border-emerald-400/40 dark:border-emerald-500/30 hover:border-emerald-500 bg-emerald-50/40 dark:bg-emerald-950/20 hover:bg-emerald-50/80 dark:hover:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.99] cursor-pointer"
+            >
+              <Plus className="w-4 h-4" /> + Tambah Baris Barang Baru
+            </button>
+          </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-600">Subtotal Barang (Rp)</label>
-                  <input
-                    type="text"
-                    value={`Rp ${itemsSubtotal.toLocaleString("id-ID")}`}
-                    readOnly
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 bg-slate-100/90"
-                  />
+          {/* Section 3: Subtotal, Diskon & Pajak (PPN) Breakdown */}
+          <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-900/90 border border-slate-200/90 dark:border-slate-800/90 space-y-4 shadow-sm dark:shadow-xl transition-colors duration-200">
+            <h4 className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-1.5 border-b border-slate-100 dark:border-slate-800/80 pb-2.5">
+              <Receipt className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> Ringkasan Subtotal, Diskon & Pajak
+            </h4>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 sm:gap-4">
+              {/* Subtotal Barang (Readonly) */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                  Subtotal Barang
+                </label>
+                <div className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-sm font-mono font-bold text-slate-700 dark:text-slate-300 bg-slate-100/80 dark:bg-slate-950">
+                  Rp {itemsSubtotal.toLocaleString("id-ID")}
+                </div>
+              </div>
+
+              {/* Diskon / Potongan */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                    <Tag className="w-3 h-3 text-rose-500" /> Diskon
+                  </label>
+                  <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg text-[10px] font-black border border-slate-200 dark:border-slate-700">
+                    <button
+                      type="button"
+                      onClick={() => handleDiscountTypeChange("RP")}
+                      className={`px-2 py-0.5 rounded-md transition-all ${
+                        discountType === "RP"
+                          ? "bg-rose-500 text-white shadow-xs"
+                          : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                      }`}
+                    >
+                      Rp
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDiscountTypeChange("PERCENT")}
+                      className={`px-2 py-0.5 rounded-md transition-all ${
+                        discountType === "PERCENT"
+                          ? "bg-rose-500 text-white shadow-xs"
+                          : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                      }`}
+                    >
+                      %
+                    </button>
+                  </div>
                 </div>
 
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-semibold text-slate-600 flex items-center gap-1">
-                      <Tag className="w-3 h-3 text-rose-500" /> Diskon / Potongan
-                    </label>
-                    <div className="flex items-center bg-slate-200/80 p-0.5 rounded-lg text-[10px] font-bold">
-                      <button
-                        type="button"
-                        onClick={() => handleDiscountTypeChange("RP")}
-                        className={`px-2 py-0.5 rounded-md transition-all ${
-                          discountType === "RP" ? "bg-white text-rose-600 shadow-xs" : "text-slate-600 hover:text-slate-900"
-                        }`}
-                      >
-                        Rp
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDiscountTypeChange("PERCENT")}
-                        className={`px-2 py-0.5 rounded-md transition-all ${
-                          discountType === "PERCENT" ? "bg-white text-rose-600 shadow-xs" : "text-slate-600 hover:text-slate-900"
-                        }`}
-                      >
-                        %
-                      </button>
-                    </div>
-                  </div>
-
-                  {discountType === "RP" ? (
+                {discountType === "RP" ? (
+                  <div className="relative">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-rose-500 pointer-events-none">
+                      - Rp
+                    </span>
                     <input
                       type="number"
                       min="0"
@@ -1144,33 +1178,42 @@ export function VerificationSplitScreen({
                         setDiscountAmount(val === "" ? "" : parseFloat(val))
                       }}
                       placeholder="0"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:border-rose-500 text-xs font-bold text-rose-600 bg-white"
+                      className="w-full pl-12 pr-3.5 py-2.5 rounded-xl border border-rose-300 dark:border-rose-900/60 focus:border-rose-500 text-sm font-mono font-bold text-rose-600 dark:text-rose-400 bg-rose-50/30 dark:bg-rose-950/20 transition-all"
                     />
-                  ) : (
-                    <div className="relative">
-                      <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        value={discountPercentValue}
-                        onChange={(e) => {
-                          const val = e.target.value
-                          handleDiscountPercentChange(val === "" ? "" : parseFloat(val))
-                        }}
-                        placeholder="0"
-                        className="w-full px-3.5 py-2.5 pr-12 rounded-xl border border-slate-300 focus:border-rose-500 text-xs font-bold text-rose-600 bg-white"
-                      />
-                      <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">
-                        %
-                      </span>
-                    </div>
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-rose-500 pointer-events-none">
+                      Diskon
+                    </span>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={discountPercentValue}
+                      onChange={(e) => {
+                        const val = e.target.value
+                        handleDiscountPercentChange(val === "" ? "" : parseFloat(val))
+                      }}
+                      placeholder="0"
+                      className="w-full pl-16 pr-8 py-2.5 rounded-xl border border-rose-300 dark:border-rose-900/60 focus:border-rose-500 text-sm font-mono font-bold text-rose-600 dark:text-rose-400 bg-rose-50/30 dark:bg-rose-950/20 transition-all text-right"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-rose-500 pointer-events-none">
+                      %
+                    </span>
+                  </div>
+                )}
+              </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-600 flex items-center gap-1">
-                    <Percent className="w-3 h-3 text-amber-500" /> Nominal Pajak / PPN (Rp)
-                  </label>
+              {/* Pajak / PPN */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                  <Percent className="w-3 h-3 text-amber-500" /> Pajak / PPN
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 pointer-events-none">
+                    + Rp
+                  </span>
                   <input
                     type="number"
                     min="0"
@@ -1180,40 +1223,46 @@ export function VerificationSplitScreen({
                       setTaxAmount(val === "" ? "" : parseFloat(val))
                     }}
                     placeholder="0"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-500 text-xs font-bold text-slate-900 bg-white"
+                    className="w-full pl-12 pr-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 focus:border-emerald-500 text-sm font-mono font-bold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-950 transition-all"
                   />
                 </div>
               </div>
             </div>
 
-            {/* Total Summary Box */}
-            <div className="p-5 rounded-2xl bg-slate-900 text-white space-y-3 shadow-md">
-              <div className="flex items-center justify-between text-sm sm:text-base">
-                <span className="font-bold text-slate-300">Total Netto Akhir Nota</span>
-                <span className="text-xl sm:text-2xl font-black text-emerald-400">
+            {/* Total Grand Hero Banner */}
+            <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-950 text-white space-y-2.5 border border-slate-800 shadow-lg">
+              <div className="flex items-center justify-between text-xs sm:text-sm">
+                <span className="font-extrabold text-slate-400 uppercase tracking-wider text-[11px]">
+                  Total Netto Akhir Nota
+                </span>
+                <span className="text-xl sm:text-3xl font-black text-emerald-400 font-mono tracking-tight">
                   Rp {calculatedTotal.toLocaleString("id-ID")}
                 </span>
               </div>
 
-              <div className="pt-2.5 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
+              <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400 flex-wrap gap-1">
                 <span>
-                  Subtotal: Rp {itemsSubtotal.toLocaleString("id-ID")}
-                  {currentDiscountNum > 0 && ` - Diskon: Rp ${currentDiscountNum.toLocaleString("id-ID")}`}
-                  {` + PPN: Rp ${currentTaxNum.toLocaleString("id-ID")}`}
+                  Subtotal Rp {itemsSubtotal.toLocaleString("id-ID")}
+                  {currentDiscountNum > 0 && ` - Diskon Rp ${currentDiscountNum.toLocaleString("id-ID")}`}
+                  {currentTaxNum > 0 && ` + Pajak Rp ${currentTaxNum.toLocaleString("id-ID")}`}
                 </span>
-                <span className="font-semibold text-emerald-400">Kalkulasi Presisi</span>
+                <span className="font-bold text-emerald-400 flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Terverifikasi AI
+                </span>
               </div>
             </div>
 
             {/* Optional Note */}
             <div className="space-y-1.5 pt-1">
-              <label className="text-xs font-semibold text-slate-700">Catatan Tambahan (Opsional)</label>
+              <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                Catatan Tambahan (Opsional)
+              </label>
               <textarea
                 rows={2}
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                placeholder="Catatan seperti nama pembeli, keperluan operasional, dsb."
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-500 text-xs font-medium text-slate-900 bg-white"
+                placeholder="Catatan keperluan operasional, nama pembeli, nomor meja, dll."
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 text-xs font-medium text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-950 placeholder:text-slate-400 dark:placeholder:text-slate-600 transition-all"
               />
             </div>
           </div>
@@ -1222,28 +1271,30 @@ export function VerificationSplitScreen({
 
       {/* CREATE CATEGORY / SUB-CATEGORY MODAL */}
       {showAddCategoryModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-md p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="font-extrabold text-slate-900 text-base flex items-center gap-2">
-                <FolderPlus className="w-5 h-5 text-emerald-600" />
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-md p-5 sm:p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <h3 className="font-black text-slate-900 dark:text-white text-base flex items-center gap-2">
+                <FolderPlus className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                 Tambah Kategori / Sub-Kategori
               </h3>
               <button
                 type="button"
                 onClick={() => setShowAddCategoryModal(false)}
-                className="text-slate-400 hover:text-slate-700 p-1"
+                className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-bold">
+            <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold">
               <button
                 type="button"
                 onClick={() => setNewCatType("parent")}
                 className={`flex-1 py-2 rounded-lg transition-all ${
-                  newCatType === "parent" ? "bg-white text-slate-900 shadow-xs" : "text-slate-600"
+                  newCatType === "parent"
+                    ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs font-black"
+                    : "text-slate-600 dark:text-slate-400"
                 }`}
               >
                 Kategori Utama
@@ -1252,7 +1303,9 @@ export function VerificationSplitScreen({
                 type="button"
                 onClick={() => setNewCatType("sub")}
                 className={`flex-1 py-2 rounded-lg transition-all ${
-                  newCatType === "sub" ? "bg-white text-slate-900 shadow-xs" : "text-slate-600"
+                  newCatType === "sub"
+                    ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs font-black"
+                    : "text-slate-600 dark:text-slate-400"
                 }`}
               >
                 Sub-Kategori
@@ -1261,26 +1314,26 @@ export function VerificationSplitScreen({
 
             {newCatType === "sub" && (
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700">Pilih Kategori Induk Utama</label>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Pilih Kategori Induk Utama</label>
                 <div className="relative">
                   <select
                     value={selectedParentForSub}
                     onChange={(e) => setSelectedParentForSub(e.target.value)}
-                    className="w-full appearance-none pl-3.5 pr-9 py-3 rounded-xl border border-slate-300 text-xs font-bold text-slate-900 bg-white cursor-pointer"
+                    className="w-full appearance-none pl-3.5 pr-9 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-950 cursor-pointer"
                   >
                     {categoryHierarchy.map((h) => (
-                      <option key={h.id} value={h.id}>
+                      <option key={h.id} value={h.id} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
                         {h.name}
                       </option>
                     ))}
                   </select>
-                  <ChevronDown className="w-4 h-4 text-slate-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
               </div>
             )}
 
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-700">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
                 {newCatType === "parent" ? "Nama Kategori Utama Baru" : "Nama Sub-Kategori Baru"}
               </label>
               <input
@@ -1288,7 +1341,7 @@ export function VerificationSplitScreen({
                 value={newCategoryName}
                 onChange={(e) => setNewCategoryName(e.target.value)}
                 placeholder={newCatType === "parent" ? "Contoh: Bahan Baku Utama" : "Contoh: Daging & Seafood"}
-                className="w-full px-3.5 py-3 rounded-xl border border-slate-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 text-sm font-semibold text-slate-900"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 focus:border-emerald-500 text-sm font-semibold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-950 placeholder:text-slate-400 dark:placeholder:text-slate-600"
               />
             </div>
 
@@ -1296,14 +1349,14 @@ export function VerificationSplitScreen({
               <button
                 type="button"
                 onClick={() => setShowAddCategoryModal(false)}
-                className="flex-1 py-3 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-100 transition-colors"
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               >
                 Batal
               </button>
               <button
                 type="button"
                 onClick={handleCreateCustomCategory}
-                className="flex-1 inline-flex items-center justify-center gap-2 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs transition-colors shadow-md shadow-emerald-600/30"
+                className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs transition-colors shadow-md shadow-emerald-500/20 active:scale-95"
               >
                 <Plus className="w-4 h-4" /> Simpan
               </button>
@@ -1313,12 +1366,12 @@ export function VerificationSplitScreen({
       )}
 
       {/* STICKY BOTTOM ACC BAR FOR MOBILE PHONE (< sm) */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 sm:hidden bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] flex items-center justify-between gap-2 shadow-2xl">
+      <div className="fixed bottom-0 left-0 right-0 z-50 sm:hidden bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] flex items-center justify-between gap-3 shadow-2xl">
         <div className="pl-1 shrink-0">
-          <span className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 font-bold block">
-            {batchInfo ? `Nota ${batchInfo.currentIndex + 1}/${batchInfo.totalCount}` : "Total Netto"}
+          <span className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 font-extrabold block">
+            {batchInfo ? `Nota ${batchInfo.currentIndex + 1}/${batchInfo.totalCount}` : `${items.length} Item Produk`}
           </span>
-          <p className="text-sm sm:text-base font-black text-emerald-700 dark:text-emerald-400">
+          <p className="text-base font-black text-emerald-600 dark:text-emerald-400 font-mono">
             Rp {calculatedTotal.toLocaleString("id-ID")}
           </p>
         </div>
@@ -1328,7 +1381,7 @@ export function VerificationSplitScreen({
             <button
               type="button"
               onClick={onSkipBatch}
-              className="px-3 py-2.5 rounded-xl bg-amber-50 active:bg-amber-100 dark:bg-amber-950/40 dark:active:bg-amber-900/50 text-amber-800 dark:text-amber-300 font-bold text-xs border border-amber-200 dark:border-amber-800 transition-all"
+              className="px-3 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 active:bg-slate-200 dark:active:bg-slate-700 text-amber-700 dark:text-amber-400 font-bold text-xs border border-slate-200 dark:border-slate-700 transition-all"
             >
               Lewati
             </button>
@@ -1338,14 +1391,14 @@ export function VerificationSplitScreen({
             type="button"
             disabled={isSaving}
             onClick={handleSave}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 active:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-400 text-white dark:text-slate-950 font-extrabold text-xs transition-all shadow-md shadow-emerald-600/30 disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-2 h-11 px-5 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-black text-xs sm:text-sm transition-all shadow-md shadow-emerald-500/30 disabled:opacity-50 cursor-pointer"
           >
             {isSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             {batchInfo && batchInfo.currentIndex < batchInfo.totalCount - 1
               ? `ACC & Lanjut`
               : editingReceiptId
               ? "Simpan"
-              : "Simpan / ACC"}
+              : "ACC Nota"}
           </button>
         </div>
       </div>

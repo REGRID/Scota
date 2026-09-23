@@ -1281,78 +1281,80 @@ export function MainApp({
         )}
       </div>
 
-      {/* Mobile Responsive Floating Island Navigation Bar (Even / Sama Rata) */}
-      <nav
-        ref={bottomNavRef}
-        role="navigation"
-        aria-label="Navigasi Utama Mobile"
-        className="fixed bottom-4 inset-x-0 z-40 md:hidden flex justify-center px-4 pointer-events-none pb-[env(safe-area-inset-bottom,0px)]"
-      >
-        <div className="pointer-events-auto relative grid grid-cols-3 items-center w-full max-w-[340px] h-[64px] px-3 rounded-full bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl border border-white/80 dark:border-slate-800 shadow-[0_12px_40px_rgba(0,0,0,0.14),0_2px_10px_rgba(0,0,0,0.06)] dark:shadow-[0_12px_40px_rgba(0,0,0,0.6)]">
-          {/* 1. Ringkasan (Home) */}
-          <button
-            type="button"
-            disabled={isProcessing}
-            onClick={() => handleTabChange("overview")}
-            aria-label="Ringkasan"
-            title="Ringkasan"
-            className={`group flex flex-col items-center justify-center py-1 transition-all duration-200 cursor-pointer active:scale-90 ${
-              activeTab === "overview" && !imagePreviewUrl
-                ? "text-emerald-600 dark:text-emerald-400 font-bold"
-                : "text-slate-600 dark:text-slate-400 font-medium hover:text-slate-900 dark:hover:text-white"
-            } ${isProcessing ? "opacity-40 cursor-not-allowed pointer-events-none" : ""}`}
-          >
-            <div ref={overviewIconRef}>
-              <Home className="w-6 h-6 stroke-[2.1]" />
-            </div>
-            <span className="text-[11px] mt-1 tracking-tight leading-none">
-              Ringkasan
-            </span>
-          </button>
+      {/* Mobile Responsive Floating Island Navigation Bar (Hidden during Verification) */}
+      {!(imagePreviewUrl && parsedResult) && (
+        <nav
+          ref={bottomNavRef}
+          role="navigation"
+          aria-label="Navigasi Utama Mobile"
+          className="fixed bottom-4 inset-x-0 z-40 md:hidden flex justify-center px-4 pointer-events-none pb-[env(safe-area-inset-bottom,0px)]"
+        >
+          <div className="pointer-events-auto relative grid grid-cols-3 items-center w-full max-w-[340px] h-[64px] px-3 rounded-full bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl border border-white/80 dark:border-slate-800 shadow-[0_12px_40px_rgba(0,0,0,0.14),0_2px_10px_rgba(0,0,0,0.06)] dark:shadow-[0_12px_40px_rgba(0,0,0,0.6)]">
+            {/* 1. Ringkasan (Home) */}
+            <button
+              type="button"
+              disabled={isProcessing}
+              onClick={() => handleTabChange("overview")}
+              aria-label="Ringkasan"
+              title="Ringkasan"
+              className={`group flex flex-col items-center justify-center py-1 transition-all duration-200 cursor-pointer active:scale-90 ${
+                activeTab === "overview" && !imagePreviewUrl
+                  ? "text-emerald-600 dark:text-emerald-400 font-bold"
+                  : "text-slate-600 dark:text-slate-400 font-medium hover:text-slate-900 dark:hover:text-white"
+              } ${isProcessing ? "opacity-40 cursor-not-allowed pointer-events-none" : ""}`}
+            >
+              <div ref={overviewIconRef}>
+                <Home className="w-6 h-6 stroke-[2.1]" />
+              </div>
+              <span className="text-[11px] mt-1 tracking-tight leading-none">
+                Ringkasan
+              </span>
+            </button>
 
-          {/* 2. Pindai (Scan - Sama Rata) */}
-          <button
-            type="button"
-            disabled={isProcessing}
-            onClick={() => handleTabChange("scan")}
-            aria-label="Pindai Nota"
-            title="Pindai Nota"
-            className={`group flex flex-col items-center justify-center py-1 transition-all duration-200 cursor-pointer active:scale-90 ${
-              activeTab === "scan" && !imagePreviewUrl
-                ? "text-emerald-600 dark:text-emerald-400 font-bold"
-                : "text-slate-600 dark:text-slate-400 font-medium hover:text-slate-900 dark:hover:text-white"
-            } ${isProcessing ? "opacity-40 cursor-not-allowed pointer-events-none" : ""}`}
-          >
-            <div ref={scanIconRef}>
-              <Camera className="w-6 h-6 stroke-[2.1]" />
-            </div>
-            <span className="text-[11px] mt-1 tracking-tight leading-none">
-              Pindai
-            </span>
-          </button>
+            {/* 2. Pindai (Scan - Sama Rata) */}
+            <button
+              type="button"
+              disabled={isProcessing}
+              onClick={() => handleTabChange("scan")}
+              aria-label="Pindai Nota"
+              title="Pindai Nota"
+              className={`group flex flex-col items-center justify-center py-1 transition-all duration-200 cursor-pointer active:scale-90 ${
+                activeTab === "scan" && !imagePreviewUrl
+                  ? "text-emerald-600 dark:text-emerald-400 font-bold"
+                  : "text-slate-600 dark:text-slate-400 font-medium hover:text-slate-900 dark:hover:text-white"
+              } ${isProcessing ? "opacity-40 cursor-not-allowed pointer-events-none" : ""}`}
+            >
+              <div ref={scanIconRef}>
+                <Camera className="w-6 h-6 stroke-[2.1]" />
+              </div>
+              <span className="text-[11px] mt-1 tracking-tight leading-none">
+                Pindai
+              </span>
+            </button>
 
-          {/* 3. Riwayat (History) */}
-          <button
-            type="button"
-            disabled={isProcessing}
-            onClick={() => handleTabChange("history")}
-            aria-label="Riwayat"
-            title="Riwayat"
-            className={`group flex flex-col items-center justify-center py-1 transition-all duration-200 cursor-pointer active:scale-90 ${
-              activeTab === "history" && !imagePreviewUrl
-                ? "text-emerald-600 dark:text-emerald-400 font-bold"
-                : "text-slate-600 dark:text-slate-400 font-medium hover:text-slate-900 dark:hover:text-white"
-            } ${isProcessing ? "opacity-40 cursor-not-allowed pointer-events-none" : ""}`}
-          >
-            <div ref={historyIconRef}>
-              <History className="w-6 h-6 stroke-[2.1]" />
-            </div>
-            <span className="text-[11px] mt-1 tracking-tight leading-none">
-              Riwayat
-            </span>
-          </button>
-        </div>
-      </nav>
+            {/* 3. Riwayat (History) */}
+            <button
+              type="button"
+              disabled={isProcessing}
+              onClick={() => handleTabChange("history")}
+              aria-label="Riwayat"
+              title="Riwayat"
+              className={`group flex flex-col items-center justify-center py-1 transition-all duration-200 cursor-pointer active:scale-90 ${
+                activeTab === "history" && !imagePreviewUrl
+                  ? "text-emerald-600 dark:text-emerald-400 font-bold"
+                  : "text-slate-600 dark:text-slate-400 font-medium hover:text-slate-900 dark:hover:text-white"
+              } ${isProcessing ? "opacity-40 cursor-not-allowed pointer-events-none" : ""}`}
+            >
+              <div ref={historyIconRef}>
+                <History className="w-6 h-6 stroke-[2.1]" />
+              </div>
+              <span className="text-[11px] mt-1 tracking-tight leading-none">
+                Riwayat
+              </span>
+            </button>
+          </div>
+        </nav>
+      )}
 
       {/* Modals */}
       {showSubscriptionModal && (

@@ -184,18 +184,15 @@ body {
     color-scheme: dark;
   }
 
-  /* Number input spin buttons: remove white background and make transparent */
+  /* Remove native browser number input spin buttons so input background is 100% seamless and unified */
   input[type="number"]::-webkit-inner-spin-button,
   input[type="number"]::-webkit-outer-spin-button {
-    background: transparent !important;
-    background-color: transparent !important;
-    opacity: 0.7;
-    transition: opacity 0.15s ease;
+    -webkit-appearance: none !important;
+    margin: 0 !important;
   }
 
-  input[type="number"]:hover::-webkit-inner-spin-button,
-  input[type="number"]:hover::-webkit-outer-spin-button {
-    opacity: 1;
+  input[type="number"] {
+    -moz-appearance: textfield !important;
   }
 }
 

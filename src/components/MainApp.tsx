@@ -1195,38 +1195,6 @@ export function MainApp({
         {/* Verification Split Screen View */}
         {imagePreviewUrl && parsedResult ? (
           <div className="mb-0">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
-                  {editingReceiptId ? "Edit & Koreksi Nota Tersimpan" : "Verifikasi & Koreksi Data Nota"}
-                </h2>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  {batchQueue.length > 1
-                    ? `Item antrean ${batchIndex + 1} dari ${batchQueue.length} total foto nota`
-                    : "Periksa kelengkapan item barang, harga satuan, dan diskon sebelum disimpan"}
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2">
-                {batchQueue.length > 1 && batchIndex < batchQueue.length - 1 && (
-                  <button
-                    type="button"
-                    onClick={handleSkipBatch}
-                    className="px-3 py-1.5 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-700 text-xs font-bold transition-all cursor-pointer"
-                  >
-                    Lewati Nota Ini
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={handleCancelVerification}
-                  className="px-3 py-1.5 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-700 text-xs font-bold transition-all cursor-pointer"
-                >
-                  Batal / Kembali
-                </button>
-              </div>
-            </div>
-
             <VerificationSplitScreen
               imagePreviewUrl={imagePreviewUrl}
               rawOcrText={rawOcrText}

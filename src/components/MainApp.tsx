@@ -327,19 +327,24 @@ export function MainApp({
     fetchQuota()
   }, [isProcessing])
 
-  // Helper to clear verification draft for a specific admin user
-  const clearVerificationDraft = useCallback(
-    (targetUser?: string) => {
-      const userToClear = targetUser || adminUser
-      if (userToClear) {
-        try {
-          const key = `nota_verification_draft_${userToClear.trim().toLowerCase()}`
-          localStorage.removeItem(key)
-        } catch (e) {}
+  // Helper to clear verification draft for a specific admin user or all draft keys
+  const clearVerificationDraft = useCallback((targetUser?: string) => {
+    try {
+      if (typeof window !== "undefined") {
+        const keysToRemove: string[] = []
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i)
+          if (k && (k.startsWith("nota_verification_draft") || k.includes("verification_draft"))) {
+            keysToRemove.push(k)
+          }
+        }
+        keysToRemove.forEach((k) => localStorage.removeItem(k))
+        sessionStorage.removeItem("nota_verification_draft")
       }
-    },
-    [adminUser]
-  )
+    } catch (e) {
+      console.warn("Could not clear verification draft:", e)
+    }
+  }, [])
 
   // Initial Auth Check on Mount with Clerk & Session Sync
   useEffect(() => {
@@ -522,6 +527,9 @@ export function MainApp({
       } catch (e) {
         console.warn("Could not save verification draft:", e)
       }
+    } else {
+      // Clear draft from storage when verification has ended or been cleared
+      clearVerificationDraft(cleanUser)
     }
   }, [
     adminUser,
@@ -536,6 +544,7 @@ export function MainApp({
     batchQueue,
     batchIndex,
     isProcessing,
+    clearVerificationDraft,
   ])
 
   // Handle continuous form changes from VerificationSplitScreen
@@ -812,15 +821,23 @@ export function MainApp({
     setBatchIndex(0)
     setImagePreviewUrl(null)
     setParsedResult(null)
+    setRawOcrText("")
     setEditingReceiptId(null)
-    clearVerificationDraft(adminUser)
+    setIsProcessing(false)
+    clearVerificationDraft()
     setActiveTab("overview")
     if (typeof window !== "undefined") {
-      const url = new URL(window.location.href)
-      if (url.searchParams.has("draft")) {
-        url.searchParams.delete("draft")
-        window.history.replaceState({}, "", url.pathname + (url.search ? url.search : ""))
-      }
+      try {
+        const url = new URL(window.location.href)
+        if (url.searchParams.has("draft")) {
+          url.searchParams.delete("draft")
+        }
+        window.history.replaceState({ tab: "overview" }, "", "/dashboard")
+        if (adminUser) {
+          localStorage.setItem(`nota_active_tab_${adminUser.toLowerCase()}`, "overview")
+          localStorage.setItem("nota_active_tab", "overview")
+        }
+      } catch {}
     }
   }
 
@@ -992,7 +1009,7 @@ export function MainApp({
               disabled={isProcessing}
               onClick={() => handleTabChange("overview")}
               className={`flex items-center gap-1 sm:gap-1.5 px-2 py-1 sm:px-3 sm:py-2 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold transition-all cursor-pointer ${
-                activeTab === "overview" && !imagePreviewUrl
+                activeTab === "overview"
                   ? "bg-emerald-500 text-slate-950 font-black shadow-xs"
                   : "text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
               } ${isProcessing ? "opacity-40 cursor-not-allowed pointer-events-none" : ""}`}
@@ -1006,7 +1023,7 @@ export function MainApp({
               disabled={isProcessing}
               onClick={() => handleTabChange("scan")}
               className={`flex items-center gap-1 sm:gap-1.5 px-2 py-1 sm:px-3 sm:py-2 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold transition-all cursor-pointer ${
-                activeTab === "scan" && !imagePreviewUrl
+                activeTab === "scan"
                   ? "bg-emerald-500 text-slate-950 font-black shadow-xs"
                   : "text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
               } ${isProcessing ? "opacity-40 cursor-not-allowed pointer-events-none" : ""}`}
@@ -1020,7 +1037,7 @@ export function MainApp({
               disabled={isProcessing}
               onClick={() => handleTabChange("history")}
               className={`flex items-center gap-1 sm:gap-1.5 px-2 py-1 sm:px-3 sm:py-2 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold transition-all cursor-pointer ${
-                activeTab === "history" && !imagePreviewUrl
+                activeTab === "history"
                   ? "bg-emerald-500 text-slate-950 font-black shadow-xs"
                   : "text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
               } ${isProcessing ? "opacity-40 cursor-not-allowed pointer-events-none" : ""}`}
@@ -1221,11 +1238,11 @@ export function MainApp({
       <div
         ref={tabContentAreaRef}
         className={`flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 ${
-          imagePreviewUrl && parsedResult ? "pb-2 sm:pb-6" : "pb-28 md:pb-8"
+          activeTab === "scan" && imagePreviewUrl && parsedResult ? "pb-2 sm:pb-6" : "pb-28 md:pb-8"
         }`}
       >
-        {/* Verification Split Screen View */}
-        {imagePreviewUrl && parsedResult ? (
+        {/* Verification Split Screen View - strictly scoped to scan tab */}
+        {activeTab === "scan" && imagePreviewUrl && parsedResult ? (
           <div className="mb-0">
             <VerificationSplitScreen
               imagePreviewUrl={imagePreviewUrl}
@@ -1287,8 +1304,8 @@ export function MainApp({
         )}
       </div>
 
-      {/* Mobile Responsive Floating Island Navigation Bar (Hidden during Verification) */}
-      {!(imagePreviewUrl && parsedResult) && (
+      {/* Mobile Responsive Floating Island Navigation Bar (Hidden during Verification on Scan tab) */}
+      {!(activeTab === "scan" && imagePreviewUrl && parsedResult) && (
         <nav
           ref={bottomNavRef}
           role="navigation"
@@ -1304,7 +1321,7 @@ export function MainApp({
               aria-label="Ringkasan"
               title="Ringkasan"
               className={`group flex flex-col items-center justify-center py-1 transition-all duration-200 cursor-pointer active:scale-90 ${
-                activeTab === "overview" && !imagePreviewUrl
+                activeTab === "overview"
                   ? "text-emerald-600 dark:text-emerald-400 font-bold"
                   : "text-slate-600 dark:text-slate-400 font-medium hover:text-slate-900 dark:hover:text-white"
               } ${isProcessing ? "opacity-40 cursor-not-allowed pointer-events-none" : ""}`}
@@ -1325,7 +1342,7 @@ export function MainApp({
               aria-label="Pindai Nota"
               title="Pindai Nota"
               className={`group flex flex-col items-center justify-center py-1 transition-all duration-200 cursor-pointer active:scale-90 ${
-                activeTab === "scan" && !imagePreviewUrl
+                activeTab === "scan"
                   ? "text-emerald-600 dark:text-emerald-400 font-bold"
                   : "text-slate-600 dark:text-slate-400 font-medium hover:text-slate-900 dark:hover:text-white"
               } ${isProcessing ? "opacity-40 cursor-not-allowed pointer-events-none" : ""}`}
@@ -1346,7 +1363,7 @@ export function MainApp({
               aria-label="Riwayat"
               title="Riwayat"
               className={`group flex flex-col items-center justify-center py-1 transition-all duration-200 cursor-pointer active:scale-90 ${
-                activeTab === "history" && !imagePreviewUrl
+                activeTab === "history"
                   ? "text-emerald-600 dark:text-emerald-400 font-bold"
                   : "text-slate-600 dark:text-slate-400 font-medium hover:text-slate-900 dark:hover:text-white"
               } ${isProcessing ? "opacity-40 cursor-not-allowed pointer-events-none" : ""}`}

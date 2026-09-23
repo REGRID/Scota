@@ -1,8 +1,10 @@
 import { NextRequest } from "next/server"
 import { auth } from "@clerk/nextjs/server"
-import { verifySessionToken, SessionPayload } from "@/lib/session"
-import { queryPg } from "@/lib/pgDb"
+import { verifySessionToken, SessionPayload, DEFAULT_TENANT_ID } from "@/lib/session"
+import { queryPg, isDatabaseConfigured } from "@/lib/pgDb"
 import { provisionTenantForClerkUser } from "@/lib/clerkBridge"
+import { getOrCreateDemoTenant } from "@/lib/demoTenant"
+import { getClientIp } from "@/lib/rateLimiter"
 import { decodeJwt } from "jose"
 
 /**
@@ -19,7 +21,25 @@ export async function getSession(req: NextRequest): Promise<SessionPayload | nul
 
   if (legacyToken) {
     const legacySession = await verifySessionToken(legacyToken)
-    if (legacySession) return legacySession
+    if (legacySession) {
+      if (isDatabaseConfigured && legacySession.tenantId) {
+        const tenantExists = await queryPg<{ id: string }>(
+          `SELECT id FROM tenants WHERE id = $1 LIMIT 1`,
+          [legacySession.tenantId]
+        ).catch(() => null)
+
+        if (!tenantExists?.rows?.[0]) {
+          if (legacySession.role === "DEMO") {
+            const cleanIp = getClientIp(req)
+            const demoTenant = await getOrCreateDemoTenant(cleanIp).catch(() => null)
+            legacySession.tenantId = demoTenant?.id || DEFAULT_TENANT_ID
+          } else {
+            legacySession.tenantId = DEFAULT_TENANT_ID
+          }
+        }
+      }
+      return legacySession
+    }
   }
 
   // 2. Check Clerk session

@@ -12,7 +12,8 @@ import { isTenantSchemaMigrated, withTenantSchema } from "@/lib/tenantDb"
 import { getSubscriptionInfo } from "@/lib/subscriptionServer"
 import { DEFAULT_APPROVAL_WORKFLOW } from "@/lib/subscription"
 import { DEFAULT_TENANT_ID } from "@/lib/session"
-import { DEMO_RECEIPT_LIMIT } from "@/lib/demoTenant"
+import { DEMO_RECEIPT_LIMIT, getOrCreateDemoTenant } from "@/lib/demoTenant"
+import { getClientIp } from "@/lib/rateLimiter"
 
 let listCache: { key: string; data: any; timestamp: number } | null = null
 const LIST_CACHE_TTL = 5000 // 5 seconds cache
@@ -423,7 +424,28 @@ export async function POST(req: NextRequest) {
 
     // Check Tenant Approval Workflow Configuration (Akun DEMO selalu direct publish tanpa approval)
     const isDemoUser = session.role === "DEMO"
-    const userTenantId = session.tenantId || DEFAULT_TENANT_ID
+    let userTenantId = session.tenantId || DEFAULT_TENANT_ID
+
+    // Safety guard: Ensure userTenantId is guaranteed to exist in public.tenants table
+    // Prevents "violates foreign key constraint receipts_tenantId_fkey" under any circumstance
+    if (isDatabaseConfigured) {
+      const validTenant = await queryPg<{ id: string }>(
+        `SELECT id FROM tenants WHERE id = $1 LIMIT 1`,
+        [userTenantId]
+      ).catch(() => null)
+
+      if (!validTenant?.rows?.[0]) {
+        console.warn(`[Receipts POST] Tenant ID ${userTenantId} not found in tenants table. Healing tenantId...`)
+        if (isDemoUser) {
+          const cleanIp = getClientIp(req)
+          const newDemo = await getOrCreateDemoTenant(cleanIp).catch(() => null)
+          userTenantId = newDemo?.id || DEFAULT_TENANT_ID
+        } else {
+          userTenantId = DEFAULT_TENANT_ID
+        }
+      }
+    }
+
     const subInfo = await getSubscriptionInfo(userTenantId).catch(() => null)
     const workflow = subInfo?.approvalWorkflow || DEFAULT_APPROVAL_WORKFLOW
     const isMigrated = isDatabaseConfigured ? await isTenantSchemaMigrated(userTenantId) : false

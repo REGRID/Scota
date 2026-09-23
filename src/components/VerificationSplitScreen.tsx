@@ -1317,24 +1317,13 @@ export function VerificationSplitScreen({
             </div>
 
             {/* Total Grand Hero Banner */}
-            <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-950 text-white space-y-2.5 border border-slate-800 shadow-lg">
+            <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-950 text-white border border-slate-800 shadow-lg">
               <div className="flex items-center justify-between text-xs sm:text-sm">
                 <span className="font-extrabold text-slate-400 uppercase tracking-wider text-[11px]">
                   Total Netto Akhir Nota
                 </span>
                 <span className="text-xl sm:text-3xl font-black text-emerald-400 font-mono tracking-tight">
                   Rp {calculatedTotal.toLocaleString("id-ID")}
-                </span>
-              </div>
-
-              <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400 flex-wrap gap-1">
-                <span>
-                  Subtotal Rp {itemsSubtotal.toLocaleString("id-ID")}
-                  {currentDiscountNum > 0 && ` - Diskon Rp ${currentDiscountNum.toLocaleString("id-ID")}`}
-                  {currentTaxNum > 0 && ` + Pajak Rp ${currentTaxNum.toLocaleString("id-ID")}`}
-                </span>
-                <span className="font-bold text-emerald-400 flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Terverifikasi AI
                 </span>
               </div>
             </div>

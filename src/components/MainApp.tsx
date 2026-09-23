@@ -755,7 +755,7 @@ export function MainApp({
   const handleEditReceipt = async (receipt: ReceiptData) => {
     let targetReceipt = receipt
 
-    if (!targetReceipt.imageUrl) {
+    if (!targetReceipt.imageUrl || !targetReceipt.items || targetReceipt.items.length === 0) {
       try {
         const res = await fetch(`/api/receipts/${receipt.id}`)
         if (res.ok) {
@@ -800,6 +800,21 @@ export function MainApp({
     setExistingPaymentStatus(targetReceipt.paymentStatus || "Lunas")
     setExistingNote(targetReceipt.note || "")
     setParsingMode("saved_receipt_edit")
+
+    // Activate scan tab to immediately display VerificationSplitScreen
+    setActiveTab("scan")
+    if (typeof window !== "undefined") {
+      window.scrollTo(0, 0)
+      try {
+        if (window.location.pathname !== "/scan") {
+          window.history.pushState({ tab: "scan" }, "", "/scan")
+        }
+        if (adminUser) {
+          localStorage.setItem(`nota_active_tab_${adminUser.toLowerCase()}`, "scan")
+          localStorage.setItem("nota_active_tab", "scan")
+        }
+      } catch {}
+    }
   }
 
   const handleSaveSuccess = () => {
@@ -839,6 +854,7 @@ export function MainApp({
   }
 
   const handleCancelVerification = () => {
+    const wasEditing = !!editingReceiptId
     setBatchQueue([])
     setBatchIndex(0)
     setImagePreviewUrl(null)
@@ -846,18 +862,21 @@ export function MainApp({
     setRawOcrText("")
     setEditingReceiptId(null)
     setIsProcessing(false)
-    clearVerificationDraft()
-    setActiveTab("overview")
+    clearVerificationDraft(adminUser)
+
+    const returnTab = wasEditing ? "history" : "overview"
+    const returnPath = wasEditing ? "/history" : "/dashboard"
+    setActiveTab(returnTab)
     if (typeof window !== "undefined") {
       try {
         const url = new URL(window.location.href)
         if (url.searchParams.has("draft")) {
           url.searchParams.delete("draft")
         }
-        window.history.replaceState({ tab: "overview" }, "", "/dashboard")
+        window.history.replaceState({ tab: returnTab }, "", returnPath)
         if (adminUser) {
-          localStorage.setItem(`nota_active_tab_${adminUser.toLowerCase()}`, "overview")
-          localStorage.setItem("nota_active_tab", "overview")
+          localStorage.setItem(`nota_active_tab_${adminUser.toLowerCase()}`, returnTab)
+          localStorage.setItem("nota_active_tab", returnTab)
         }
       } catch {}
     }

@@ -4890,30 +4890,30 @@ export function ReceiptHistoryDashboard({
 
       {/* CUSTOM DELETE CONFIRMATION MODAL */}
       {deletingReceipt && (
-        <div className="fixed inset-0 z-[80] bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-md p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-[80] bg-slate-900/70 dark:bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-md p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center shrink-0">
+              <div className="w-12 h-12 rounded-2xl bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-400 flex items-center justify-center shrink-0">
                 <AlertTriangle className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="font-extrabold text-slate-900 text-base">Hapus Nota Permanen?</h3>
-                <p className="text-xs text-slate-500">Tindakan ini tidak dapat dibatalkan.</p>
+                <h3 className="font-extrabold text-slate-900 dark:text-slate-100 text-base">Hapus Nota Permanen?</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Tindakan ini tidak dapat dibatalkan.</p>
               </div>
             </div>
 
-            <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 text-xs space-y-1">
-              <p className="font-bold text-slate-800">
-                Toko/PT: <span className="text-slate-900">{deletingReceipt.merchantName}</span>
+            <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 text-xs space-y-1">
+              <p className="font-bold text-slate-800 dark:text-slate-200">
+                Toko/PT: <span className="text-slate-900 dark:text-white">{deletingReceipt.merchantName}</span>
               </p>
-              <p className="text-slate-600">
+              <p className="text-slate-600 dark:text-slate-300">
                 Tanggal: {deletingReceipt.date} • Total:{" "}
-                <span className="font-bold text-emerald-700">
+                <span className="font-bold text-emerald-700 dark:text-emerald-400">
                   Rp {deletingReceipt.totalAmount.toLocaleString("id-ID")}
                 </span>
               </p>
-              <p className="text-slate-500 text-[11px]">
-                {deletingReceipt.items.length} rincian barang produk akan ikut dihapus.
+              <p className="text-slate-500 dark:text-slate-400 text-[11px]">
+                {(deletingReceipt.items || []).length} rincian barang produk akan ikut dihapus.
               </p>
             </div>
 
@@ -4922,7 +4922,7 @@ export function ReceiptHistoryDashboard({
                 type="button"
                 disabled={isDeleting}
                 onClick={() => setDeletingReceipt(null)}
-                className="flex-1 py-3 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-100 transition-colors"
+                className="flex-1 py-3 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 font-bold text-xs transition-colors cursor-pointer"
               >
                 Batal
               </button>
@@ -4930,7 +4930,7 @@ export function ReceiptHistoryDashboard({
                 type="button"
                 disabled={isDeleting}
                 onClick={confirmDeleteReceipt}
-                className="flex-1 inline-flex items-center justify-center gap-2 py-3 rounded-xl bg-red-600 hover:bg-red-700 active:bg-red-800 text-white font-extrabold text-xs transition-colors shadow-md shadow-red-600/30"
+                className="flex-1 inline-flex items-center justify-center gap-2 py-3 rounded-xl bg-red-600 hover:bg-red-700 active:bg-red-800 text-white font-extrabold text-xs transition-colors shadow-md shadow-red-600/30 cursor-pointer"
               >
                 {isDeleting ? (
                   <RefreshCw className="w-4 h-4 animate-spin" />
@@ -5336,7 +5336,7 @@ export function ReceiptHistoryDashboard({
                       const r = selectedReceipt
                       setSelectedReceipt(null)
                       let fullR = r
-                      if (!fullR.imageUrl) {
+                      if (!fullR.imageUrl || !fullR.items || fullR.items.length === 0) {
                         try {
                           const res = await fetch(`/api/receipts/${r.id}`, { headers: getAuthHeaders() })
                           if (res.ok) {

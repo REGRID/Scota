@@ -47,8 +47,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
                 r."totalAmount", 
                 r."paymentMethod", 
                 r."paymentStatus", 
-                r.notes,
-                r.notes as note, 
+                COALESCE(r.notes, r.note) as notes,
+                COALESCE(r.notes, r.note) as note, 
                 r."staffName", 
                 r."createdByRole",
                 r."createdByUsername",
@@ -61,8 +61,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
                       'name', i.name,
                       'category', i.category,
                       'subCategory', i."subCategory",
-                      'price', i."unitPrice",
-                      'quantity', i.qty
+                      'price', COALESCE(i."unitPrice", i.price, 0),
+                      'quantity', COALESCE(i.qty, i.quantity, 1)
                     )
                   ) FILTER (WHERE i.id IS NOT NULL),
                   '[]'::json
@@ -75,7 +75,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
             const res: any = await client.query(query, [id])
             return res.rows?.[0] || null
           })
-        } else {
+        }
+        if (!receipt) {
           const query = `
             SELECT 
               r.id, 
@@ -89,7 +90,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
               r."totalAmount", 
               r."paymentMethod", 
               r."paymentStatus", 
-              r.note, 
+              COALESCE(r.notes, r.note) as note, 
               r."staffName", 
               r."createdByRole",
               r."createdByUsername",
@@ -102,8 +103,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
                     'name', i.name,
                     'category', i.category,
                     'subCategory', i."subCategory",
-                    'price', i.price,
-                    'quantity', i.quantity
+                    'price', COALESCE(i.price, i."unitPrice", 0),
+                    'quantity', COALESCE(i.quantity, i.qty, 1)
                   )
                 ) FILTER (WHERE i.id IS NOT NULL),
                 '[]'::json
@@ -182,6 +183,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     // Direct Edit if Approval Workflow is Disabled or Excluded for Edit
     if (!workflow.enableApproval || !workflow.requireForEdit) {
       if (isDatabaseConfigured) {
+        let isUpdatedInTenant = false
         if (isMigrated && !isSuperadmin) {
           const result = await withTenantSchema(userTenantId, async (client) => {
             const checkRes: any = await client.query(
@@ -245,13 +247,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
             return { ok: true }
           })
 
-          if (result?.notFound) {
-            return NextResponse.json(
-              { error: "Nota tidak ditemukan atau Anda tidak memiliki hak akses untuk mengubah nota ini." },
-              { status: 404 }
-            )
+          if (result?.ok) {
+            isUpdatedInTenant = true
           }
-        } else {
+        }
+
+        if (!isUpdatedInTenant) {
           // 1. Verify existence and tenant ownership first before touching items
           const checkRes = await queryPg<{ id: string; imageUrl: string | null }>(
             isSuperadmin
@@ -412,13 +413,16 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const auth = await requirePermission(req, "manage_staff")
-    if (!auth.ok) return auth.response
+    const session = await getSession(req)
+    if (!session || !session.username) {
+      return NextResponse.json({ error: "Sesi tidak valid atau belum login. Silakan login terlebih dahulu." }, { status: 401 })
+    }
 
     const { id } = await params
-    const adminUser = auth.username
-    const userTenantId = auth.tenantId
-    const isSuperadmin = auth.userRole === "SUPERADMIN"
+    const adminUser = session.username
+    const userTenantId = session.tenantId || DEFAULT_TENANT_ID
+    const isSuperadmin = session.role === "SUPERADMIN"
+    const isDemoUser = session.role === "DEMO"
 
     invalidateReceiptsListCache()
     invalidateApprovalsCache()
@@ -427,22 +431,21 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     const subInfo = await getSubscriptionInfo(userTenantId).catch(() => null)
     const workflow = subInfo?.approvalWorkflow || DEFAULT_APPROVAL_WORKFLOW
 
-    const isMigrated = await isTenantSchemaMigrated(userTenantId)
+    const isMigrated = isDatabaseConfigured ? await isTenantSchemaMigrated(userTenantId) : false
 
-    // Direct Delete if Approval Workflow is Disabled or Excluded for Delete
-    if (!workflow.enableApproval || !workflow.requireForDelete) {
+    // Direct Delete if Approval Workflow is Disabled or Excluded for Delete (or Demo User)
+    if (isDemoUser || !workflow.enableApproval || !workflow.requireForDelete) {
       if (isDatabaseConfigured) {
         if (isMigrated && !isSuperadmin) {
           await withTenantSchema(userTenantId, async (client) => {
             await client.query(`DELETE FROM receipts WHERE id = $1`, [id])
-          })
-        } else {
-          const query = isSuperadmin
-            ? `DELETE FROM receipts WHERE id = $1`
-            : `DELETE FROM receipts WHERE id = $1 AND ("tenantId" = $2 OR "tenantId" IS NULL)`
-          const params = isSuperadmin ? [id] : [id, userTenantId]
-          await queryPg(query, params)
+          }).catch(() => {})
         }
+        const query = isSuperadmin
+          ? `DELETE FROM receipts WHERE id = $1`
+          : `DELETE FROM receipts WHERE id = $1 AND ("tenantId" = $2 OR "tenantId" IS NULL)`
+        const params = isSuperadmin ? [id] : [id, userTenantId]
+        await queryPg(query, params).catch(() => {})
       }
       return NextResponse.json({
         directPublished: true,

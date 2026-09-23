@@ -684,11 +684,16 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
-    const auth = await requirePermission(req, "manage_staff")
-    if (!auth.ok) return auth.response
+    const session = await getSession(req)
+    if (!session || !session.username) {
+      return NextResponse.json({ error: "Sesi tidak valid atau belum login. Silakan login terlebih dahulu." }, { status: 401 })
+    }
 
-    const adminUser = auth.username
-    const userTenantId = auth.tenantId
+    const adminUser = session.username
+    let userTenantId = session.tenantId || DEFAULT_TENANT_ID
+    const isSuperadmin = session.role === "SUPERADMIN"
+    const isDemoUser = session.role === "DEMO"
+
     const { ids } = await req.json()
     if (!ids || !Array.isArray(ids) || ids.length === 0) {
       return NextResponse.json({ error: "ID nota yang akan dihapus tidak valid" }, { status: 400 })
@@ -702,22 +707,22 @@ export async function DELETE(req: NextRequest) {
     const workflow = subInfo?.approvalWorkflow || DEFAULT_APPROVAL_WORKFLOW
     const isMigrated = isDatabaseConfigured ? await isTenantSchemaMigrated(userTenantId) : false
 
-    // Direct delete if approval is not required for delete
-    if (!workflow.enableApproval || !workflow.requireForDelete) {
+    // Direct delete if approval is not required for delete (or Demo user)
+    if (isDemoUser || !workflow.enableApproval || !workflow.requireForDelete) {
       if (isDatabaseConfigured) {
-        if (isMigrated) {
+        if (isMigrated && !isSuperadmin) {
           await withTenantSchema(userTenantId, async (client) => {
             await client.query(
               `DELETE FROM receipts WHERE id = ANY($1::uuid[])`,
               [ids]
             )
-          })
-        } else {
-          await queryPg(
-            `DELETE FROM receipts WHERE id = ANY($1::uuid[]) AND "tenantId" = $2`,
-            [ids, userTenantId]
-          )
+          }).catch(() => {})
         }
+        const query = isSuperadmin
+          ? `DELETE FROM receipts WHERE id = ANY($1::uuid[])`
+          : `DELETE FROM receipts WHERE id = ANY($1::uuid[]) AND ("tenantId" = $2 OR "tenantId" IS NULL)`
+        const queryParams = isSuperadmin ? [ids] : [ids, userTenantId]
+        await queryPg(query, queryParams).catch(() => {})
       }
       return NextResponse.json({
         directPublished: true,

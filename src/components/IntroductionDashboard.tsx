@@ -423,7 +423,7 @@ export function IntroductionDashboard({
     <div className="min-h-screen bg-white text-slate-900 dark:bg-[#080d1a] dark:text-slate-100 font-sans selection:bg-emerald-500 selection:text-white transition-colors duration-200">
       {/* 1. TOP NAVBAR (Sticky/Fixed - follows smoothly on scroll) */}
       <header
-        className={`fixed top-0 inset-x-0 z-50 transition-all duration-300 ${
+        className={`fixed top-0 left-0 right-0 w-full z-50 transition-all duration-300 ${
           hasScrolled
             ? "bg-white/95 dark:bg-[#080d1a]/95 backdrop-blur-xl border-b border-slate-200/90 dark:border-slate-800/90 shadow-md shadow-slate-900/5 dark:shadow-black/40"
             : "bg-white/85 dark:bg-[#080d1a]/85 backdrop-blur-md border-b border-slate-200/60 dark:border-slate-800/60 shadow-xs"

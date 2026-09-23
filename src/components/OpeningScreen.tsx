@@ -180,7 +180,7 @@ export function OpeningScreen({ children }: OpeningScreenProps) {
             ? "opacity-0 scale-95 blur-md"
             : stage === "transitioning"
             ? "opacity-100 scale-100 blur-none transition-all duration-750 ease-[cubic-bezier(0.16,1,0.3,1)]"
-            : "opacity-100 scale-100 blur-none"
+            : ""
         }`}
         style={stage === "transitioning" ? { willChange: "transform, opacity, filter" } : undefined}
       >

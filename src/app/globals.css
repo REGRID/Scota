@@ -65,6 +65,7 @@ body {
 }
 
 :root {
+  color-scheme: light;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -100,6 +101,7 @@ body {
 }
 
 .dark {
+  color-scheme: dark;
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);
@@ -169,6 +171,31 @@ body {
   }
   button, input, select, textarea, a, label {
     touch-action: manipulation;
+  }
+
+  /* Support dark-mode native controls (date picker icon, number spinners, select arrows) */
+  .dark {
+    color-scheme: dark;
+  }
+
+  .dark input,
+  .dark select,
+  .dark textarea {
+    color-scheme: dark;
+  }
+
+  /* Number input spin buttons: remove white background and make transparent */
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    background: transparent !important;
+    background-color: transparent !important;
+    opacity: 0.7;
+    transition: opacity 0.15s ease;
+  }
+
+  input[type="number"]:hover::-webkit-inner-spin-button,
+  input[type="number"]:hover::-webkit-outer-spin-button {
+    opacity: 1;
   }
 }
 

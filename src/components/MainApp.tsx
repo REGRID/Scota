@@ -131,15 +131,21 @@ export function MainApp({
     } else if (pathname === "/scan") {
       setShowLanding(false)
       setActiveTab("scan")
-      setImagePreviewUrl(null)
+      if (!editingReceiptId) {
+        setImagePreviewUrl(null)
+      }
     } else if (pathname === "/history") {
       setShowLanding(false)
-      setActiveTab("history")
-      setImagePreviewUrl(null)
+      if (!editingReceiptId) {
+        setActiveTab("history")
+        setImagePreviewUrl(null)
+      }
     } else if (pathname === "/dashboard" || pathname === "/app" || pathname === "/overview") {
       setShowLanding(false)
-      setActiveTab("overview")
-      setImagePreviewUrl(null)
+      if (!editingReceiptId) {
+        setActiveTab("overview")
+        setImagePreviewUrl(null)
+      }
     }
   }, [pathname, isAuthenticated, isClerkSignedIn])
 
@@ -851,15 +857,12 @@ export function MainApp({
     setActiveTab("scan")
     if (typeof window !== "undefined") {
       window.scrollTo(0, 0)
-      try {
-        if (window.location.pathname !== "/scan") {
-          window.history.pushState({ tab: "scan" }, "", "/scan")
-        }
-        if (adminUser) {
+      if (adminUser) {
+        try {
           localStorage.setItem(`nota_active_tab_${adminUser.toLowerCase()}`, "scan")
           localStorage.setItem("nota_active_tab", "scan")
-        }
-      } catch {}
+        } catch {}
+      }
     }
   }
 
@@ -1325,11 +1328,11 @@ export function MainApp({
       <div
         ref={tabContentAreaRef}
         className={`flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 ${
-          activeTab === "scan" && imagePreviewUrl && parsedResult ? "pb-2 sm:pb-6" : "pb-28 md:pb-8"
+          (activeTab === "scan" || editingReceiptId) && imagePreviewUrl && parsedResult ? "pb-2 sm:pb-6" : "pb-28 md:pb-8"
         }`}
       >
-        {/* Verification Split Screen View - strictly scoped to scan tab */}
-        {activeTab === "scan" && imagePreviewUrl && parsedResult ? (
+        {/* Verification Split Screen View - when scanning or editing a saved receipt */}
+        {(activeTab === "scan" || editingReceiptId) && imagePreviewUrl && parsedResult ? (
           <div className="mb-0">
             <VerificationSplitScreen
               imagePreviewUrl={imagePreviewUrl}

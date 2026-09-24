@@ -3924,14 +3924,14 @@ export function ReceiptHistoryDashboard({
                                 onClick={async (e) => {
                                   e.stopPropagation()
                                   let fullR = receipt
-                                  if (!fullR.imageUrl || !fullR.items || fullR.items.length === 0) {
-                                    try {
-                                      const res = await fetch(`/api/receipts/${receipt.id}`, { headers: getAuthHeaders() })
-                                      if (res.ok) {
-                                        const fetched = await res.json()
-                                        if (fetched && fetched.id) fullR = fetched
-                                      }
-                                    } catch (err) {}
+                                  try {
+                                    const res = await fetch(`/api/receipts/${receipt.id}`, { headers: getAuthHeaders() })
+                                    if (res.ok) {
+                                      const fetched = await res.json()
+                                      if (fetched && fetched.id) fullR = fetched
+                                    }
+                                  } catch (err) {
+                                    console.warn("Fetch single receipt error:", err)
                                   }
                                   onEditReceipt(fullR)
                                 }}
@@ -5481,17 +5481,18 @@ export function ReceiptHistoryDashboard({
                   <button
                     type="button"
                     onClick={async () => {
+                      if (!selectedReceipt) return
                       const r = selectedReceipt
                       setSelectedReceipt(null)
                       let fullR = r
-                      if (!fullR.imageUrl || !fullR.items || fullR.items.length === 0) {
-                        try {
-                          const res = await fetch(`/api/receipts/${r.id}`, { headers: getAuthHeaders() })
-                          if (res.ok) {
-                            const fetched = await res.json()
-                            if (fetched && fetched.id) fullR = fetched
-                          }
-                        } catch (e) {}
+                      try {
+                        const res = await fetch(`/api/receipts/${r.id}`, { headers: getAuthHeaders() })
+                        if (res.ok) {
+                          const fetched = await res.json()
+                          if (fetched && fetched.id) fullR = fetched
+                        }
+                      } catch (e) {
+                        console.warn("Fetch single receipt error:", e)
                       }
                       onEditReceipt(fullR)
                     }}

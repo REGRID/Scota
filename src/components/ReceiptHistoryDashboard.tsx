@@ -365,6 +365,32 @@ export function ReceiptHistoryDashboard({
   const [printPaperSize, setPrintPaperSize] = useState<"A4" | "A3" | "Letter" | "Legal" | "auto">("A4")
   const [printOrientation, setPrintOrientation] = useState<"portrait" | "landscape">("portrait")
 
+  // Format PDF Checklist & Metode Pencatatan Baris (Model A: Merged vs Model B: Flat)
+  const [pdfLayoutMethod, setPdfLayoutMethod] = useState<"merged" | "flat">("merged")
+  const [pdfColumns, setPdfColumns] = useState<{
+    date: boolean
+    inputDate: boolean
+    receiptNumber: boolean
+    merchantName: boolean
+    category: boolean
+    itemName: boolean
+    qty: boolean
+    unit: boolean
+    price: boolean
+    total: boolean
+  }>({
+    date: true,
+    inputDate: true,
+    receiptNumber: true,
+    merchantName: true,
+    category: true,
+    itemName: true,
+    qty: true,
+    unit: true,
+    price: true,
+    total: true,
+  })
+
   // Kelola Data & Export Combined Modal State
   const [showDataOptionsModal, setShowDataOptionsModal] = useState(false)
 
@@ -1923,36 +1949,95 @@ export function ReceiptHistoryDashboard({
 
       currentY += 2
 
-      // Prepare Table Rows (Model A 10 Kolom)
-      const head = [["Tanggal Nota", "Tgl Input", "No. Nota", "Toko", "Kategori", "Rincian Barang", "Qty", "Satuan", "Harga", "Total"]]
+      // 1. Prepare Dynamic Active Columns Definition
+      interface ActiveColDef {
+        key: string
+        title: string
+        halign: "left" | "center" | "right"
+        fontStyle?: "bold" | "normal"
+        cellWidth?: number | "auto"
+        textColor?: [number, number, number]
+      }
 
+      const activeCols: ActiveColDef[] = []
+
+      if (pdfColumns.date) {
+        activeCols.push({ key: "date", title: "Tanggal Nota", halign: "center", fontStyle: "bold", cellWidth: orientation === "landscape" ? 22 : 18 })
+      }
+      if (pdfColumns.inputDate) {
+        activeCols.push({ key: "inputDate", title: "Tgl Input", halign: "center", cellWidth: orientation === "landscape" ? 20 : 17 })
+      }
+      if (pdfColumns.receiptNumber) {
+        activeCols.push({ key: "receiptNumber", title: "No. Nota", halign: "left", fontStyle: "bold", cellWidth: orientation === "landscape" ? 24 : 19 })
+      }
+      if (pdfColumns.merchantName) {
+        activeCols.push({ key: "merchantName", title: "Toko", halign: "left", fontStyle: "bold", cellWidth: orientation === "landscape" ? 28 : 22 })
+      }
+      if (pdfColumns.category) {
+        activeCols.push({ key: "category", title: "Kategori", halign: "left", cellWidth: orientation === "landscape" ? 24 : 19 })
+      }
+      // Rincian Barang selalu ada
+      activeCols.push({ key: "name", title: "Rincian Barang", halign: "left", cellWidth: "auto" })
+      if (pdfColumns.qty) {
+        activeCols.push({ key: "qty", title: "Qty", halign: "center", fontStyle: "bold", cellWidth: orientation === "landscape" ? 14 : 10 })
+      }
+      if (pdfColumns.unit) {
+        activeCols.push({ key: "unit", title: "Satuan", halign: "center", cellWidth: orientation === "landscape" ? 14 : 11 })
+      }
+      if (pdfColumns.price) {
+        activeCols.push({ key: "price", title: "Harga", halign: "right", cellWidth: orientation === "landscape" ? 22 : 18 })
+      }
+      if (pdfColumns.total) {
+        activeCols.push({ key: "total", title: "Total", halign: "right", fontStyle: "bold", textColor: [16, 185, 129], cellWidth: orientation === "landscape" ? 24 : 20 })
+      }
+
+      const head = [activeCols.map((c) => c.title)]
+
+      // 2. Prepare Dynamic Table Body Rows
       const body: any[] = []
       statementReceiptGroups.forEach((group) => {
         const span = group.items.length
         group.items.forEach((it, idx) => {
-          if (idx === 0) {
-            body.push([
-              { content: group.date, rowSpan: span, styles: { valign: "middle", halign: "center", fontStyle: "bold" } },
-              { content: group.inputDate, rowSpan: span, styles: { valign: "middle", halign: "center" } },
-              { content: group.receiptNumber, rowSpan: span, styles: { valign: "middle", fontStyle: "bold" } },
-              { content: group.merchantName, rowSpan: span, styles: { valign: "middle", fontStyle: "bold" } },
-              it.category,
-              it.name,
-              `${it.quantity}`,
-              it.unit,
-              `Rp ${Math.round(it.price).toLocaleString("id-ID")}`,
-              `Rp ${Math.round(it.total).toLocaleString("id-ID")}`,
-            ])
+          const row: any[] = []
+
+          if (pdfLayoutMethod === "merged") {
+            // MODEL A: Kolom identitas nota hanya dimasukkan pada baris pertama (idx === 0) dengan rowSpan
+            if (idx === 0) {
+              if (pdfColumns.date) {
+                row.push({ content: group.date, rowSpan: span, styles: { valign: "middle", halign: "center", fontStyle: "bold" } })
+              }
+              if (pdfColumns.inputDate) {
+                row.push({ content: group.inputDate, rowSpan: span, styles: { valign: "middle", halign: "center" } })
+              }
+              if (pdfColumns.receiptNumber) {
+                row.push({ content: group.receiptNumber || "-", rowSpan: span, styles: { valign: "middle", fontStyle: "bold" } })
+              }
+              if (pdfColumns.merchantName) {
+                row.push({ content: group.merchantName, rowSpan: span, styles: { valign: "middle", fontStyle: "bold" } })
+              }
+            }
+            // Rincian item
+            if (pdfColumns.category) row.push(it.category)
+            row.push(it.name)
+            if (pdfColumns.qty) row.push(`${it.quantity}`)
+            if (pdfColumns.unit) row.push(it.unit)
+            if (pdfColumns.price) row.push(`Rp ${Math.round(it.price).toLocaleString("id-ID")}`)
+            if (pdfColumns.total) row.push(`Rp ${Math.round(it.total).toLocaleString("id-ID")}`)
           } else {
-            body.push([
-              it.category,
-              it.name,
-              `${it.quantity}`,
-              it.unit,
-              `Rp ${Math.round(it.price).toLocaleString("id-ID")}`,
-              `Rp ${Math.round(it.total).toLocaleString("id-ID")}`,
-            ])
+            // MODEL B: Flat Tabular (Tiap baris memuat info nota lengkap tanpa rowSpan)
+            if (pdfColumns.date) row.push(group.date)
+            if (pdfColumns.inputDate) row.push(group.inputDate)
+            if (pdfColumns.receiptNumber) row.push(group.receiptNumber || "-")
+            if (pdfColumns.merchantName) row.push(group.merchantName)
+            if (pdfColumns.category) row.push(it.category)
+            row.push(it.name)
+            if (pdfColumns.qty) row.push(`${it.quantity}`)
+            if (pdfColumns.unit) row.push(it.unit)
+            if (pdfColumns.price) row.push(`Rp ${Math.round(it.price).toLocaleString("id-ID")}`)
+            if (pdfColumns.total) row.push(`Rp ${Math.round(it.total).toLocaleString("id-ID")}`)
           }
+
+          body.push(row)
         })
       })
 
@@ -1962,6 +2047,17 @@ export function ReceiptHistoryDashboard({
         doc.addPage()
         currentY = 16
       }
+
+      // 3. Dynamic Column Styles
+      const dynamicColumnStyles: Record<number, any> = {}
+      activeCols.forEach((col, i) => {
+        dynamicColumnStyles[i] = {
+          halign: col.halign,
+          ...(col.fontStyle ? { fontStyle: col.fontStyle } : {}),
+          ...(col.cellWidth ? { cellWidth: col.cellWidth } : {}),
+          ...(col.textColor ? { textColor: col.textColor } : {}),
+        }
+      })
 
       // Generate Table
       autoTable(doc, {
@@ -1988,18 +2084,7 @@ export function ReceiptHistoryDashboard({
         alternateRowStyles: {
           fillColor: [248, 250, 252],
         },
-        columnStyles: {
-          0: { cellWidth: orientation === "landscape" ? 20 : 17, halign: "center", fontStyle: "bold" },
-          1: { cellWidth: orientation === "landscape" ? 20 : 17, halign: "center" },
-          2: { cellWidth: orientation === "landscape" ? 22 : 18, fontStyle: "bold" },
-          3: { cellWidth: orientation === "landscape" ? 26 : 22, fontStyle: "bold" },
-          4: { cellWidth: orientation === "landscape" ? 22 : 18 },
-          5: { cellWidth: "auto" },
-          6: { cellWidth: orientation === "landscape" ? 12 : 9, halign: "center", fontStyle: "bold" },
-          7: { cellWidth: orientation === "landscape" ? 14 : 11, halign: "center" },
-          8: { cellWidth: orientation === "landscape" ? 22 : 18, halign: "right" },
-          9: { cellWidth: orientation === "landscape" ? 24 : 20, halign: "right", fontStyle: "bold", textColor: [16, 185, 129] },
-        },
+        columnStyles: dynamicColumnStyles,
       })
 
       // Summary Card on last page (with page-break protection)
@@ -3806,15 +3891,6 @@ export function ReceiptHistoryDashboard({
                         <div className="flex items-center gap-1.5 max-w-full">
                           <Store className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400 shrink-0 hidden lg:block" />
                           <h4 className="font-black text-slate-900 dark:text-white text-xs sm:text-sm truncate">{receipt.merchantName}</h4>
-                          {receipt.receiptNumber && (
-                            <span
-                              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-mono text-[9.5px] border border-slate-200 dark:border-slate-700 shrink-0"
-                              title={`Nomor Nota: ${receipt.receiptNumber}`}
-                            >
-                              <Hash className="w-2.5 h-2.5 text-slate-400" />
-                              {receipt.receiptNumber}
-                            </span>
-                          )}
                         </div>
                         <div className="flex items-center gap-1 flex-wrap justify-end lg:justify-start">
                           <span className="inline-block px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold text-[10px] border border-emerald-500/20 truncate max-w-full">
@@ -4104,6 +4180,150 @@ export function ReceiptHistoryDashboard({
               </div>
             </div>
 
+            {/* FORMAT & TATA LETAK LAPORAN PDF (NO-PRINT) */}
+            <div className="bg-slate-800 border-b border-slate-700 px-4 sm:px-6 py-3 text-white no-print space-y-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                {/* Radio Metode Pencatatan */}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-slate-300">Tata Letak Baris:</span>
+                  <div className="inline-flex rounded-lg bg-slate-900 p-0.5 border border-slate-700">
+                    <button
+                      type="button"
+                      onClick={() => setPdfLayoutMethod("merged")}
+                      className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${
+                        pdfLayoutMethod === "merged"
+                          ? "bg-emerald-600 text-white shadow-xs"
+                          : "text-slate-400 hover:text-white"
+                      }`}
+                      title="Model A: Tanggal, Input, No. Nota, dan Toko menyatu secara vertikal per nota"
+                    >
+                      Model A (Kolom Menyatu / Merged)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPdfLayoutMethod("flat")}
+                      className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${
+                        pdfLayoutMethod === "flat"
+                          ? "bg-emerald-600 text-white shadow-xs"
+                          : "text-slate-400 hover:text-white"
+                      }`}
+                      title="Model B: Setiap baris barang memuat tanggal, input, no. nota, dan toko secara lengkap"
+                    >
+                      Model B (Baris Lengkap per Item / Flat)
+                    </button>
+                  </div>
+                </div>
+
+                <div className="text-[11px] text-slate-400 italic">
+                  *Pilih kolom di bawah untuk menyesuaikan isi tabel PDF & Cetak
+                </div>
+              </div>
+
+              {/* Checklist Kolom */}
+              <div className="flex items-center gap-2 flex-wrap text-xs pt-0.5">
+                <span className="text-xs font-bold text-slate-300 shrink-0">Kolom Dicetak:</span>
+                <label className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-slate-900/80 border border-slate-700 cursor-pointer hover:bg-slate-700 text-slate-200 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={pdfColumns.date}
+                    onChange={(e) => setPdfColumns((prev) => ({ ...prev, date: e.target.checked }))}
+                    className="w-3.5 h-3.5 rounded text-emerald-500 focus:ring-emerald-500 bg-slate-950 border-slate-600 cursor-pointer"
+                  />
+                  <span>Tanggal Nota</span>
+                </label>
+
+                <label className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-slate-900/80 border border-slate-700 cursor-pointer hover:bg-slate-700 text-slate-200 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={pdfColumns.inputDate}
+                    onChange={(e) => setPdfColumns((prev) => ({ ...prev, inputDate: e.target.checked }))}
+                    className="w-3.5 h-3.5 rounded text-emerald-500 focus:ring-emerald-500 bg-slate-950 border-slate-600 cursor-pointer"
+                  />
+                  <span>Tgl Input</span>
+                </label>
+
+                <label className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-slate-900/80 border border-slate-700 cursor-pointer hover:bg-slate-700 text-slate-200 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={pdfColumns.receiptNumber}
+                    onChange={(e) => setPdfColumns((prev) => ({ ...prev, receiptNumber: e.target.checked }))}
+                    className="w-3.5 h-3.5 rounded text-emerald-500 focus:ring-emerald-500 bg-slate-950 border-slate-600 cursor-pointer"
+                  />
+                  <span>No. Nota</span>
+                </label>
+
+                <label className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-slate-900/80 border border-slate-700 cursor-pointer hover:bg-slate-700 text-slate-200 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={pdfColumns.merchantName}
+                    onChange={(e) => setPdfColumns((prev) => ({ ...prev, merchantName: e.target.checked }))}
+                    className="w-3.5 h-3.5 rounded text-emerald-500 focus:ring-emerald-500 bg-slate-950 border-slate-600 cursor-pointer"
+                  />
+                  <span>Toko</span>
+                </label>
+
+                <label className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-slate-900/80 border border-slate-700 cursor-pointer hover:bg-slate-700 text-slate-200 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={pdfColumns.category}
+                    onChange={(e) => setPdfColumns((prev) => ({ ...prev, category: e.target.checked }))}
+                    className="w-3.5 h-3.5 rounded text-emerald-500 focus:ring-emerald-500 bg-slate-950 border-slate-600 cursor-pointer"
+                  />
+                  <span>Kategori</span>
+                </label>
+
+                <label className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-slate-900/80 border border-slate-700 opacity-80 cursor-not-allowed text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={true}
+                    disabled
+                    className="w-3.5 h-3.5 rounded text-emerald-500 bg-slate-950 border-slate-600 cursor-not-allowed"
+                  />
+                  <span>Rincian Barang</span>
+                </label>
+
+                <label className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-slate-900/80 border border-slate-700 cursor-pointer hover:bg-slate-700 text-slate-200 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={pdfColumns.qty}
+                    onChange={(e) => setPdfColumns((prev) => ({ ...prev, qty: e.target.checked }))}
+                    className="w-3.5 h-3.5 rounded text-emerald-500 focus:ring-emerald-500 bg-slate-950 border-slate-600 cursor-pointer"
+                  />
+                  <span>Qty</span>
+                </label>
+
+                <label className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-slate-900/80 border border-slate-700 cursor-pointer hover:bg-slate-700 text-slate-200 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={pdfColumns.unit}
+                    onChange={(e) => setPdfColumns((prev) => ({ ...prev, unit: e.target.checked }))}
+                    className="w-3.5 h-3.5 rounded text-emerald-500 focus:ring-emerald-500 bg-slate-950 border-slate-600 cursor-pointer"
+                  />
+                  <span>Satuan</span>
+                </label>
+
+                <label className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-slate-900/80 border border-slate-700 cursor-pointer hover:bg-slate-700 text-slate-200 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={pdfColumns.price}
+                    onChange={(e) => setPdfColumns((prev) => ({ ...prev, price: e.target.checked }))}
+                    className="w-3.5 h-3.5 rounded text-emerald-500 focus:ring-emerald-500 bg-slate-950 border-slate-600 cursor-pointer"
+                  />
+                  <span>Harga</span>
+                </label>
+
+                <label className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-slate-900/80 border border-slate-700 cursor-pointer hover:bg-slate-700 text-slate-200 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={pdfColumns.total}
+                    onChange={(e) => setPdfColumns((prev) => ({ ...prev, total: e.target.checked }))}
+                    className="w-3.5 h-3.5 rounded text-emerald-500 focus:ring-emerald-500 bg-slate-950 border-slate-600 cursor-pointer"
+                  />
+                  <span>Total</span>
+                </label>
+              </div>
+            </div>
+
             {/* COMPACT PRINTABLE PDF DOCUMENT BODY (FIT TO 1 PAGE A4 PORTRAIT) */}
             <div id="printable-rekening-koran" className="p-6 sm:p-8 bg-white text-slate-900 space-y-3 font-sans text-xs overflow-y-auto">
               {/* Header 2 Kolom (Compact Vertical Margin) */}
@@ -4199,21 +4419,21 @@ export function ReceiptHistoryDashboard({
                 </div>
               </div>
 
-              {/* REFACTORED HIGH-READABILITY COMPACT TABLE (MODEL A: 10 KOLOM RESMI DENGAN ROWSPAN) */}
+              {/* REFACTORED HIGH-READABILITY COMPACT TABLE (MODEL A: ROWSPAN vs MODEL B: FLAT DENGAN CHECKLIST KOLOM) */}
               <div className="pt-0.5">
                 <table className="w-full text-left border-collapse font-sans text-xs">
                   <thead>
                     <tr className="bg-[#f1f5f9] text-slate-900 font-bold border border-slate-300 text-[10px]">
-                      <th style={{ width: "9%" }} className="px-1.5 py-1.5 text-center border-r border-slate-300">Tanggal Nota</th>
-                      <th style={{ width: "9%" }} className="px-1.5 py-1.5 text-center border-r border-slate-300">Tgl Input</th>
-                      <th style={{ width: "11%" }} className="px-1.5 py-1.5 text-left border-r border-slate-300">No. Nota</th>
-                      <th style={{ width: "13%" }} className="px-2 py-1.5 text-left border-r border-slate-300">Toko</th>
-                      <th style={{ width: "11%" }} className="px-2 py-1.5 text-left border-r border-slate-300">Kategori</th>
-                      <th style={{ width: "20%" }} className="px-2 py-1.5 text-left border-r border-slate-300">Rincian Barang</th>
-                      <th style={{ width: "5%" }} className="px-1 py-1.5 text-center border-r border-slate-300">Qty</th>
-                      <th style={{ width: "6%" }} className="px-1 py-1.5 text-center border-r border-slate-300">Satuan</th>
-                      <th style={{ width: "8%" }} className="px-2 py-1.5 text-right border-r border-slate-300">Harga</th>
-                      <th style={{ width: "8%" }} className="px-2 py-1.5 text-right">Total</th>
+                      {pdfColumns.date && <th className="px-1.5 py-1.5 text-center border-r border-slate-300 whitespace-nowrap">Tanggal Nota</th>}
+                      {pdfColumns.inputDate && <th className="px-1.5 py-1.5 text-center border-r border-slate-300 whitespace-nowrap">Tgl Input</th>}
+                      {pdfColumns.receiptNumber && <th className="px-1.5 py-1.5 text-left border-r border-slate-300 whitespace-nowrap">No. Nota</th>}
+                      {pdfColumns.merchantName && <th className="px-2 py-1.5 text-left border-r border-slate-300">Toko</th>}
+                      {pdfColumns.category && <th className="px-2 py-1.5 text-left border-r border-slate-300">Kategori</th>}
+                      <th className="px-2 py-1.5 text-left border-r border-slate-300">Rincian Barang</th>
+                      {pdfColumns.qty && <th className="px-1 py-1.5 text-center border-r border-slate-300 whitespace-nowrap">Qty</th>}
+                      {pdfColumns.unit && <th className="px-1 py-1.5 text-center border-r border-slate-300 whitespace-nowrap">Satuan</th>}
+                      {pdfColumns.price && <th className="px-2 py-1.5 text-right border-r border-slate-300 whitespace-nowrap">Harga</th>}
+                      {pdfColumns.total && <th className="px-2 py-1.5 text-right whitespace-nowrap">Total</th>}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 border-x border-b border-slate-300 text-xs font-sans">
@@ -4228,68 +4448,138 @@ export function ReceiptHistoryDashboard({
                               key={`${group.id}_${idx}`}
                               className={`hover:bg-slate-50/80 ${isLast ? "border-b-2 border-slate-300" : "border-b border-slate-200"}`}
                             >
-                              {/* 4 Kolom Identitas Nota (Model A: rowSpan pada baris pertama nota) */}
-                              {isFirst && (
+                              {pdfLayoutMethod === "merged" ? (
+                                // MODEL A: rowSpan pada baris pertama nota (isFirst)
+                                isFirst && (
+                                  <>
+                                    {pdfColumns.date && (
+                                      <td
+                                        rowSpan={span}
+                                        style={{ verticalAlign: "middle", padding: "4px 6px" }}
+                                        className="text-center text-slate-900 border-r border-slate-200 font-bold text-[10px] whitespace-nowrap bg-white"
+                                      >
+                                        {group.date}
+                                      </td>
+                                    )}
+                                    {pdfColumns.inputDate && (
+                                      <td
+                                        rowSpan={span}
+                                        style={{ verticalAlign: "middle", padding: "4px 6px" }}
+                                        className="text-center text-slate-600 border-r border-slate-200 font-medium text-[9.5px] whitespace-nowrap bg-white"
+                                      >
+                                        {group.inputDate}
+                                      </td>
+                                    )}
+                                    {pdfColumns.receiptNumber && (
+                                      <td
+                                        rowSpan={span}
+                                        style={{ verticalAlign: "middle", padding: "4px 6px" }}
+                                        className="text-slate-900 border-r border-slate-200 font-bold text-[10px] break-all bg-white"
+                                      >
+                                        {group.receiptNumber || "-"}
+                                      </td>
+                                    )}
+                                    {pdfColumns.merchantName && (
+                                      <td
+                                        rowSpan={span}
+                                        style={{ verticalAlign: "middle", padding: "4px 6px" }}
+                                        className="text-slate-900 border-r border-slate-200 font-bold text-[10.5px] bg-white"
+                                      >
+                                        {group.merchantName}
+                                      </td>
+                                    )}
+                                  </>
+                                )
+                              ) : (
+                                // MODEL B: Flat Tabular (Tiap baris memuat info nota lengkap tanpa rowSpan)
                                 <>
-                                  <td
-                                    rowSpan={span}
-                                    style={{ verticalAlign: "middle", padding: "4px 6px" }}
-                                    className="text-center text-slate-900 border-r border-slate-200 font-bold text-[10px] whitespace-nowrap bg-white"
-                                  >
-                                    {group.date}
-                                  </td>
-                                  <td
-                                    rowSpan={span}
-                                    style={{ verticalAlign: "middle", padding: "4px 6px" }}
-                                    className="text-center text-slate-600 border-r border-slate-200 font-medium text-[9.5px] whitespace-nowrap bg-white"
-                                  >
-                                    {group.inputDate}
-                                  </td>
-                                  <td
-                                    rowSpan={span}
-                                    style={{ verticalAlign: "middle", padding: "4px 6px" }}
-                                    className="text-slate-900 border-r border-slate-200 font-bold text-[10px] break-all bg-white"
-                                  >
-                                    {group.receiptNumber}
-                                  </td>
-                                  <td
-                                    rowSpan={span}
-                                    style={{ verticalAlign: "middle", padding: "4px 6px" }}
-                                    className="text-slate-900 border-r border-slate-200 font-bold text-[10.5px] bg-white"
-                                  >
-                                    {group.merchantName}
-                                  </td>
+                                  {pdfColumns.date && (
+                                    <td
+                                      style={{ verticalAlign: "middle", padding: "4px 6px" }}
+                                      className="text-center text-slate-900 border-r border-slate-200 font-bold text-[10px] whitespace-nowrap bg-white"
+                                    >
+                                      {group.date}
+                                    </td>
+                                  )}
+                                  {pdfColumns.inputDate && (
+                                    <td
+                                      style={{ verticalAlign: "middle", padding: "4px 6px" }}
+                                      className="text-center text-slate-600 border-r border-slate-200 font-medium text-[9.5px] whitespace-nowrap bg-white"
+                                    >
+                                      {group.inputDate}
+                                    </td>
+                                  )}
+                                  {pdfColumns.receiptNumber && (
+                                    <td
+                                      style={{ verticalAlign: "middle", padding: "4px 6px" }}
+                                      className="text-slate-900 border-r border-slate-200 font-bold text-[10px] break-all bg-white"
+                                    >
+                                      {group.receiptNumber || "-"}
+                                    </td>
+                                  )}
+                                  {pdfColumns.merchantName && (
+                                    <td
+                                      style={{ verticalAlign: "middle", padding: "4px 6px" }}
+                                      className="text-slate-900 border-r border-slate-200 font-bold text-[10.5px] bg-white"
+                                    >
+                                      {group.merchantName}
+                                    </td>
+                                  )}
                                 </>
                               )}
 
-                              {/* 6 Kolom Rincian Item (Dijabarkan per baris) */}
-                              <td style={{ verticalAlign: "middle", padding: "4px 6px" }} className="text-slate-800 border-r border-slate-200 text-[9.5px]">
-                                <span className="inline-block px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 font-semibold text-[9px] border border-emerald-200">
-                                  {it.category}
-                                </span>
-                              </td>
+                              {/* Kolom-kolom Rincian Item */}
+                              {pdfColumns.category && (
+                                <td style={{ verticalAlign: "middle", padding: "4px 6px" }} className="text-slate-800 border-r border-slate-200 text-[9.5px]">
+                                  <span className="inline-block px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 font-semibold text-[9px] border border-emerald-200">
+                                    {it.category}
+                                  </span>
+                                </td>
+                              )}
                               <td style={{ verticalAlign: "middle", padding: "4px 6px" }} className="text-slate-900 border-r border-slate-200 font-medium text-[10px]">
                                 {it.name}
                               </td>
-                              <td style={{ verticalAlign: "middle", padding: "4px 6px" }} className="text-center font-black text-slate-900 border-r border-slate-200 text-[10px] whitespace-nowrap">
-                                {it.quantity}
-                              </td>
-                              <td style={{ verticalAlign: "middle", padding: "4px 6px" }} className="text-center font-bold text-slate-600 border-r border-slate-200 text-[9.5px] whitespace-nowrap">
-                                {it.unit}
-                              </td>
-                              <td style={{ verticalAlign: "middle", padding: "4px 6px" }} className="text-right font-medium text-slate-700 border-r border-slate-200 text-[10px] whitespace-nowrap">
-                                Rp {Math.round(it.price).toLocaleString("id-ID")}
-                              </td>
-                              <td style={{ verticalAlign: "middle", padding: "4px 6px" }} className="text-right font-bold text-slate-900 text-[10px] whitespace-nowrap">
-                                Rp {Math.round(it.total).toLocaleString("id-ID")}
-                              </td>
+                              {pdfColumns.qty && (
+                                <td style={{ verticalAlign: "middle", padding: "4px 6px" }} className="text-center font-black text-slate-900 border-r border-slate-200 text-[10px] whitespace-nowrap">
+                                  {it.quantity}
+                                </td>
+                              )}
+                              {pdfColumns.unit && (
+                                <td style={{ verticalAlign: "middle", padding: "4px 6px" }} className="text-center font-bold text-slate-600 border-r border-slate-200 text-[9.5px] whitespace-nowrap">
+                                  {it.unit}
+                                </td>
+                              )}
+                              {pdfColumns.price && (
+                                <td style={{ verticalAlign: "middle", padding: "4px 6px" }} className="text-right font-medium text-slate-700 border-r border-slate-200 text-[10px] whitespace-nowrap">
+                                  Rp {Math.round(it.price).toLocaleString("id-ID")}
+                                </td>
+                              )}
+                              {pdfColumns.total && (
+                                <td style={{ verticalAlign: "middle", padding: "4px 6px" }} className="text-right font-bold text-slate-900 text-[10px] whitespace-nowrap">
+                                  Rp {Math.round(it.total).toLocaleString("id-ID")}
+                                </td>
+                              )}
                             </tr>
                           )
                         })
                       })
                     ) : (
                       <tr>
-                        <td colSpan={10} className="px-4 py-6 text-center text-slate-400 italic">
+                        <td
+                          colSpan={
+                            (pdfColumns.date ? 1 : 0) +
+                            (pdfColumns.inputDate ? 1 : 0) +
+                            (pdfColumns.receiptNumber ? 1 : 0) +
+                            (pdfColumns.merchantName ? 1 : 0) +
+                            (pdfColumns.category ? 1 : 0) +
+                            1 +
+                            (pdfColumns.qty ? 1 : 0) +
+                            (pdfColumns.unit ? 1 : 0) +
+                            (pdfColumns.price ? 1 : 0) +
+                            (pdfColumns.total ? 1 : 0)
+                          }
+                          className="px-4 py-6 text-center text-slate-400 italic"
+                        >
                           Tidak ada data transaksi di kriteria ini.
                         </td>
                       </tr>

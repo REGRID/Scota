@@ -60,6 +60,7 @@ import {
   Lock,
   Palette,
   ArrowRight,
+  Hash,
 } from "lucide-react"
 import {
   ResponsiveContainer,
@@ -92,12 +93,14 @@ export interface ReceiptItem {
   subCategory?: string
   price: number
   quantity: number
+  unit?: string
   createdAt: string
 }
 
 export interface ReceiptData {
   id: string
   merchantName: string
+  receiptNumber?: string | null
   date: string
   imageUrl?: string | null
   subtotal?: number
@@ -1288,6 +1291,7 @@ export function ReceiptHistoryDashboard({
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim()
         const matchMerchant = (r.merchantName || "").toLowerCase().includes(q)
+        const matchReceiptNumber = (r.receiptNumber || "").toLowerCase().includes(q)
         const matchNote = (r.note || "").toLowerCase().includes(q)
         const matchPayment = (r.paymentMethod || "").toLowerCase().includes(q)
         const matchTotal = r.totalAmount.toString().includes(q)
@@ -1298,7 +1302,7 @@ export function ReceiptHistoryDashboard({
             (item.subCategory && item.subCategory.toLowerCase().includes(q))
         )
 
-        if (!matchMerchant && !matchNote && !matchPayment && !matchTotal && !matchItems) {
+        if (!matchMerchant && !matchReceiptNumber && !matchNote && !matchPayment && !matchTotal && !matchItems) {
           return false
         }
       }
@@ -1891,9 +1895,10 @@ export function ReceiptHistoryDashboard({
       if (searchQuery.trim()) {
         metadataRows.push({ label: "Kata Kunci Cari", value: `"${searchQuery.trim()}"` })
       }
+      const totalStatementQty = statementReceiptGroups.reduce((acc, g) => acc + g.totalQty, 0)
       metadataRows.push({
         label: "Total Ringkasan",
-        value: `${statementTableRows.length} Struk — Rp ${Math.round(totalSpend).toLocaleString("id-ID")}`,
+        value: `${statementReceiptGroups.length} Struk (${totalStatementQty} Item) — Rp ${Math.round(totalSpend).toLocaleString("id-ID")}`,
         isHighlight: true,
       })
 
@@ -1918,83 +1923,120 @@ export function ReceiptHistoryDashboard({
 
       currentY += 2
 
-      // Prepare Table Rows
-      const head = [["Tanggal", "No. Ref", "Toko", "Rincian Barang & Kategori", "Pengeluaran", "Total"]]
+      // Prepare Table Rows (Model A 10 Kolom)
+      const head = [["Tanggal Nota", "Tgl Input", "No. Nota", "Toko", "Kategori", "Rincian Barang", "Qty", "Satuan", "Harga", "Total"]]
 
-      const body = statementTableRows.map((row) => {
-        const itemDetails = row.rawItems
-          .map((it) => `• ${it.name} (x${it.quantity})`)
-          .join("\n")
-        const catLabel = `[${row.categories || "Umum"}]`
-        const fullDetails = `${catLabel}\n${itemDetails}`
-
-        return [
-          row.date,
-          row.refNo,
-          row.merchantName,
-          fullDetails,
-          `Rp ${Math.round(row.debit).toLocaleString("id-ID")}`,
-          `Rp ${Math.round(row.balance).toLocaleString("id-ID")}`,
-        ]
+      const body: any[] = []
+      statementReceiptGroups.forEach((group) => {
+        const span = group.items.length
+        group.items.forEach((it, idx) => {
+          if (idx === 0) {
+            body.push([
+              { content: group.date, rowSpan: span, styles: { valign: "middle", halign: "center", fontStyle: "bold" } },
+              { content: group.inputDate, rowSpan: span, styles: { valign: "middle", halign: "center" } },
+              { content: group.receiptNumber, rowSpan: span, styles: { valign: "middle", fontStyle: "bold" } },
+              { content: group.merchantName, rowSpan: span, styles: { valign: "middle", fontStyle: "bold" } },
+              it.category,
+              it.name,
+              `${it.quantity}`,
+              it.unit,
+              `Rp ${Math.round(it.price).toLocaleString("id-ID")}`,
+              `Rp ${Math.round(it.total).toLocaleString("id-ID")}`,
+            ])
+          } else {
+            body.push([
+              it.category,
+              it.name,
+              `${it.quantity}`,
+              it.unit,
+              `Rp ${Math.round(it.price).toLocaleString("id-ID")}`,
+              `Rp ${Math.round(it.total).toLocaleString("id-ID")}`,
+            ])
+          }
+        })
       })
+
+      const bottomMargin = 16
+      const minRequiredSpaceForTableStart = 55
+      if (pageHeight - currentY - bottomMargin < minRequiredSpaceForTableStart) {
+        doc.addPage()
+        currentY = 16
+      }
 
       // Generate Table
       autoTable(doc, {
         startY: currentY,
         head,
         body,
-        margin: { top: 12, bottom: 16, left: 10, right: 10 },
+        margin: { top: 14, bottom: 16, left: 10, right: 10 },
         theme: "grid",
+        showHead: "everyPage",
+        rowPageBreak: "avoid",
+        pageBreak: "auto",
         headStyles: {
           fillColor: [30, 41, 59],
           textColor: [255, 255, 255],
           fontStyle: "bold",
-          fontSize: 8.5,
+          fontSize: 8,
           halign: "left",
         },
         bodyStyles: {
-          fontSize: 8,
+          fontSize: 7.5,
           textColor: [30, 41, 59],
-          cellPadding: 2.5,
+          cellPadding: 2,
         },
         alternateRowStyles: {
           fillColor: [248, 250, 252],
         },
         columnStyles: {
-          0: { cellWidth: orientation === "landscape" ? 24 : 22, halign: "center", fontStyle: "bold" },
-          1: { cellWidth: orientation === "landscape" ? 28 : 25, fontStyle: "normal" },
-          2: { cellWidth: orientation === "landscape" ? 38 : 32, fontStyle: "bold" },
-          3: { cellWidth: "auto" },
-          4: { cellWidth: orientation === "landscape" ? 32 : 28, halign: "right", fontStyle: "bold", textColor: [16, 185, 129] },
-          5: { cellWidth: orientation === "landscape" ? 34 : 30, halign: "right", fontStyle: "bold" },
-        },
-        didDrawPage: (data) => {
-          const totalPages = doc.getNumberOfPages()
-          doc.setFontSize(8)
-          doc.setTextColor(148, 163, 184)
-          doc.text(
-            `Halaman ${data.pageNumber} dari ${totalPages} — Dokumen Laporan Rekapitulasi Pembukuan Scota`,
-            pageWidth / 2,
-            pageHeight - 6,
-            { align: "center" }
-          )
+          0: { cellWidth: orientation === "landscape" ? 20 : 17, halign: "center", fontStyle: "bold" },
+          1: { cellWidth: orientation === "landscape" ? 20 : 17, halign: "center" },
+          2: { cellWidth: orientation === "landscape" ? 22 : 18, fontStyle: "bold" },
+          3: { cellWidth: orientation === "landscape" ? 26 : 22, fontStyle: "bold" },
+          4: { cellWidth: orientation === "landscape" ? 22 : 18 },
+          5: { cellWidth: "auto" },
+          6: { cellWidth: orientation === "landscape" ? 12 : 9, halign: "center", fontStyle: "bold" },
+          7: { cellWidth: orientation === "landscape" ? 14 : 11, halign: "center" },
+          8: { cellWidth: orientation === "landscape" ? 22 : 18, halign: "right" },
+          9: { cellWidth: orientation === "landscape" ? 24 : 20, halign: "right", fontStyle: "bold", textColor: [16, 185, 129] },
         },
       })
 
-      // Summary Card on last page
-      const finalY = (doc as any).lastAutoTable?.finalY || currentY + 40
-      if (finalY + 18 < pageHeight - 12) {
-        doc.setFillColor(15, 23, 42)
-        doc.roundedRect(10, finalY + 4, pageWidth - 20, 12, 2.5, 2.5, "F")
+      // Summary Card on last page (with page-break protection)
+      let finalY = (doc as any).lastAutoTable?.finalY || currentY + 40
+      const summaryCardHeight = 14
+      const summaryCardMargin = 4
 
-        doc.setFont("helvetica", "bold")
-        doc.setFontSize(8.5)
+      if (finalY + summaryCardHeight + summaryCardMargin > pageHeight - bottomMargin) {
+        doc.addPage()
+        finalY = 14
+      }
+
+      doc.setFillColor(15, 23, 42)
+      doc.roundedRect(10, finalY + summaryCardMargin, pageWidth - 20, 12, 2.5, 2.5, "F")
+
+      doc.setFont("helvetica", "bold")
+      doc.setFontSize(8)
+      doc.setTextColor(148, 163, 184)
+      doc.text(`TOTAL AKUMULASI PENGELUARAN (${totalStatementQty} ITEM)`, 15, finalY + summaryCardMargin + 7.5)
+
+      doc.setFontSize(11)
+      doc.setTextColor(16, 185, 129)
+      doc.text(`Rp ${Math.round(totalSpend).toLocaleString("id-ID")}`, pageWidth - 15, finalY + summaryCardMargin + 7.5, { align: "right" })
+
+      // Two-pass accurate footer across all generated pages
+      const totalPages = doc.getNumberOfPages()
+      for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i)
+        doc.setFont("helvetica", "normal")
+        doc.setFontSize(8)
         doc.setTextColor(148, 163, 184)
-        doc.text("TOTAL AKUMULASI PENGELUARAN (OUTFLOW STATEMENT TOTAL)", 15, finalY + 11.5)
-
-        doc.setFontSize(11)
-        doc.setTextColor(16, 185, 129)
-        doc.text(`Rp ${Math.round(totalSpend).toLocaleString("id-ID")}`, pageWidth - 15, finalY + 11.5, { align: "right" })
+        doc.text(
+          `Halaman ${i} dari ${totalPages} — Dokumen Laporan Rekapitulasi Pembukuan Scota`,
+          pageWidth / 2,
+          pageHeight - 6,
+          { align: "center" }
+        )
       }
 
       // Save PDF file
@@ -2339,50 +2381,92 @@ export function ReceiptHistoryDashboard({
     })
   }
 
-  // Calculate Rekening Koran Statement Rows (Matching Bank Mandiri Reference Layout)
-  const statementTableRows = useMemo(() => {
-    const sorted = [...filteredReceipts].sort((a, b) => a.date.localeCompare(b.date))
-    let cumulative = 0
+  // Calculate Rekening Koran Statement Receipt Groups (Model A: 10 Kolom dengan Satuan & RowSpan)
+  const statementReceiptGroups = useMemo(() => {
+    const sorted = [...filteredReceipts].sort((a, b) => (a.date || "").localeCompare(b.date || ""))
 
-    return sorted.map((r, idx) => {
-      const amount = isSubCategoryActive
-        ? r.items
-            .filter((item) => {
-              const sub = (item.subCategory || "").toLowerCase()
-              const cat = (item.category || "").toLowerCase()
-              return sub.includes(subQ) || cat.includes(subQ)
+    return sorted.map((r) => {
+      // Nomor nota murni asli, kosong jika tidak ada di nota
+      const receiptNum = r.receiptNumber?.trim() || ""
+
+      const dateParts = (r.date || "").split("-")
+      const formattedDate = dateParts.length === 3 ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}` : r.date || "-"
+
+      // Detail Tanggal Penginputan (createdAt - tanggal saja DD/MM/YYYY)
+      let formattedInputDate = "-"
+      if (r.createdAt) {
+        try {
+          const d = new Date(r.createdAt)
+          const pad = (n: number) => String(n).padStart(2, "0")
+          formattedInputDate = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`
+        } catch (e) {
+          formattedInputDate = r.createdAt.split("T")[0] || r.createdAt
+        }
+      }
+
+      const activeItems = isSubCategoryActive
+        ? (r.items || []).filter((item) => {
+            const sub = (item.subCategory || "").toLowerCase()
+            const cat = (item.category || "").toLowerCase()
+            return sub.includes(subQ) || cat.includes(subQ)
+          })
+        : (r.items || [])
+
+      const itemsData =
+        activeItems.length > 0
+          ? activeItems.map((it) => {
+              const q = it.quantity || 1
+              const p = it.price || 0
+              const u = (it.unit || "pcs").trim()
+              const catDisplay = it.subCategory && it.subCategory !== "Umum" ? `${it.category} / ${it.subCategory}` : (it.category || "Umum")
+              return {
+                name: it.name || "Item",
+                category: catDisplay,
+                quantity: q,
+                unit: u,
+                price: p,
+                total: p * q,
+              }
             })
-            .reduce((acc, item) => acc + item.price * item.quantity, 0)
-        : r.totalAmount
+          : [
+              {
+                name: r.note || "Transaksi Umum",
+                category: "Umum",
+                quantity: 1,
+                unit: "pcs",
+                price: r.totalAmount || 0,
+                total: r.totalAmount || 0,
+              },
+            ]
 
-      cumulative += amount
-      const categoriesStr = Array.from(new Set(r.items.map((i) => i.category || "Lain-lain"))).join(", ")
-
-      const refNo = `NTA-${r.id.substring(0, 8).toUpperCase()}`
-      const dateParts = r.date.split("-")
-      const formattedDate = dateParts.length === 3 ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}` : r.date
+      const receiptTotal = itemsData.reduce((acc, it) => acc + it.total, 0)
+      const totalQty = itemsData.reduce((acc, it) => acc + it.quantity, 0)
 
       return {
         id: r.id,
-        no: idx + 1,
         date: formattedDate,
-        merchantName: r.merchantName,
-        categories: categoriesStr,
-        rawItems: r.items,
-        refNo,
-        debit: amount,
-        balance: cumulative,
+        inputDate: formattedInputDate,
+        receiptNumber: receiptNum,
+        merchantName: r.merchantName || "Nota / Toko",
+        items: itemsData,
+        receiptTotal,
+        totalQty,
       }
     })
   }, [filteredReceipts, isSubCategoryActive, subQ])
 
+  // Total Quantity across all items in all statement groups
+  const totalStatementQty = useMemo(() => {
+    return statementReceiptGroups.reduce((acc, g) => acc + g.totalQty, 0)
+  }, [statementReceiptGroups])
+
   // Date Range Statement From / To
   const statementDateRange = useMemo(() => {
-    if (statementTableRows.length === 0) return { from: "-", to: "-" }
-    const firstDate = statementTableRows[0].date
-    const lastDate = statementTableRows[statementTableRows.length - 1].date
+    if (statementReceiptGroups.length === 0) return { from: "-", to: "-" }
+    const firstDate = statementReceiptGroups[0].date
+    const lastDate = statementReceiptGroups[statementReceiptGroups.length - 1].date
     return { from: firstDate, to: lastDate }
-  }, [statementTableRows])
+  }, [statementReceiptGroups])
 
   const averageSpendPerReceipt = filteredReceipts.length > 0 ? Math.round(totalSpend / filteredReceipts.length) : 0
 
@@ -2442,6 +2526,8 @@ export function ReceiptHistoryDashboard({
 
           thead {
             display: table-header-group !important;
+            break-after: avoid !important;
+            page-break-after: avoid !important;
           }
 
           tbody {
@@ -3720,6 +3806,15 @@ export function ReceiptHistoryDashboard({
                         <div className="flex items-center gap-1.5 max-w-full">
                           <Store className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400 shrink-0 hidden lg:block" />
                           <h4 className="font-black text-slate-900 dark:text-white text-xs sm:text-sm truncate">{receipt.merchantName}</h4>
+                          {receipt.receiptNumber && (
+                            <span
+                              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-mono text-[9.5px] border border-slate-200 dark:border-slate-700 shrink-0"
+                              title={`Nomor Nota: ${receipt.receiptNumber}`}
+                            >
+                              <Hash className="w-2.5 h-2.5 text-slate-400" />
+                              {receipt.receiptNumber}
+                            </span>
+                          )}
                         </div>
                         <div className="flex items-center gap-1 flex-wrap justify-end lg:justify-start">
                           <span className="inline-block px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold text-[10px] border border-emerald-500/20 truncate max-w-full">
@@ -3826,9 +3921,19 @@ export function ReceiptHistoryDashboard({
                             {onEditReceipt && (
                               <button
                                 type="button"
-                                onClick={(e) => {
+                                onClick={async (e) => {
                                   e.stopPropagation()
-                                  onEditReceipt(receipt)
+                                  let fullR = receipt
+                                  if (!fullR.imageUrl || !fullR.items || fullR.items.length === 0) {
+                                    try {
+                                      const res = await fetch(`/api/receipts/${receipt.id}`, { headers: getAuthHeaders() })
+                                      if (res.ok) {
+                                        const fetched = await res.json()
+                                        if (fetched && fetched.id) fullR = fetched
+                                      }
+                                    } catch (err) {}
+                                  }
+                                  onEditReceipt(fullR)
                                 }}
                                 className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-sky-600 dark:text-sky-400 transition-colors shrink-0 cursor-pointer"
                                 title="Edit Data Nota"
@@ -4078,7 +4183,9 @@ export function ReceiptHistoryDashboard({
                     <div className="flex items-center gap-1.5">
                       <span className="w-28 text-slate-500 font-normal">Total Ringkasan</span>
                       <span>:</span>
-                      <span className="font-bold text-emerald-700">{statementTableRows.length} Struk — Rp {totalSpend.toLocaleString("id-ID")}</span>
+                      <span className="font-bold text-emerald-700">
+                        {statementReceiptGroups.length} Struk ({totalStatementQty} Item) — Rp {totalSpend.toLocaleString("id-ID")}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -4092,66 +4199,97 @@ export function ReceiptHistoryDashboard({
                 </div>
               </div>
 
-              {/* REFACTORED HIGH-READABILITY COMPACT TABLE (EXACT 100% PROPORTIONS) */}
+              {/* REFACTORED HIGH-READABILITY COMPACT TABLE (MODEL A: 10 KOLOM RESMI DENGAN ROWSPAN) */}
               <div className="pt-0.5">
                 <table className="w-full text-left border-collapse font-sans text-xs">
                   <thead>
-                    <tr className="bg-[#f1f5f9] text-slate-900 font-bold border border-slate-300 text-[10.5px]">
-                      <th style={{ width: "12%" }} className="px-1.5 py-1.5 text-center border-r border-slate-300">Tanggal</th>
-                      <th style={{ width: "14%" }} className="px-1.5 py-1.5 text-left border-r border-slate-300">No. Ref</th>
-                      <th style={{ width: "16%" }} className="px-2 py-1.5 text-left border-r border-slate-300">Toko</th>
-                      <th style={{ width: "38%" }} className="px-2 py-1.5 text-left border-r border-slate-300">Rincian Barang & Kategori</th>
-                      <th style={{ width: "10%" }} className="px-2 py-1.5 text-right border-r border-slate-300">Pengeluaran</th>
-                      <th style={{ width: "10%" }} className="px-2 py-1.5 text-right">Total</th>
+                    <tr className="bg-[#f1f5f9] text-slate-900 font-bold border border-slate-300 text-[10px]">
+                      <th style={{ width: "9%" }} className="px-1.5 py-1.5 text-center border-r border-slate-300">Tanggal Nota</th>
+                      <th style={{ width: "9%" }} className="px-1.5 py-1.5 text-center border-r border-slate-300">Tgl Input</th>
+                      <th style={{ width: "11%" }} className="px-1.5 py-1.5 text-left border-r border-slate-300">No. Nota</th>
+                      <th style={{ width: "13%" }} className="px-2 py-1.5 text-left border-r border-slate-300">Toko</th>
+                      <th style={{ width: "11%" }} className="px-2 py-1.5 text-left border-r border-slate-300">Kategori</th>
+                      <th style={{ width: "20%" }} className="px-2 py-1.5 text-left border-r border-slate-300">Rincian Barang</th>
+                      <th style={{ width: "5%" }} className="px-1 py-1.5 text-center border-r border-slate-300">Qty</th>
+                      <th style={{ width: "6%" }} className="px-1 py-1.5 text-center border-r border-slate-300">Satuan</th>
+                      <th style={{ width: "8%" }} className="px-2 py-1.5 text-right border-r border-slate-300">Harga</th>
+                      <th style={{ width: "8%" }} className="px-2 py-1.5 text-right">Total</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 border-x border-b border-slate-300 text-xs font-sans">
-                    {statementTableRows.length > 0 ? (
-                      statementTableRows.map((row, idx) => (
-                        <tr key={row.id} className={idx % 2 === 1 ? "bg-[#f8fafc]" : "bg-white"}>
-                          {/* Tanggal (12%, center) */}
-                          <td style={{ verticalAlign: "top", padding: "4px 6px" }} className="text-center text-slate-800 border-r border-slate-200 font-semibold text-[10.5px] whitespace-nowrap">
-                            {row.date}
-                          </td>
+                    {statementReceiptGroups.length > 0 ? (
+                      statementReceiptGroups.map((group) => {
+                        const span = group.items.length
+                        return group.items.map((it, idx) => {
+                          const isFirst = idx === 0
+                          const isLast = idx === span - 1
+                          return (
+                            <tr
+                              key={`${group.id}_${idx}`}
+                              className={`hover:bg-slate-50/80 ${isLast ? "border-b-2 border-slate-300" : "border-b border-slate-200"}`}
+                            >
+                              {/* 4 Kolom Identitas Nota (Model A: rowSpan pada baris pertama nota) */}
+                              {isFirst && (
+                                <>
+                                  <td
+                                    rowSpan={span}
+                                    style={{ verticalAlign: "middle", padding: "4px 6px" }}
+                                    className="text-center text-slate-900 border-r border-slate-200 font-bold text-[10px] whitespace-nowrap bg-white"
+                                  >
+                                    {group.date}
+                                  </td>
+                                  <td
+                                    rowSpan={span}
+                                    style={{ verticalAlign: "middle", padding: "4px 6px" }}
+                                    className="text-center text-slate-600 border-r border-slate-200 font-medium text-[9.5px] whitespace-nowrap bg-white"
+                                  >
+                                    {group.inputDate}
+                                  </td>
+                                  <td
+                                    rowSpan={span}
+                                    style={{ verticalAlign: "middle", padding: "4px 6px" }}
+                                    className="text-slate-900 border-r border-slate-200 font-bold text-[10px] break-all bg-white"
+                                  >
+                                    {group.receiptNumber}
+                                  </td>
+                                  <td
+                                    rowSpan={span}
+                                    style={{ verticalAlign: "middle", padding: "4px 6px" }}
+                                    className="text-slate-900 border-r border-slate-200 font-bold text-[10.5px] bg-white"
+                                  >
+                                    {group.merchantName}
+                                  </td>
+                                </>
+                              )}
 
-                          {/* No. Ref (14%, left) */}
-                          <td style={{ verticalAlign: "top", padding: "4px 6px" }} className="text-slate-800 border-r border-slate-200 font-semibold text-[10.5px] whitespace-nowrap">
-                            {row.refNo}
-                          </td>
-
-                          {/* Toko (16%, left, font-bold) */}
-                          <td style={{ verticalAlign: "top", padding: "4px 6px" }} className="text-slate-900 border-r border-slate-200 font-bold text-[11px]">
-                            {row.merchantName}
-                          </td>
-
-                          {/* Rincian Barang & Kategori (38%, left, Area Paling Luas, Compact List) */}
-                          <td style={{ verticalAlign: "top", padding: "4px 6px" }} className="text-slate-900 border-r border-slate-200">
-                            <span className="inline-block px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-900 font-bold text-[9px] border border-emerald-200 mb-0.5">
-                              [{row.categories || "Umum"}]
-                            </span>
-                            <ul style={{ margin: "2px 0", paddingLeft: "12px" }} className="list-disc space-y-0 text-[9.5px] text-slate-700 font-medium leading-tight">
-                              {row.rawItems.map((item, itemIdx) => (
-                                <li key={itemIdx}>
-                                  {item.name} <span className="font-bold text-slate-900">x{item.quantity}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          </td>
-
-                          {/* Pengeluaran (10%, right, clean IDR) */}
-                          <td style={{ verticalAlign: "top", padding: "4px 6px" }} className="text-right font-bold text-emerald-700 border-r border-slate-200 text-[10.5px] whitespace-nowrap">
-                            Rp {Math.round(row.debit).toLocaleString("id-ID")}
-                          </td>
-
-                          {/* Saldo (10%, right, clean IDR) */}
-                          <td style={{ verticalAlign: "top", padding: "4px 6px" }} className="text-right font-bold text-slate-900 text-[10.5px] whitespace-nowrap">
-                            Rp {Math.round(row.balance).toLocaleString("id-ID")}
-                          </td>
-                        </tr>
-                      ))
+                              {/* 6 Kolom Rincian Item (Dijabarkan per baris) */}
+                              <td style={{ verticalAlign: "middle", padding: "4px 6px" }} className="text-slate-800 border-r border-slate-200 text-[9.5px]">
+                                <span className="inline-block px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 font-semibold text-[9px] border border-emerald-200">
+                                  {it.category}
+                                </span>
+                              </td>
+                              <td style={{ verticalAlign: "middle", padding: "4px 6px" }} className="text-slate-900 border-r border-slate-200 font-medium text-[10px]">
+                                {it.name}
+                              </td>
+                              <td style={{ verticalAlign: "middle", padding: "4px 6px" }} className="text-center font-black text-slate-900 border-r border-slate-200 text-[10px] whitespace-nowrap">
+                                {it.quantity}
+                              </td>
+                              <td style={{ verticalAlign: "middle", padding: "4px 6px" }} className="text-center font-bold text-slate-600 border-r border-slate-200 text-[9.5px] whitespace-nowrap">
+                                {it.unit}
+                              </td>
+                              <td style={{ verticalAlign: "middle", padding: "4px 6px" }} className="text-right font-medium text-slate-700 border-r border-slate-200 text-[10px] whitespace-nowrap">
+                                Rp {Math.round(it.price).toLocaleString("id-ID")}
+                              </td>
+                              <td style={{ verticalAlign: "middle", padding: "4px 6px" }} className="text-right font-bold text-slate-900 text-[10px] whitespace-nowrap">
+                                Rp {Math.round(it.total).toLocaleString("id-ID")}
+                              </td>
+                            </tr>
+                          )
+                        })
+                      })
                     ) : (
                       <tr>
-                        <td colSpan={6} className="px-4 py-6 text-center text-slate-400 italic">
+                        <td colSpan={10} className="px-4 py-6 text-center text-slate-400 italic">
                           Tidak ada data transaksi di kriteria ini.
                         </td>
                       </tr>
@@ -4167,7 +4305,7 @@ export function ReceiptHistoryDashboard({
                     Total Akumulasi Pengeluaran
                   </span>
                   <p className="text-xs text-slate-300">
-                    (Accumulated Outflow Statement Total)
+                    (Accumulated Outflow: {totalStatementQty} Item Produk dari {statementReceiptGroups.length} Struk)
                   </p>
                 </div>
                 <span className="text-xl sm:text-2xl font-black text-emerald-400">
@@ -4957,12 +5095,22 @@ export function ReceiptHistoryDashboard({
             <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-950/50 shrink-0">
               <div className="space-y-0.5 min-w-0 pr-2">
                 <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                  <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/60 px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
-                    {selectedReceipt.date}
+                  <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/60 px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800" title="Tanggal Transaksi Nota Fisik">
+                    Tgl Nota: {selectedReceipt.date}
                   </span>
+                  {selectedReceipt.createdAt && (
+                    <span className="text-xs font-medium text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/80 px-2.5 py-0.5 rounded-full border border-slate-200 dark:border-slate-700" title="Tanggal Penginputan ke Sistem">
+                      Tgl Input: {new Date(selectedReceipt.createdAt).toLocaleDateString("id-ID", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                    </span>
+                  )}
                   <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-200 dark:bg-slate-800 px-2.5 py-0.5 rounded-full">
                     {selectedReceipt.paymentMethod || "Cash"}
                   </span>
+                  {selectedReceipt.receiptNumber && (
+                    <span className="text-xs font-bold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/60 px-2.5 py-0.5 rounded-full border border-blue-200 dark:border-blue-800 font-mono flex items-center gap-1">
+                      <Hash className="w-3 h-3 text-blue-500" /> No. {selectedReceipt.receiptNumber}
+                    </span>
+                  )}
                 </div>
                 <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2 pt-1 truncate">
                   <Store className="w-5 h-5 text-slate-600 dark:text-slate-400 shrink-0" />

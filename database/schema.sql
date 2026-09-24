@@ -80,6 +80,7 @@ CREATE TABLE IF NOT EXISTS receipts (
     "paymentMethod" TEXT NOT NULL DEFAULT 'Cash',
     "paymentStatus" TEXT NOT NULL DEFAULT 'Lunas',
     note TEXT,
+    "receiptNumber" TEXT,
     "staffName" TEXT DEFAULT 'Admin',
     "createdByRole" TEXT DEFAULT 'ADMIN',
     "createdByUsername" TEXT,
@@ -88,8 +89,10 @@ CREATE TABLE IF NOT EXISTS receipts (
 );
 
 -- Idempotent column migrations for receipts table
+ALTER TABLE receipts ADD COLUMN IF NOT EXISTS "receiptNumber" TEXT;
 ALTER TABLE receipts ADD COLUMN IF NOT EXISTS "createdByRole" TEXT DEFAULT 'ADMIN';
 ALTER TABLE receipts ADD COLUMN IF NOT EXISTS "createdByUsername" TEXT;
+CREATE INDEX IF NOT EXISTS idx_receipts_receipt_number ON receipts("receiptNumber");
 
 -- 2. Table: receipt_items
 CREATE TABLE IF NOT EXISTS receipt_items (
@@ -100,8 +103,12 @@ CREATE TABLE IF NOT EXISTS receipt_items (
     "subCategory" TEXT DEFAULT 'Umum',
     price DOUBLE PRECISION NOT NULL DEFAULT 0,
     quantity INTEGER NOT NULL DEFAULT 1,
+    unit TEXT DEFAULT 'pcs',
     "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Idempotent column migrations for receipt_items table
+ALTER TABLE receipt_items ADD COLUMN IF NOT EXISTS "unit" TEXT DEFAULT 'pcs';
 
 -- 3. Table: scan_limits
 CREATE TABLE IF NOT EXISTS scan_limits (

@@ -386,10 +386,9 @@ export async function registerAdminAccount(params: {
 
           // 2. Buat Subscription Khusus untuk Tenant Baru (Selalu Trial 14 hari)
           await client.query(
-            `INSERT INTO subscriptions ("tenantId", tier, "validUntil", "monthlyScanLimit", "usedScansThisMonth", "studioName", phone, "createdAt", "updatedAt")
-             VALUES ($1, 'trial', $2, $3, 0, $4, $5, NOW(), NOW())
-             ON CONFLICT ("tenantId") DO UPDATE 
-             SET tier = EXCLUDED.tier, "validUntil" = EXCLUDED."validUntil", "monthlyScanLimit" = EXCLUDED."monthlyScanLimit"`,
+            `INSERT INTO subscriptions ("tenantId", tier, status, "validUntil", "monthlyScanLimit", "usedScansThisMonth", "studioName", phone, "createdAt", "updatedAt")
+             VALUES ($1, 'trial', 'trial', $2, $3, 0, $4, $5, NOW(), NOW())
+             ON CONFLICT ("tenantId") DO NOTHING`,
             [
               createdTenantId,
               validUntilIso,

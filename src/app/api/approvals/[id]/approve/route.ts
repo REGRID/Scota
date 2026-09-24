@@ -123,6 +123,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (actionType === "CREATE") {
       const {
         merchantName,
+        receiptNumber,
         date,
         imageUrl,
         subtotal,
@@ -144,11 +145,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       if (isMigrated) {
         const newReceipt = await withTenantSchema(targetTenantId, async (client) => {
           const insertRes: any = await client.query(
-            `INSERT INTO receipts ("tenantId", "merchantName", date, "imageUrl", subtotal, "discountAmount", "taxAmount", "totalAmount", "paymentMethod", "paymentStatus", notes, "staffName", "createdByRole", "createdByUsername", "createdAt", "updatedAt")
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())
+            `INSERT INTO receipts ("tenantId", "receiptNumber", "merchantName", date, "imageUrl", subtotal, "discountAmount", "taxAmount", "totalAmount", "paymentMethod", "paymentStatus", notes, "staffName", "createdByRole", "createdByUsername", "createdAt", "updatedAt")
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW(), NOW())
              RETURNING id`,
             [
               targetTenantId,
+              (receiptNumber || "").trim() || null,
               merchantName || "Nota / Toko",
               date || new Date().toISOString().split("T")[0],
               compressedImageUrl,
@@ -194,11 +196,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         createdReceiptId = newReceipt.id
       } else {
         const newReceiptRes = await queryPg<{ id: string }>(
-          `INSERT INTO receipts ("tenantId", "merchantName", date, "imageUrl", subtotal, "discountAmount", "taxAmount", "totalAmount", "paymentMethod", "paymentStatus", note, "staffName", "createdByRole", "createdByUsername", "createdAt", "updatedAt")
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())
+          `INSERT INTO receipts ("tenantId", "receiptNumber", "merchantName", date, "imageUrl", subtotal, "discountAmount", "taxAmount", "totalAmount", "paymentMethod", "paymentStatus", note, "staffName", "createdByRole", "createdByUsername", "createdAt", "updatedAt")
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW(), NOW())
            RETURNING id`,
           [
             targetTenantId,
+            (receiptNumber || "").trim() || null,
             merchantName || "Nota / Toko",
             date || new Date().toISOString().split("T")[0],
             compressedImageUrl,
@@ -286,6 +289,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       syncReceiptToPos({
         receiptId: createdReceiptId || cleanId,
         merchantName: merchantName || "Nota / Toko",
+        receiptNumber: (receiptNumber || "").trim() || null,
         date: date || new Date().toISOString().split("T")[0],
         totalAmount: Number(totalAmount) || 0,
         subtotal: Number(subtotal) || 0,
@@ -350,7 +354,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       }
     } else if (actionType === "EDIT" && (pendingApproval.receiptId || payload.id)) {
       const editReceiptId = pendingApproval.receiptId || payload.id
-      const { merchantName, date, imageUrl, subtotal, discountAmount, taxAmount, totalAmount, paymentMethod, paymentStatus, note, items } = payload
+      const { merchantName, receiptNumber, date, imageUrl, subtotal, discountAmount, taxAmount, totalAmount, paymentMethod, paymentStatus, note, items } = payload
       const compressedImageUrl = imageUrl ? await compressBase64Image(imageUrl) : null
 
       if (isMigrated) {
@@ -359,9 +363,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           if (compressedImageUrl) {
             await client.query(
               `UPDATE receipts 
-               SET "merchantName" = $1, date = $2, subtotal = $3, "discountAmount" = $4, "taxAmount" = $5, "totalAmount" = $6, "paymentMethod" = $7, "paymentStatus" = $8, notes = $9, "imageUrl" = $10, "updatedAt" = NOW()
-               WHERE id = $11`,
+               SET "receiptNumber" = $1, "merchantName" = $2, date = $3, subtotal = $4, "discountAmount" = $5, "taxAmount" = $6, "totalAmount" = $7, "paymentMethod" = $8, "paymentStatus" = $9, notes = $10, "imageUrl" = $11, "updatedAt" = NOW()
+               WHERE id = $12`,
               [
+                (receiptNumber || "").trim() || null,
                 merchantName || "Nota / Toko",
                 date,
                 Number(subtotal) || 0,
@@ -378,9 +383,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           } else {
             await client.query(
               `UPDATE receipts 
-               SET "merchantName" = $1, date = $2, subtotal = $3, "discountAmount" = $4, "taxAmount" = $5, "totalAmount" = $6, "paymentMethod" = $7, "paymentStatus" = $8, notes = $9, "updatedAt" = NOW()
-               WHERE id = $10`,
+               SET "receiptNumber" = $1, "merchantName" = $2, date = $3, subtotal = $4, "discountAmount" = $5, "taxAmount" = $6, "totalAmount" = $7, "paymentMethod" = $8, "paymentStatus" = $9, notes = $10, "updatedAt" = NOW()
+               WHERE id = $11`,
               [
+                (receiptNumber || "").trim() || null,
                 merchantName || "Nota / Toko",
                 date,
                 Number(subtotal) || 0,
@@ -424,9 +430,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         if (compressedImageUrl) {
           await queryPg(
             `UPDATE receipts 
-             SET "merchantName" = $1, date = $2, subtotal = $3, "discountAmount" = $4, "taxAmount" = $5, "totalAmount" = $6, "paymentMethod" = $7, "paymentStatus" = $8, note = $9, "imageUrl" = $10, "updatedAt" = NOW()
-             WHERE id = $11`,
+             SET "receiptNumber" = $1, "merchantName" = $2, date = $3, subtotal = $4, "discountAmount" = $5, "taxAmount" = $6, "totalAmount" = $7, "paymentMethod" = $8, "paymentStatus" = $9, note = $10, "imageUrl" = $11, "updatedAt" = NOW()
+             WHERE id = $12`,
             [
+              (receiptNumber || "").trim() || null,
               merchantName || "Nota / Toko",
               date,
               Number(subtotal) || 0,
@@ -443,9 +450,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         } else {
           await queryPg(
             `UPDATE receipts 
-             SET "merchantName" = $1, date = $2, subtotal = $3, "discountAmount" = $4, "taxAmount" = $5, "totalAmount" = $6, "paymentMethod" = $7, "paymentStatus" = $8, note = $9, "updatedAt" = NOW()
-             WHERE id = $10`,
+             SET "receiptNumber" = $1, "merchantName" = $2, date = $3, subtotal = $4, "discountAmount" = $5, "taxAmount" = $6, "totalAmount" = $7, "paymentMethod" = $8, "paymentStatus" = $9, note = $10, "updatedAt" = NOW()
+             WHERE id = $11`,
             [
+              (receiptNumber || "").trim() || null,
               merchantName || "Nota / Toko",
               date,
               Number(subtotal) || 0,

@@ -38,6 +38,7 @@ import {
   User,
   Copy,
   Check,
+  Hash,
 } from "lucide-react"
 import { useAuth } from "@clerk/nextjs"
 import { ParsedItem, ParsedReceiptResult } from "@/app/api/parse-receipt/route"
@@ -141,6 +142,7 @@ export function VerificationSplitScreen({
 
   // Form State
   const [merchantName, setMerchantName] = useState(initialResult.merchantName ?? "")
+  const [receiptNumber, setReceiptNumber] = useState(initialResult.receiptNumber || "")
   const [date, setDate] = useState(initialResult.date || new Date().toISOString().split("T")[0])
   const [items, setItems] = useState<ParsedItem[]>(initialResult.items || [])
   const [taxAmount, setTaxAmount] = useState<number | "">(initialResult.taxAmount ?? 0)
@@ -375,11 +377,17 @@ export function VerificationSplitScreen({
     }
   }
 
-  // Update initial form state when initialResult changes (e.g. Next item in batch queue)
+  // Update initial form state when initialResult changes (e.g. Next item in batch queue or Edit receipt)
   useEffect(() => {
     setMerchantName(initialResult.merchantName ?? "")
+    setReceiptNumber(initialResult.receiptNumber || "")
     setDate(initialResult.date || new Date().toISOString().split("T")[0])
-    setItems(initialResult.items || [])
+    setItems(
+      (initialResult.items || []).map((it) => ({
+        ...it,
+        unit: it.unit || "pcs",
+      }))
+    )
     setTaxAmount(initialResult.taxAmount ?? 0)
     setDiscountAmount(initialResult.discountAmount ?? 0)
     setErrorMsg("")
@@ -498,7 +506,7 @@ export function VerificationSplitScreen({
   const handleAddItem = () => {
     setItems([
       ...items,
-      { name: "Item Baru", category: "Lain-lain", subCategory: "Umum", price: 0, quantity: 1 },
+      { name: "Item Baru", category: "Lain-lain", subCategory: "Umum", price: 0, quantity: 1, unit: "pcs" },
     ])
   }
 
@@ -572,6 +580,7 @@ export function VerificationSplitScreen({
         headers,
         body: JSON.stringify({
           merchantName: merchantName.trim() || "Nota / Toko",
+          receiptNumber: receiptNumber.trim() || null,
           date,
           imageUrl: imagePreviewUrl || null,
           subtotal: itemsSubtotal,
@@ -587,6 +596,7 @@ export function VerificationSplitScreen({
             subCategory: it.subCategory || "Umum",
             price: Number(it.price) || 0,
             quantity: Number(it.quantity) || 1,
+            unit: (it.unit || "pcs").trim().toLowerCase(),
           })),
         }),
       })
@@ -861,7 +871,7 @@ export function VerificationSplitScreen({
               </button>
             </div>
 
-            {/* Header Fields: Merchant Name, Date, Payment Method & Status */}
+            {/* Header Fields: Merchant Name, Receipt Number, Date, Payment Method & Status */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
@@ -878,6 +888,19 @@ export function VerificationSplitScreen({
 
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  <Hash className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> Nomor Nota / Struk (Opsional)
+                </label>
+                <input
+                  type="text"
+                  value={receiptNumber}
+                  onChange={(e) => setReceiptNumber(e.target.value)}
+                  placeholder="Contoh: INV-2025-001, TRX-98213..."
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 text-sm text-slate-900 dark:text-white font-semibold transition-all bg-slate-50 dark:bg-slate-950 placeholder:text-slate-400 dark:placeholder:text-slate-600 font-mono"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                   <Calendar className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> Tanggal Nota
                 </label>
                 <input
@@ -888,7 +911,7 @@ export function VerificationSplitScreen({
                 />
               </div>
 
-              <div className="space-y-1.5 sm:col-span-2">
+              <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                   <CreditCard className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> Metode Pembayaran
                 </label>
@@ -1053,10 +1076,10 @@ export function VerificationSplitScreen({
                       />
                     </div>
 
-                    {/* Field 2 & 3: Harga Satuan & Qty (Ergonomic Side-by-Side Grid on Mobile) */}
-                    <div className="grid grid-cols-12 gap-2.5 items-end">
+                    {/* Field 2, 3 & 4: Harga Satuan, Qty & Satuan */}
+                    <div className="grid grid-cols-12 gap-2 items-end">
                       {/* Harga Satuan */}
-                      <div className="col-span-7 sm:col-span-8 space-y-1.5">
+                      <div className="col-span-12 sm:col-span-6 space-y-1.5">
                         <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1">
                           <Coins className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" /> Harga Satuan
                         </label>
@@ -1079,12 +1102,12 @@ export function VerificationSplitScreen({
                       </div>
 
                       {/* Jumlah Qty */}
-                      <div className="col-span-5 sm:col-span-4 space-y-1.5">
+                      <div className="col-span-6 sm:col-span-3 space-y-1.5">
                         <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1">
-                          <Package className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" /> Jumlah (Qty)
+                          <Package className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" /> Qty
                         </label>
                         <div className="relative">
-                          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 dark:text-slate-500 pointer-events-none">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 dark:text-slate-500 pointer-events-none">
                             x
                           </span>
                           <input
@@ -1096,8 +1119,40 @@ export function VerificationSplitScreen({
                               handleItemChange(idx, "quantity", val === "" ? "" : parseInt(val, 10))
                             }}
                             placeholder="1"
-                            className="w-full pl-8 pr-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 text-sm font-bold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-950 font-mono text-center transition-all"
+                            className="w-full pl-7 pr-2 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 text-sm font-bold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-950 font-mono text-center transition-all"
                           />
+                        </div>
+                      </div>
+
+                      {/* Satuan (Unit) */}
+                      <div className="col-span-6 sm:col-span-3 space-y-1.5">
+                        <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                          <Tag className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" /> Satuan
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            list={`unit-options-${idx}`}
+                            value={item.unit || "pcs"}
+                            onChange={(e) => handleItemChange(idx, "unit", e.target.value.toLowerCase())}
+                            placeholder="pcs"
+                            className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 text-sm font-bold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-950 text-center transition-all"
+                          />
+                          <datalist id={`unit-options-${idx}`}>
+                            <option value="pcs" />
+                            <option value="kg" />
+                            <option value="gr" />
+                            <option value="ml" />
+                            <option value="liter" />
+                            <option value="pack" />
+                            <option value="dus" />
+                            <option value="btl" />
+                            <option value="cup" />
+                            <option value="porsi" />
+                            <option value="bks" />
+                            <option value="lembar" />
+                            <option value="sak" />
+                          </datalist>
                         </div>
                       </div>
                     </div>
@@ -1235,25 +1290,27 @@ export function VerificationSplitScreen({
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 sm:gap-4">
               {/* Subtotal Barang (Readonly) */}
               <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
-                  Subtotal Barang
-                </label>
-                <div className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-sm font-mono font-bold text-slate-700 dark:text-slate-300 bg-slate-100/80 dark:bg-slate-950">
+                <div className="h-7 flex items-center">
+                  <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <Receipt className="w-3.5 h-3.5 text-slate-400" /> Subtotal Barang
+                  </label>
+                </div>
+                <div className="h-11 w-full px-3.5 rounded-xl border border-slate-200 dark:border-slate-800 text-sm font-mono font-bold text-slate-800 dark:text-slate-200 bg-slate-100/70 dark:bg-slate-950 flex items-center select-all">
                   Rp {itemsSubtotal.toLocaleString("id-ID")}
                 </div>
               </div>
 
               {/* Diskon / Potongan */}
               <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1">
-                    <Tag className="w-3 h-3 text-rose-500" /> Diskon
+                <div className="h-7 flex items-center justify-between">
+                  <label className="text-[11px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <Tag className="w-3.5 h-3.5 text-rose-500" /> Diskon
                   </label>
-                  <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg text-[10px] font-black border border-slate-200 dark:border-slate-700">
+                  <div className="flex items-center bg-slate-100 dark:bg-slate-800/80 p-0.5 rounded-lg text-[10px] font-black border border-slate-200 dark:border-slate-700">
                     <button
                       type="button"
                       onClick={() => handleDiscountTypeChange("RP")}
-                      className={`px-2 py-0.5 rounded-md transition-all ${
+                      className={`px-2 py-0.5 rounded-md transition-all cursor-pointer ${
                         discountType === "RP"
                           ? "bg-rose-500 text-white shadow-xs"
                           : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
@@ -1264,7 +1321,7 @@ export function VerificationSplitScreen({
                     <button
                       type="button"
                       onClick={() => handleDiscountTypeChange("PERCENT")}
-                      className={`px-2 py-0.5 rounded-md transition-all ${
+                      className={`px-2 py-0.5 rounded-md transition-all cursor-pointer ${
                         discountType === "PERCENT"
                           ? "bg-rose-500 text-white shadow-xs"
                           : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
@@ -1277,7 +1334,7 @@ export function VerificationSplitScreen({
 
                 {discountType === "RP" ? (
                   <div className="relative">
-                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-rose-500 pointer-events-none">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-rose-500 pointer-events-none select-none">
                       - Rp
                     </span>
                     <input
@@ -1289,12 +1346,12 @@ export function VerificationSplitScreen({
                         setDiscountAmount(val === "" ? "" : parseFloat(val))
                       }}
                       placeholder="0"
-                      className="w-full pl-12 pr-3.5 py-2.5 rounded-xl border border-rose-300 dark:border-rose-900/60 focus:border-rose-500 text-sm font-mono font-bold text-rose-600 dark:text-rose-400 bg-rose-50/30 dark:bg-rose-950/20 transition-all"
+                      className="h-11 w-full pl-14 pr-3.5 rounded-xl border border-slate-200 dark:border-slate-800 focus:border-rose-500 focus:ring-1 focus:ring-rose-500 text-sm font-mono font-bold text-rose-600 dark:text-rose-400 bg-slate-50 dark:bg-slate-950 transition-all"
                     />
                   </div>
                 ) : (
                   <div className="relative">
-                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-rose-500 pointer-events-none">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-rose-500 pointer-events-none select-none">
                       Diskon
                     </span>
                     <input
@@ -1307,9 +1364,9 @@ export function VerificationSplitScreen({
                         handleDiscountPercentChange(val === "" ? "" : parseFloat(val))
                       }}
                       placeholder="0"
-                      className="w-full pl-16 pr-8 py-2.5 rounded-xl border border-rose-300 dark:border-rose-900/60 focus:border-rose-500 text-sm font-mono font-bold text-rose-600 dark:text-rose-400 bg-rose-50/30 dark:bg-rose-950/20 transition-all text-right"
+                      className="h-11 w-full pl-16 pr-8 rounded-xl border border-slate-200 dark:border-slate-800 focus:border-rose-500 focus:ring-1 focus:ring-rose-500 text-sm font-mono font-bold text-rose-600 dark:text-rose-400 bg-slate-50 dark:bg-slate-950 transition-all text-right"
                     />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-rose-500 pointer-events-none">
+                    <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-rose-500 pointer-events-none select-none">
                       %
                     </span>
                   </div>
@@ -1318,11 +1375,13 @@ export function VerificationSplitScreen({
 
               {/* Pajak / PPN */}
               <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1">
-                  <Percent className="w-3 h-3 text-amber-500" /> Pajak / PPN
-                </label>
+                <div className="h-7 flex items-center">
+                  <label className="text-[11px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <Percent className="w-3.5 h-3.5 text-amber-500" /> Pajak / PPN
+                  </label>
+                </div>
                 <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 pointer-events-none">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-amber-500 pointer-events-none select-none">
                     + Rp
                   </span>
                   <input
@@ -1334,7 +1393,7 @@ export function VerificationSplitScreen({
                       setTaxAmount(val === "" ? "" : parseFloat(val))
                     }}
                     placeholder="0"
-                    className="w-full pl-12 pr-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 focus:border-emerald-500 text-sm font-mono font-bold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-950 transition-all"
+                    className="h-11 w-full pl-14 pr-3.5 rounded-xl border border-slate-200 dark:border-slate-800 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-sm font-mono font-bold text-amber-600 dark:text-amber-400 bg-slate-50 dark:bg-slate-950 transition-all"
                   />
                 </div>
               </div>

@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS receipts (
     "paymentStatus" TEXT NOT NULL DEFAULT 'Lunas',
     category TEXT DEFAULT 'Lain-lain',
     status TEXT NOT NULL DEFAULT 'completed',
+    "receiptNumber" TEXT,
     "staffName" TEXT DEFAULT 'Admin',
     "createdByName" TEXT DEFAULT 'Administrator',
     "createdByRole" TEXT DEFAULT 'ADMIN',
@@ -52,6 +53,7 @@ CREATE TABLE IF NOT EXISTS receipt_items (
     "totalPrice" DOUBLE PRECISION NOT NULL DEFAULT 0,
     category TEXT DEFAULT 'Lain-lain',
     "subCategory" TEXT DEFAULT 'Umum',
+    unit TEXT DEFAULT 'pcs',
     "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

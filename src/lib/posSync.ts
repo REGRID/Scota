@@ -15,6 +15,7 @@ export interface PosReceiptItem {
 export interface PosSyncPayload {
   receiptId: string
   merchantName: string
+  receiptNumber?: string | null
   date: string
   totalAmount: number
   subtotal?: number

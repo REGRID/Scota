@@ -183,13 +183,14 @@ export async function POST(req: NextRequest) {
             for (const r of backupData.receipts) {
               try {
                 const createRes = await client.query(
-                  `INSERT INTO receipts (id, "tenantId", "merchantName", date, "imageUrl", subtotal, "discountAmount", "taxAmount", "totalAmount", "paymentMethod", "paymentStatus", notes, "createdAt", "updatedAt")
-                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, COALESCE($13::timestamptz, NOW()), NOW())
+                  `INSERT INTO receipts (id, "tenantId", "receiptNumber", "merchantName", date, "imageUrl", subtotal, "discountAmount", "taxAmount", "totalAmount", "paymentMethod", "paymentStatus", notes, "createdAt", "updatedAt")
+                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, COALESCE($14::timestamptz, NOW()), NOW())
                    ON CONFLICT (id) DO NOTHING
                    RETURNING id`,
                   [
                     r.id,
                     session.tenantId,
+                    r.receiptNumber || null,
                     r.merchantName || "Nota / Toko",
                     r.date,
                     r.imageUrl || null,
@@ -253,13 +254,14 @@ export async function POST(req: NextRequest) {
           for (const r of backupData.receipts) {
             try {
               const createRes = await queryPg<{ id: string }>(
-                `INSERT INTO receipts (id, "tenantId", "merchantName", date, "imageUrl", subtotal, "discountAmount", "taxAmount", "totalAmount", "paymentMethod", "paymentStatus", note, "createdAt", "updatedAt")
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, COALESCE($13::timestamptz, NOW()), NOW())
+                `INSERT INTO receipts (id, "tenantId", "receiptNumber", "merchantName", date, "imageUrl", subtotal, "discountAmount", "taxAmount", "totalAmount", "paymentMethod", "paymentStatus", note, "createdAt", "updatedAt")
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, COALESCE($14::timestamptz, NOW()), NOW())
                  ON CONFLICT (id) DO NOTHING
                  RETURNING id`,
                 [
                   r.id,
                   session.tenantId,
+                  r.receiptNumber || null,
                   r.merchantName || "Nota / Toko",
                   r.date,
                   r.imageUrl || null,

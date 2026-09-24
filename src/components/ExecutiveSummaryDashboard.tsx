@@ -48,6 +48,7 @@ interface ReceiptItem {
 interface RawReceipt {
   id: string
   merchantName: string
+  receiptNumber?: string
   date: string
   totalAmount: number
   category?: string
@@ -870,6 +871,12 @@ export function ExecutiveSummaryDashboard({
                           {r.merchantName || "Struk Pembelian Usaha"}
                         </p>
                         <div className="flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-400">
+                          {r.receiptNumber && (
+                            <>
+                              <span className="font-mono text-emerald-600 dark:text-emerald-400 font-bold">#{r.receiptNumber}</span>
+                              <span>•</span>
+                            </>
+                          )}
                           <span>{r.date || "Hari Ini"}</span>
                           <span>•</span>
                           <span className="truncate">{r.category || "Umum"}</span>

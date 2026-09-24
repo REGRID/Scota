@@ -49,6 +49,7 @@ export async function GET(req: NextRequest) {
             const pgRes: any = await client.query(
               `SELECT 
                 r.id, 
+                r."receiptNumber",
                 r."merchantName", 
                 r.date, 
                 r.subtotal,
@@ -72,6 +73,7 @@ export async function GET(req: NextRequest) {
                       'subCategory', i."subCategory",
                       'price', i."unitPrice",
                       'quantity', i.qty,
+                      'unit', COALESCE(i.unit, 'pcs'),
                       'createdAt', i."createdAt"
                     )
                   ) FILTER (WHERE i.id IS NOT NULL),
@@ -93,6 +95,7 @@ export async function GET(req: NextRequest) {
           const pgRes = await queryPg(
             `SELECT 
               r.id, 
+              r."receiptNumber",
               r."merchantName", 
               r.date, 
               r.subtotal,
@@ -116,6 +119,7 @@ export async function GET(req: NextRequest) {
                     'subCategory', i."subCategory",
                     'price', i.price,
                     'quantity', i.quantity,
+                    'unit', COALESCE(i.unit, 'pcs'),
                     'createdAt', i."createdAt"
                   )
                 ) FILTER (WHERE i.id IS NOT NULL),
@@ -236,14 +240,28 @@ export async function GET(req: NextRequest) {
       const statementRows = receipts.map((r: any, idx: number) => {
         runningBalance += r.totalAmount
         const categorySummary = Array.from(new Set((r.items || []).map((i: any) => i.category))).join(", ")
-        const itemsSummary = (r.items || []).slice(0, 3).map((i: any) => i.name).join(", ") + ((r.items || []).length > 3 ? "..." : "")
+        const itemsSummary = (r.items || []).slice(0, 3).map((i: any) => `${i.name} (x${i.quantity || 1})`).join(", ") + ((r.items || []).length > 3 ? "..." : "")
+        const totalQty = (r.items || []).reduce((sum: number, it: any) => sum + (it.quantity || 1), 0)
+
+        let inputDateStr = "-"
+        if (r.createdAt) {
+          try {
+            const d = new Date(r.createdAt)
+            const pad = (n: number) => String(n).padStart(2, "0")
+            inputDateStr = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`
+          } catch (e) {
+            inputDateStr = r.createdAt.split("T")[0] || r.createdAt
+          }
+        }
 
         return {
           "No.": idx + 1,
-          "Tanggal Transaksi": r.date,
-          "ID Struk / Transaksi": r.id,
+          "Tanggal Nota": r.date,
+          "Tanggal Input": inputDateStr,
+          "No. Nota": r.receiptNumber?.trim() || "",
           "Uraian / Toko (Merchant)": r.merchantName,
-          "Rincian Barang / Kategori": `${categorySummary} (${itemsSummary})`,
+          "Rincian Barang & Kategori": `${categorySummary} (${itemsSummary})`,
+          "Qty": totalQty,
           "Metode Bayar": r.paymentMethod || "Cash",
           "Pengeluaran / Debet (Rp)": r.totalAmount,
           "Saldo Akumulasi Pengeluaran (Rp)": runningBalance,
@@ -255,10 +273,12 @@ export async function GET(req: NextRequest) {
 
       statementSheet["!cols"] = [
         { wch: 6 },  // No
-        { wch: 16 }, // Tanggal
-        { wch: 38 }, // ID Struk
+        { wch: 16 }, // Tanggal Nota
+        { wch: 18 }, // Tanggal Input
+        { wch: 22 }, // No. Nota
         { wch: 30 }, // Merchant
         { wch: 45 }, // Rincian Barang
+        { wch: 10 }, // Qty
         { wch: 16 }, // Metode
         { wch: 22 }, // Debet
         { wch: 26 }, // Saldo Akumulasi
@@ -287,35 +307,64 @@ export async function GET(req: NextRequest) {
       })
     }
 
-    // Sheet 1: Ringkasan Nota (Standard Summary)
-    const summaryData = receipts.map((r: any, idx: number) => ({
-      "No.": idx + 1,
-      "Tanggal Nota": r.date,
-      "Nama Toko / Merchant": r.merchantName,
-      "Metode Pembayaran": r.paymentMethod || "Cash",
-      "Status Pembayaran": r.paymentStatus || "Lunas",
-      "Subtotal (Rp)": r.subtotal,
-      "Diskon (Rp)": r.discountAmount || 0,
-      "Pajak / PPN (Rp)": r.taxAmount,
-      "Total Netto (Rp)": r.totalAmount,
-      "Jumlah Item": (r.items || []).length,
-      "Catatan": r.note || "",
-      "ID Nota": r.id,
-    }))
+    const summaryData = receipts.map((r: any, idx: number) => {
+      let inputDateStr = "-"
+      if (r.createdAt) {
+        try {
+          const d = new Date(r.createdAt)
+          const pad = (n: number) => String(n).padStart(2, "0")
+          inputDateStr = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`
+        } catch (e) {
+          inputDateStr = r.createdAt.split("T")[0] || r.createdAt
+        }
+      }
+
+      return {
+        "No.": idx + 1,
+        "Tanggal Nota": r.date,
+        "Tanggal Input": inputDateStr,
+        "No. Nota": r.receiptNumber?.trim() || "",
+        "Nama Toko / Merchant": r.merchantName,
+        "Metode Pembayaran": r.paymentMethod || "Cash",
+        "Status Pembayaran": r.paymentStatus || "Lunas",
+        "Subtotal (Rp)": r.subtotal,
+        "Diskon (Rp)": r.discountAmount || 0,
+        "Pajak / PPN (Rp)": r.taxAmount,
+        "Total Netto (Rp)": r.totalAmount,
+        "Total Qty": (r.items || []).reduce((sum: number, it: any) => sum + (it.quantity || 1), 0),
+        "Jumlah Item": (r.items || []).length,
+        "Catatan": r.note || "",
+        "ID Nota": r.id,
+      }
+    })
 
     // Sheet 2: Rincian Item Produk
     const itemsData: any[] = []
     let itemIdx = 1
     receipts.forEach((r: any) => {
+      let inputDateStr = "-"
+      if (r.createdAt) {
+        try {
+          const d = new Date(r.createdAt)
+          const pad = (n: number) => String(n).padStart(2, "0")
+          inputDateStr = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`
+        } catch (e) {
+          inputDateStr = r.createdAt.split("T")[0] || r.createdAt
+        }
+      }
+
       ;(r.items || []).forEach((it: any) => {
         itemsData.push({
           "No.": itemIdx++,
           "Tanggal Nota": r.date,
+          "Tanggal Input": inputDateStr,
+          "No. Nota": r.receiptNumber?.trim() || "",
           "Toko / Merchant": r.merchantName,
           "Nama Barang": it.name,
           "Kategori Utama": it.category,
           "Sub-Kategori": it.subCategory || "Umum",
           "Jumlah (Qty)": it.quantity,
+          "Satuan": it.unit || "pcs",
           "Harga Satuan (Rp)": it.price,
           "Total Item (Rp)": it.price * it.quantity,
           "Metode Pembayaran": r.paymentMethod || "Cash",

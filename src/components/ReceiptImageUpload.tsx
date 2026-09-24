@@ -59,7 +59,8 @@ export function ReceiptImageUpload({
   const [batchBase64s, setBatchBase64s] = useState<string[]>([])
   const [currentFileIndex, setCurrentFileIndex] = useState(0)
   const [selectedBase64, setSelectedBase64] = useState<string | null>(null)
-  const [rotationDegrees, setRotationDegrees] = useState(0)
+  const [cumulativeRotation, setCumulativeRotation] = useState(0)
+  const normalizedDegrees = ((cumulativeRotation % 360) + 360) % 360
   const [timerSeconds, setTimerSeconds] = useState(0)
   const [isCompressing, setIsCompressing] = useState(false)
   const [showLightbox, setShowLightbox] = useState(false)
@@ -73,7 +74,6 @@ export function ReceiptImageUpload({
   const compressionRing2Ref = React.useRef<HTMLDivElement>(null)
   const compressionIconRef = React.useRef<HTMLDivElement>(null)
   const previewStageRef = React.useRef<HTMLDivElement>(null)
-  const previewImageRef = React.useRef<HTMLImageElement>(null)
 
   // 1. GSAP Laser Beam Scan Sweep
   useGSAP(() => {
@@ -144,17 +144,6 @@ export function ReceiptImageUpload({
     }
   }, { dependencies: [selectedBase64, isProcessing, isCompressing], scope: containerRef })
 
-  // 5. GSAP Smooth Rotation Physics on preview image
-  useGSAP(() => {
-    if (previewImageRef.current) {
-      gsap.to(previewImageRef.current, {
-        rotate: rotationDegrees,
-        duration: 0.45,
-        ease: "back.out(1.5)",
-      })
-    }
-  }, { dependencies: [rotationDegrees], scope: containerRef })
-
   useEffect(() => {
     if (!isProcessing) {
       setShowCancelConfirm(false)
@@ -222,7 +211,7 @@ export function ReceiptImageUpload({
     setIsCompressing(true)
     setSelectedFiles(validImages)
     setCurrentFileIndex(0)
-    setRotationDegrees(0)
+    setCumulativeRotation(0)
 
     // Pre-compress all batch images in background so mass upload transitions smoothly
     const base64Results: string[] = []
@@ -251,7 +240,7 @@ export function ReceiptImageUpload({
   const handleSelectBatchIndex = (index: number) => {
     if (index >= 0 && index < selectedFiles.length && batchBase64s[index]) {
       setCurrentFileIndex(index)
-      setRotationDegrees(0)
+      setCumulativeRotation(0)
       setSelectedBase64(batchBase64s[index])
     }
   }
@@ -264,8 +253,8 @@ export function ReceiptImageUpload({
       const batchPayload: BatchFileItem[] = []
       for (let i = 0; i < selectedFiles.length; i++) {
         let b64 = batchBase64s[i]
-        if (i === currentFileIndex && rotationDegrees !== 0) {
-          b64 = await rotateImageBase64(b64, rotationDegrees)
+        if (i === currentFileIndex && normalizedDegrees !== 0) {
+          b64 = await rotateImageBase64(b64, normalizedDegrees)
         }
         batchPayload.push({ file: selectedFiles[i], base64: b64 })
       }
@@ -274,15 +263,15 @@ export function ReceiptImageUpload({
     }
 
     let finalBase64 = selectedBase64
-    if (rotationDegrees !== 0) {
-      finalBase64 = await rotateImageBase64(selectedBase64, rotationDegrees)
+    if (normalizedDegrees !== 0) {
+      finalBase64 = await rotateImageBase64(selectedBase64, normalizedDegrees)
     }
 
     onImageSelected(selectedFiles[currentFileIndex], finalBase64)
   }
 
-  const handleRotateLeft = () => setRotationDegrees((prev) => (prev + 270) % 360)
-  const handleRotateRight = () => setRotationDegrees((prev) => (prev + 90) % 360)
+  const handleRotateLeft = () => setCumulativeRotation((prev) => prev - 90)
+  const handleRotateRight = () => setCumulativeRotation((prev) => prev + 90)
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault()
@@ -378,7 +367,7 @@ export function ReceiptImageUpload({
                   src={selectedBase64}
                   alt="Nota Preview"
                   className="w-full h-full object-contain opacity-85"
-                  style={{ transform: `rotate(${rotationDegrees}deg)` }}
+                  style={{ transform: `rotate(${cumulativeRotation}deg)` }}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-transparent to-transparent z-10" />
                 <div className="absolute bottom-2 inset-x-0 flex justify-center z-20">
@@ -569,11 +558,13 @@ export function ReceiptImageUpload({
                 <>
                   {/* eslint-disable-next-html-element */}
                   <img
-                    ref={previewImageRef}
                     src={selectedBase64}
                     alt="Nota Selected"
-                    className="max-w-full max-h-full object-contain group-hover:scale-105 transition-transform"
-                    style={{ transform: `rotate(${rotationDegrees}deg)` }}
+                    className="max-w-[88%] max-h-[88%] object-contain select-none pointer-events-none transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform drop-shadow-sm"
+                    style={{
+                      transform: `rotate(${cumulativeRotation}deg)`,
+                      transformOrigin: "center center",
+                    }}
                   />
 
                   {/* Hover Overlay Hint */}
@@ -593,21 +584,21 @@ export function ReceiptImageUpload({
               <button
                 type="button"
                 onClick={handleRotateLeft}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-950 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs border border-slate-300 dark:border-slate-800 transition-colors cursor-pointer"
+                className="group inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-950 hover:bg-slate-200 dark:hover:bg-slate-800 active:scale-95 text-slate-700 dark:text-slate-300 font-bold text-xs border border-slate-300 dark:border-slate-800 transition-all cursor-pointer select-none"
               >
-                <RotateCcw className="w-4 h-4" /> Putar Kiri
+                <RotateCcw className="w-4 h-4 transition-transform group-hover:-rotate-45" /> Putar Kiri
               </button>
 
-              <span className="font-mono text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-slate-100 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 px-3 py-2 rounded-xl">
-                {rotationDegrees}°
+              <span className="font-mono text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-slate-100 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 px-3 py-2 rounded-xl min-w-[58px] text-center select-none shadow-xs">
+                {normalizedDegrees}°
               </span>
 
               <button
                 type="button"
                 onClick={handleRotateRight}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-950 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs border border-slate-300 dark:border-slate-800 transition-colors cursor-pointer"
+                className="group inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-950 hover:bg-slate-200 dark:hover:bg-slate-800 active:scale-95 text-slate-700 dark:text-slate-300 font-bold text-xs border border-slate-300 dark:border-slate-800 transition-all cursor-pointer select-none"
               >
-                <RotateCw className="w-4 h-4" /> Putar Kanan
+                <RotateCw className="w-4 h-4 transition-transform group-hover:rotate-45" /> Putar Kanan
               </button>
             </div>
 
@@ -618,6 +609,7 @@ export function ReceiptImageUpload({
                   setSelectedBase64(null)
                   setSelectedFiles([])
                   setBatchBase64s([])
+                  setCumulativeRotation(0)
                 }}
                 className="w-full sm:w-auto px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-800 text-slate-600 dark:text-slate-400 font-bold text-xs hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
               >

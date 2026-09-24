@@ -51,7 +51,12 @@ export async function getSubscriptionInfo(tenantId: string = DEFAULT_TENANT_ID):
                   JOIN users u ON u.id = t2."ownerId" 
                   WHERE t2.id = s."tenantId" 
                     AND LOWER(u.email) = LOWER($2)
-                ) as "isSuperadminOwner"
+                ) as "isSuperadminOwner",
+                EXISTS (
+                  SELECT 1 FROM billing_transactions b
+                  WHERE b."tenantId" = s."tenantId"
+                    AND (b.status = 'lunas' OR b.status = 'completed')
+                ) as "hasPaidTransaction"
          FROM subscriptions s 
          LEFT JOIN tenants t ON t.id = s."tenantId" 
          WHERE s."tenantId" = $1 LIMIT 1`,
@@ -68,7 +73,12 @@ export async function getSubscriptionInfo(tenantId: string = DEFAULT_TENANT_ID):
                     WHERE a."tenantId" = t.id 
                       AND (a.role = 'SUPERADMIN' OR a.role = 'DEVELOPER' OR LOWER(a.username) IN ('superadmin', 'developer') OR LOWER(a.email) = LOWER($2))
                   ) as "isSuperadminTenant",
-                  (LOWER(u.email) = LOWER($2)) as "isSuperadminOwner"
+                  (LOWER(u.email) = LOWER($2)) as "isSuperadminOwner",
+                  EXISTS (
+                    SELECT 1 FROM billing_transactions b
+                    WHERE b."tenantId" = t.id
+                      AND (b.status = 'lunas' OR b.status = 'completed')
+                  ) as "hasPaidTransaction"
            FROM tenants t 
            LEFT JOIN users u ON u.id = t."ownerId" 
            WHERE t.id = $1 LIMIT 1`,
@@ -126,16 +136,37 @@ export async function getSubscriptionInfo(tenantId: string = DEFAULT_TENANT_ID):
             tenantStatus: tenantRow.status,
             isSuperadminTenant: tenantRow.isSuperadminTenant,
             isSuperadminOwner: tenantRow.isSuperadminOwner,
+            hasPaidTransaction: Boolean(latestTrx),
           }
         }
       }
 
       if (data) {
         const isDeveloperTier =
-          data.tier === "developer" ||
-          targetTenant === DEFAULT_TENANT_ID ||
           data.isSuperadminTenant ||
-          data.isSuperadminOwner
+          data.isSuperadminOwner ||
+          (data.tier === "developer" && (data.hasPaidTransaction || data.activeLicenseKey))
+
+        // Strict business rule: Every new/unpaid non-superadmin tenant MUST remain "trial"
+        const isPaidOrAuthorized =
+          isDeveloperTier ||
+          data.hasPaidTransaction ||
+          Boolean(data.activeLicenseKey)
+
+        if (!isPaidOrAuthorized && data.tier !== "trial") {
+          console.warn(`[SubscriptionServer] Tenant ${targetTenant} is non-trial (${data.tier}) without payment or license. Reverting to trial.`);
+          data.tier = "trial";
+          data.status = "trial";
+          data.monthlyScanLimit = 30;
+          try {
+            await queryPg(
+              `UPDATE subscriptions 
+               SET tier = 'trial', status = 'trial', "monthlyScanLimit" = 30, "updatedAt" = NOW()
+               WHERE "tenantId" = $1`,
+              [targetTenant]
+            );
+          } catch {}
+        }
 
         const rawValidUntil = data.validUntil || (data as any).validuntil || data.tenantExpiresAt
         const validUntil = isDeveloperTier
@@ -221,10 +252,10 @@ export async function getSubscriptionInfo(tenantId: string = DEFAULT_TENANT_ID):
   // Fallback to in-memory state for this tenant
   if (targetTenant === DEFAULT_TENANT_ID) {
     return {
-      tier: "developer",
-      status: "active",
-      validUntil: "2099-12-31T23:59:59.999Z",
-      monthlyScanLimit: 999999,
+      tier: "trial",
+      status: "trial",
+      validUntil: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+      monthlyScanLimit: 30,
       usedScansThisMonth: 0,
       studioProfile: { ...DEFAULT_STUDIO_PROFILE },
       approvalWorkflow: { ...DEFAULT_APPROVAL_WORKFLOW },

@@ -84,6 +84,7 @@ export async function GET(req: NextRequest) {
               const p = `$${params.length}`
               conditions.push(`(
                 r."merchantName" ILIKE ${p} OR
+                r."receiptNumber" ILIKE ${p} OR
                 r.notes ILIKE ${p} OR
                 r."paymentMethod" ILIKE ${p} OR
                 EXISTS (
@@ -112,6 +113,7 @@ export async function GET(req: NextRequest) {
             const pgRes = await client.query(
               `SELECT 
                 r.id, 
+                r."receiptNumber",
                 r."merchantName", 
                 r.date, 
                 r."imageUrl",
@@ -136,7 +138,8 @@ export async function GET(req: NextRequest) {
                       'category', i.category,
                       'subCategory', i."subCategory",
                       'price', i."unitPrice",
-                      'quantity', i.qty
+                      'quantity', i.qty,
+                      'unit', COALESCE(i.unit, 'pcs')
                     )
                   ) FILTER (WHERE i.id IS NOT NULL),
                   '[]'::json
@@ -169,6 +172,7 @@ export async function GET(req: NextRequest) {
           const p = `$${params.length}`
           conditions.push(`(
             r."merchantName" ILIKE ${p} OR
+            r."receiptNumber" ILIKE ${p} OR
             r.note ILIKE ${p} OR
             r."paymentMethod" ILIKE ${p} OR
             EXISTS (
@@ -198,6 +202,7 @@ export async function GET(req: NextRequest) {
           `SELECT 
             r.id, 
             r."tenantId",
+            r."receiptNumber",
             r."merchantName", 
             r.date, 
             r."imageUrl",
@@ -221,7 +226,8 @@ export async function GET(req: NextRequest) {
                   'category', i.category,
                   'subCategory', i."subCategory",
                   'price', i.price,
-                  'quantity', i.quantity
+                  'quantity', i.quantity,
+                  'unit', COALESCE(i.unit, 'pcs')
                 )
               ) FILTER (WHERE i.id IS NOT NULL),
               '[]'::json
@@ -326,6 +332,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const {
       merchantName,
+      receiptNumber,
       date,
       subtotal = 0,
       discountAmount = 0,
@@ -401,6 +408,7 @@ export async function POST(req: NextRequest) {
 
     const payloadObj = {
       merchantName: merchantName || "Nota / Toko",
+      receiptNumber: (receiptNumber || "").trim() || null,
       date: date || new Date().toISOString().split("T")[0],
       imageUrl: compressedImageUrl,
       subtotal: Number(subtotal) || 0,
@@ -464,11 +472,12 @@ export async function POST(req: NextRequest) {
         if (isMigrated) {
           await withTenantSchema(userTenantId, async (client) => {
             const insertRes: any = await client.query(
-              `INSERT INTO receipts ("tenantId", "merchantName", date, "imageUrl", subtotal, "discountAmount", "taxAmount", "totalAmount", "paymentMethod", "paymentStatus", notes, "staffName", "createdByRole", "createdByUsername", "createdAt", "updatedAt")
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())
-               RETURNING id, "merchantName", date, "totalAmount", "paymentMethod", "paymentStatus", "createdByRole", "createdByUsername", "createdAt"`,
+              `INSERT INTO receipts ("tenantId", "receiptNumber", "merchantName", date, "imageUrl", subtotal, "discountAmount", "taxAmount", "totalAmount", "paymentMethod", "paymentStatus", notes, "staffName", "createdByRole", "createdByUsername", "createdAt", "updatedAt")
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW(), NOW())
+               RETURNING id, "receiptNumber", "merchantName", date, "totalAmount", "paymentMethod", "paymentStatus", "createdByRole", "createdByUsername", "createdAt"`,
               [
                 userTenantId,
+                payloadObj.receiptNumber,
                 payloadObj.merchantName,
                 payloadObj.date,
                 payloadObj.imageUrl,
@@ -489,8 +498,8 @@ export async function POST(req: NextRequest) {
             if (createdReceipt?.id) {
               for (const item of payloadObj.items) {
                 await client.query(
-                  `INSERT INTO receipt_items ("tenantId", "receiptId", name, qty, "unitPrice", "totalPrice", category, "subCategory", "createdAt")
-                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())`,
+                  `INSERT INTO receipt_items ("tenantId", "receiptId", name, qty, "unitPrice", "totalPrice", category, "subCategory", unit, "createdAt")
+                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
                   [
                     userTenantId,
                     createdReceipt.id,
@@ -500,6 +509,7 @@ export async function POST(req: NextRequest) {
                     (item.price * item.quantity),
                     item.category,
                     item.subCategory,
+                    ((item as any).unit || "pcs").trim().toLowerCase(),
                   ]
                 )
               }
@@ -507,11 +517,12 @@ export async function POST(req: NextRequest) {
           })
         } else {
           const insertRes = await queryPg<{ id: string }>(
-            `INSERT INTO receipts ("tenantId", "merchantName", date, "imageUrl", subtotal, "discountAmount", "taxAmount", "totalAmount", "paymentMethod", "paymentStatus", note, "staffName", "createdByRole", "createdByUsername", "createdAt", "updatedAt")
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())
-             RETURNING id, "merchantName", date, "totalAmount", "paymentMethod", "paymentStatus", "createdByRole", "createdByUsername", "createdAt"`,
+            `INSERT INTO receipts ("tenantId", "receiptNumber", "merchantName", date, "imageUrl", subtotal, "discountAmount", "taxAmount", "totalAmount", "paymentMethod", "paymentStatus", note, "staffName", "createdByRole", "createdByUsername", "createdAt", "updatedAt")
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW(), NOW())
+             RETURNING id, "receiptNumber", "merchantName", date, "totalAmount", "paymentMethod", "paymentStatus", "createdByRole", "createdByUsername", "createdAt"`,
             [
               userTenantId,
+              payloadObj.receiptNumber,
               payloadObj.merchantName,
               payloadObj.date,
               payloadObj.imageUrl,
@@ -532,8 +543,8 @@ export async function POST(req: NextRequest) {
           if (createdReceipt?.id) {
             for (const item of payloadObj.items) {
               await queryPg(
-                `INSERT INTO receipt_items ("receiptId", name, category, "subCategory", price, quantity, "createdAt")
-                 VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+                `INSERT INTO receipt_items ("receiptId", name, category, "subCategory", price, quantity, unit, "createdAt")
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
                 [
                   createdReceipt.id,
                   item.name,
@@ -541,6 +552,7 @@ export async function POST(req: NextRequest) {
                   item.subCategory,
                   item.price,
                   item.quantity,
+                  ((item as any).unit || "pcs").trim().toLowerCase(),
                 ]
               )
             }

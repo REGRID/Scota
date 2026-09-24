@@ -58,7 +58,7 @@ export async function withTenantSchema<T>(
   } finally {
     // 3. Guaranteed reset of session state before releasing connection back to pool
     try {
-      await client.query(`RESET search_path; RESET app.current_tenant_id; RESET app.is_superadmin;`)
+      await client.query(`SET search_path TO public; RESET app.current_tenant_id; RESET app.is_superadmin;`)
     } catch (resetErr) {
       console.warn(`[tenantDb] Notice: Failed to reset tenant session variables for ${tenantId}:`, resetErr)
     }

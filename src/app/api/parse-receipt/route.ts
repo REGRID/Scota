@@ -17,10 +17,12 @@ export interface ParsedItem {
   subCategory?: string
   price: number
   quantity: number
+  unit?: string
 }
 
 export interface ParsedReceiptResult {
   merchantName: string
+  receiptNumber?: string
   date: string
   subtotal: number
   discountAmount: number
@@ -324,24 +326,26 @@ Kategori Resmi: { ${categoriesCompactMap} }
 ${learnedKnowledgeContext ? `Memori: ${learnedKnowledgeContext}\n` : ""}
 Instruksi:
 1. "merchantName": Nama toko/tempat usaha pada header.
-2. "date": Format YYYY-MM-DD (default: "${new Date().toISOString().split("T")[0]}").
-3. "items": Array item [{ name, category, subCategory, price (angka murni), quantity (default 1) }].
+2. "receiptNumber": Nomor nota/struk/kuitansi/faktur/transaksi jika ada pada nota (contoh: "INV-2025-001", "TRX-98213", "No. 0124/X"), atau string kosong "" jika tidak tertera.
+3. "date": Format YYYY-MM-DD (default: "${new Date().toISOString().split("T")[0]}").
+4. "items": Array item [{ name, category, subCategory, price (angka murni), quantity (default 1), unit (satuan seperti "kg", "gr", "ml", "liter", "pcs", "pack", "dus", "btl", "cup", "porsi", "bks", default "pcs") }].
    - Cocokkan "category" & "subCategory" HANYA dari Kategori Resmi di atas (subCategory default "Umum").
-4. "subtotal": Total harga barang sebelum diskon/pajak.
-5. "discountAmount": Nominal diskon/promo (default 0).
-6. "taxAmount": Nominal PPN/pajak (default 0).
-7. "totalAmount": Total bayar akhir (Subtotal - Diskon + Pajak).
+5. "subtotal": Total harga barang sebelum diskon/pajak.
+6. "discountAmount": Nominal diskon/promo (default 0).
+7. "taxAmount": Nominal PPN/pajak (default 0).
+8. "totalAmount": Total bayar akhir (Subtotal - Diskon + Pajak).
 ${rawText ? `OCR Teks: ${rawText}\n` : ""}
 Keluarkan HANYA JSON:
 {
   "merchantName": "Nama Toko",
+  "receiptNumber": "INV-001",
   "date": "YYYY-MM-DD",
   "subtotal": 0,
   "discountAmount": 0,
   "taxAmount": 0,
   "totalAmount": 0,
   "items": [
-    { "name": "Item", "category": "Kategori", "subCategory": "Sub", "price": 0, "quantity": 1 }
+    { "name": "Item", "category": "Kategori", "subCategory": "Sub", "price": 0, "quantity": 1, "unit": "pcs" }
   ]
 }`
 
@@ -451,6 +455,7 @@ Keluarkan HANYA JSON:
     }
 
     if (!parsedJson.merchantName) parsedJson.merchantName = "Nota / Toko"
+    parsedJson.receiptNumber = (parsedJson.receiptNumber || "").trim()
     if (!parsedJson.date) parsedJson.date = new Date().toISOString().split("T")[0]
     if (!Array.isArray(parsedJson.items)) parsedJson.items = []
 
@@ -490,6 +495,7 @@ Keluarkan HANYA JSON:
           subCategory: finalSubCategory,
           price: parseIndonesianPrice(String(it.price)),
           quantity: Number(it.quantity) || 1,
+          unit: ((it as any).unit || "pcs").trim().toLowerCase(),
         }
       })
     )
@@ -551,6 +557,7 @@ Keluarkan HANYA JSON:
 
     const generatedRawText = [
       parsedJson.merchantName,
+      parsedJson.receiptNumber ? `No. Nota: ${parsedJson.receiptNumber}` : null,
       `Tanggal: ${parsedJson.date}`,
       "--------------------------------",
       ...parsedJson.items.map(

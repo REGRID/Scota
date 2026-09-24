@@ -38,6 +38,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
               SELECT 
                 r.id, 
                 r."tenantId",
+                r."receiptNumber",
                 r."merchantName", 
                 r.date, 
                 r."imageUrl", 
@@ -47,8 +48,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
                 r."totalAmount", 
                 r."paymentMethod", 
                 r."paymentStatus", 
-                COALESCE(r.notes, r.note) as notes,
-                COALESCE(r.notes, r.note) as note, 
+                COALESCE(r.note, r.notes) as note,
+                COALESCE(r.notes, r.note) as notes, 
                 r."staffName", 
                 r."createdByRole",
                 r."createdByUsername",
@@ -61,8 +62,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
                       'name', i.name,
                       'category', i.category,
                       'subCategory', i."subCategory",
-                      'price', COALESCE(i."unitPrice", i.price, 0),
-                      'quantity', COALESCE(i.qty, i.quantity, 1)
+                      'price', COALESCE(i.price, i."unitPrice", 0),
+                      'quantity', COALESCE(i.quantity, i.qty, 1),
+                      'unit', COALESCE(i.unit, 'pcs')
                     )
                   ) FILTER (WHERE i.id IS NOT NULL),
                   '[]'::json
@@ -81,6 +83,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
             SELECT 
               r.id, 
               r."tenantId",
+              r."receiptNumber",
               r."merchantName", 
               r.date, 
               r."imageUrl", 
@@ -90,7 +93,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
               r."totalAmount", 
               r."paymentMethod", 
               r."paymentStatus", 
-              COALESCE(r.notes, r.note) as note, 
+              COALESCE(r.note, r.notes) as note, 
+              COALESCE(r.notes, r.note) as notes, 
               r."staffName", 
               r."createdByRole",
               r."createdByUsername",
@@ -104,13 +108,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
                     'category', i.category,
                     'subCategory', i."subCategory",
                     'price', COALESCE(i.price, i."unitPrice", 0),
-                    'quantity', COALESCE(i.quantity, i.qty, 1)
+                    'quantity', COALESCE(i.quantity, i.qty, 1),
+                    'unit', COALESCE(i.unit, 'pcs')
                   )
                 ) FILTER (WHERE i.id IS NOT NULL),
                 '[]'::json
               ) as items
-            FROM receipts r
-            LEFT JOIN receipt_items i ON i."receiptId" = r.id
+            FROM public.receipts r
+            LEFT JOIN public.receipt_items i ON i."receiptId" = r.id
             WHERE r.id = $1 ${isSuperadmin ? "" : `AND (r."tenantId" = $2 OR r."tenantId" IS NULL)`}
             GROUP BY r.id
           `
@@ -162,7 +167,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const userTenantId = session.tenantId || DEFAULT_TENANT_ID
     const isSuperadmin = session.role === "SUPERADMIN"
     const body = await req.json()
-    const { date, items, merchantName, subtotal, discountAmount, taxAmount, totalAmount, paymentMethod, paymentStatus, note, imageUrl } = body
+    const { date, items, merchantName, receiptNumber, subtotal, discountAmount, taxAmount, totalAmount, paymentMethod, paymentStatus, note, imageUrl } = body
 
     if (!date) {
       return NextResponse.json({ error: "Tanggal nota wajib diisi" }, { status: 400 })
@@ -208,9 +213,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
             await client.query(
               `UPDATE receipts 
-               SET "merchantName" = $1, date = $2, subtotal = $3, "discountAmount" = $4, "taxAmount" = $5, "totalAmount" = $6, "paymentMethod" = $7, "paymentStatus" = $8, notes = $9, "imageUrl" = $10, "updatedAt" = NOW()
-               WHERE id = $11`,
+               SET "receiptNumber" = $1, "merchantName" = $2, date = $3, subtotal = $4, "discountAmount" = $5, "taxAmount" = $6, "totalAmount" = $7, "paymentMethod" = $8, "paymentStatus" = $9, notes = $10, note = $11, "imageUrl" = $12, "updatedAt" = NOW()
+               WHERE id = $13`,
               [
+                (receiptNumber || "").trim() || null,
                 merchantName || "Nota / Toko",
                 date,
                 Number(subtotal) || 0,
@@ -220,6 +226,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
                 paymentMethod || "Cash",
                 paymentStatus || "Lunas",
                 note || null,
+                note || null,
                 finalImageUrl,
                 id,
               ]
@@ -228,18 +235,22 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
             for (const it of items) {
               const itemPrice = Number(it.price) || 0
               const itemQty = Number(it.quantity) || 1
+              const itemUnit = ((it as any).unit || "pcs").trim().toLowerCase()
               await client.query(
-                `INSERT INTO receipt_items ("tenantId", "receiptId", name, qty, "unitPrice", "totalPrice", category, "subCategory", "createdAt")
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())`,
+                `INSERT INTO receipt_items ("tenantId", "receiptId", name, qty, quantity, "unitPrice", price, "totalPrice", category, "subCategory", unit, "createdAt")
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())`,
                 [
                   userTenantId,
                   id,
                   it.name || "Item",
                   itemQty,
+                  itemQty,
+                  itemPrice,
                   itemPrice,
                   (itemPrice * itemQty),
                   it.category || "Lain-lain",
                   it.subCategory || "Umum",
+                  itemUnit,
                 ]
               )
             }
@@ -256,8 +267,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           // 1. Verify existence and tenant ownership first before touching items
           const checkRes = await queryPg<{ id: string; imageUrl: string | null }>(
             isSuperadmin
-              ? `SELECT id, "imageUrl" FROM receipts WHERE id = $1`
-              : `SELECT id, "imageUrl" FROM receipts WHERE id = $1 AND ("tenantId" = $2 OR "tenantId" IS NULL)`,
+              ? `SELECT id, "imageUrl" FROM public.receipts WHERE id = $1`
+              : `SELECT id, "imageUrl" FROM public.receipts WHERE id = $1 AND ("tenantId" = $2 OR "tenantId" IS NULL)`,
             isSuperadmin ? [id] : [id, userTenantId]
           )
 
@@ -280,10 +291,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           }
 
           // 3. Clear existing items and update receipt
-          await queryPg(`DELETE FROM receipt_items WHERE "receiptId" = $1`, [id])
+          await queryPg(`DELETE FROM public.receipt_items WHERE "receiptId" = $1`, [id])
 
-          const tenantClause = isSuperadmin ? "" : `AND ("tenantId" = $12 OR "tenantId" IS NULL)`
+          const tenantClause = isSuperadmin ? "" : `AND ("tenantId" = $14 OR "tenantId" IS NULL)`
           const updateParams: any[] = [
+            (receiptNumber || "").trim() || null,
             merchantName || "Nota / Toko",
             date,
             Number(subtotal) || 0,
@@ -293,29 +305,36 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
             paymentMethod || "Cash",
             paymentStatus || "Lunas",
             note || null,
+            note || null,
             finalImageUrl,
             id,
           ]
           if (!isSuperadmin) updateParams.push(userTenantId)
 
           await queryPg(
-            `UPDATE receipts 
-             SET "merchantName" = $1, date = $2, subtotal = $3, "discountAmount" = $4, "taxAmount" = $5, "totalAmount" = $6, "paymentMethod" = $7, "paymentStatus" = $8, note = $9, "imageUrl" = $10, "updatedAt" = NOW()
-             WHERE id = $11 ${tenantClause}`,
+            `UPDATE public.receipts 
+             SET "receiptNumber" = $1, "merchantName" = $2, date = $3, subtotal = $4, "discountAmount" = $5, "taxAmount" = $6, "totalAmount" = $7, "paymentMethod" = $8, "paymentStatus" = $9, note = $10, notes = $11, "imageUrl" = $12, "updatedAt" = NOW()
+             WHERE id = $13 ${tenantClause}`,
             updateParams
           )
 
           for (const it of items) {
+            const itemPrice = Number(it.price) || 0
+            const itemQty = Number(it.quantity) || 1
+            const itemUnit = ((it as any).unit || "pcs").trim().toLowerCase()
             await queryPg(
-              `INSERT INTO receipt_items ("receiptId", name, category, "subCategory", price, quantity, "createdAt")
-               VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+              `INSERT INTO public.receipt_items ("receiptId", name, category, "subCategory", price, quantity, "unitPrice", qty, unit, "createdAt")
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
               [
                 id,
                 it.name || "Item",
                 it.category || "Lain-lain",
                 it.subCategory || "Umum",
-                Number(it.price) || 0,
-                Number(it.quantity) || 1,
+                itemPrice,
+                itemQty,
+                itemPrice,
+                itemQty,
+                itemUnit,
               ]
             )
           }
@@ -442,8 +461,8 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
           }).catch(() => {})
         }
         const query = isSuperadmin
-          ? `DELETE FROM receipts WHERE id = $1`
-          : `DELETE FROM receipts WHERE id = $1 AND ("tenantId" = $2 OR "tenantId" IS NULL)`
+          ? `DELETE FROM public.receipts WHERE id = $1`
+          : `DELETE FROM public.receipts WHERE id = $1 AND ("tenantId" = $2 OR "tenantId" IS NULL)`
         const params = isSuperadmin ? [id] : [id, userTenantId]
         await queryPg(query, params).catch(() => {})
       }

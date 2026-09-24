@@ -70,7 +70,8 @@ export function compressImageBase64(
  */
 export function rotateImageBase64(base64Data: string, degrees: number): Promise<string> {
   return new Promise((resolve) => {
-    if (degrees === 0) return resolve(base64Data)
+    const norm = ((degrees % 360) + 360) % 360
+    if (norm === 0) return resolve(base64Data)
 
     const img = new Image()
     if (base64Data.startsWith("http")) {
@@ -80,7 +81,7 @@ export function rotateImageBase64(base64Data: string, degrees: number): Promise<
       let rotatedW = img.width
       let rotatedH = img.height
 
-      if (degrees === 90 || degrees === 270) {
+      if (norm === 90 || norm === 270) {
         rotatedW = img.height
         rotatedH = img.width
       }
@@ -95,7 +96,7 @@ export function rotateImageBase64(base64Data: string, degrees: number): Promise<
       ctx.fillRect(0, 0, rotatedW, rotatedH)
 
       ctx.translate(rotatedW / 2, rotatedH / 2)
-      ctx.rotate((degrees * Math.PI) / 180)
+      ctx.rotate((norm * Math.PI) / 180)
       ctx.drawImage(img, -img.width / 2, -img.height / 2)
 
       resolve(canvas.toDataURL("image/jpeg", 0.85))

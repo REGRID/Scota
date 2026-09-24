@@ -248,11 +248,19 @@ export function MainApp({
     handleImageSelected(file, dataUrl)
   }
 
-  // Fetch active subscription & studio profile on mount
-  const fetchSubscription = useCallback(() => {
-    fetch("/api/subscription")
-      .then((res) => res.json())
-      .then((data) => {
+  // Fetch active subscription & studio profile with auth support
+  const fetchSubscription = useCallback(async () => {
+    try {
+      const headers: Record<string, string> = {}
+      if (isClerkSignedIn) {
+        try {
+          const token = await getToken()
+          if (token) headers["Authorization"] = `Bearer ${token}`
+        } catch {}
+      }
+      const res = await fetch("/api/subscription", { headers })
+      if (res.ok) {
+        const data = await res.json()
         if (data.success && data.subscription) {
           setSubscription(data.subscription)
           if (data.subscription?.approvalWorkflow?.enabled !== undefined) {
@@ -263,9 +271,11 @@ export function MainApp({
             }
           }
         }
-      })
-      .catch((err) => console.warn("Failed to fetch subscription:", err))
-  }, [])
+      }
+    } catch (err) {
+      console.warn("Failed to fetch subscription:", err)
+    }
+  }, [isClerkSignedIn, getToken])
 
   useEffect(() => {
     fetchSubscription()
@@ -312,9 +322,16 @@ export function MainApp({
     allowed: boolean
   } | null>(null)
 
-  const fetchQuota = async () => {
+  const fetchQuota = useCallback(async () => {
     try {
-      const res = await fetch("/api/quota", { cache: "no-store" })
+      const headers: Record<string, string> = {}
+      if (isClerkSignedIn) {
+        try {
+          const token = await getToken()
+          if (token) headers["Authorization"] = `Bearer ${token}`
+        } catch {}
+      }
+      const res = await fetch("/api/quota", { headers, cache: "no-store" })
       if (res.ok) {
         const data = await res.json()
         setQuotaInfo(data)
@@ -322,11 +339,18 @@ export function MainApp({
     } catch (e) {
       console.error("Failed to fetch quota:", e)
     }
-  }
+  }, [isClerkSignedIn, getToken])
 
   useEffect(() => {
     fetchQuota()
-  }, [isProcessing])
+  }, [isProcessing, fetchQuota])
+
+  useEffect(() => {
+    if (isAuthenticated === true || isClerkSignedIn) {
+      fetchSubscription()
+      fetchQuota()
+    }
+  }, [isAuthenticated, isClerkSignedIn, fetchSubscription, fetchQuota])
 
   // Helper to clear verification draft for a specific admin user or all draft keys
   const clearVerificationDraft = useCallback((targetUser?: string) => {
@@ -428,6 +452,8 @@ export function MainApp({
             if (!isExplicitLanding) {
               setShowLanding(false)
             }
+            fetchSubscription()
+            fetchQuota()
             return
           }
         }
@@ -773,7 +799,9 @@ export function MainApp({
 
     if (!targetReceipt.imageUrl || !targetReceipt.items || targetReceipt.items.length === 0) {
       try {
-        const res = await fetch(`/api/receipts/${receipt.id}`)
+        const res = await fetch(`/api/receipts/${receipt.id}`, {
+          headers: { "Content-Type": "application/json" },
+        })
         if (res.ok) {
           const fullData = await res.json()
           if (fullData && fullData.id) {
@@ -795,6 +823,7 @@ export function MainApp({
     setRawOcrText("")
     setParsedResult({
       merchantName: targetReceipt.merchantName,
+      receiptNumber: targetReceipt.receiptNumber || "",
       date: targetReceipt.date,
       subtotal:
         targetReceipt.subtotal ||
@@ -804,17 +833,18 @@ export function MainApp({
       discountAmount: targetReceipt.discountAmount || 0,
       taxAmount: targetReceipt.taxAmount || 0,
       totalAmount: targetReceipt.totalAmount,
-      items: (targetReceipt.items || []).map((it) => ({
+      items: (targetReceipt.items || []).map((it: any) => ({
         name: it.name,
-        category: it.category,
+        category: it.category || "Lain-lain",
         subCategory: it.subCategory || "Umum",
-        price: it.price,
-        quantity: it.quantity,
+        price: Number(it.price ?? it.unitPrice ?? 0),
+        quantity: Number(it.quantity ?? it.qty ?? 1),
+        unit: (it.unit || "pcs").trim(),
       })),
     })
     setExistingPaymentMethod(targetReceipt.paymentMethod || "Cash")
     setExistingPaymentStatus(targetReceipt.paymentStatus || "Lunas")
-    setExistingNote(targetReceipt.note || "")
+    setExistingNote(targetReceipt.note || (targetReceipt as any).notes || "")
     setParsingMode("saved_receipt_edit")
 
     // Activate scan tab to immediately display VerificationSplitScreen

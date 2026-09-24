@@ -181,7 +181,7 @@ export async function provisionTenantForClerkUser(clerkId: string): Promise<Sess
       await client.query(
         `INSERT INTO subscriptions ("tenantId", tier, status, "validUntil", "monthlyScanLimit", "createdAt", "updatedAt")
          VALUES ($1, 'trial', 'trial', NOW() + INTERVAL '14 days', 30, NOW(), NOW())
-         ON CONFLICT ("tenantId") DO UPDATE SET tier = 'trial', status = 'trial', "validUntil" = NOW() + INTERVAL '14 days', "monthlyScanLimit" = 30, "updatedAt" = NOW()`,
+         ON CONFLICT ("tenantId") DO NOTHING`,
         [tenantId]
       )
     })

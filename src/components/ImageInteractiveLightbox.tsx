@@ -45,7 +45,7 @@ export function ImageInteractiveLightbox({
 
   const handleZoomIn = () => setZoom((prev) => Math.min(prev + 0.3, 5))
   const handleZoomOut = () => setZoom((prev) => Math.max(prev - 0.3, 0.8))
-  const handleRotate = () => setRotation((prev) => (prev + 90) % 360)
+  const handleRotate = () => setRotation((prev) => prev + 90)
 
   // Mouse Wheel Zoom
   const handleWheel = (e: React.WheelEvent) => {

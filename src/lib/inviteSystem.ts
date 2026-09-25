@@ -86,7 +86,10 @@ export async function createInviteLink(params: {
       [params.tenantId, roleName, roleId, token, params.createdByUserId || null, maxUses, expiresAt]
     )
 
-    const invite = res.rows[0]
+    const invite = {
+      ...res.rows[0],
+      isActive: res.rows[0].status === "ACTIVE",
+    }
     return {
       success: true,
       invite,
@@ -111,7 +114,10 @@ export async function getTenantInvites(tenantId: string): Promise<InviteLinkReco
        ORDER BY "createdAt" DESC`,
       [tenantId]
     )
-    return res.rows || []
+    return (res.rows || []).map((row) => ({
+      ...row,
+      isActive: row.status === "ACTIVE",
+    }))
   } catch (err) {
     console.error("[InviteSystem] getTenantInvites error:", err)
     return []
@@ -119,11 +125,23 @@ export async function getTenantInvites(tenantId: string): Promise<InviteLinkReco
 }
 
 /**
- * Revoke or disable an invite link.
+ * Revoke or disable an invite link (or permanently remove if already disabled).
  */
 export async function revokeInviteLink(inviteId: string, tenantId: string): Promise<{ success: boolean; error?: string }> {
   try {
     if (!isDatabaseConfigured) return { success: false, error: "Database belum terkonfigurasi." }
+    const checkRes = await queryPg<{ status: string }>(
+      `SELECT status FROM invite_links WHERE id = $1 AND "tenantId" = $2`,
+      [inviteId, tenantId]
+    )
+    if (!checkRes.rows || checkRes.rows.length === 0) {
+      return { success: false, error: "Tautan undangan tidak ditemukan atau bukan milik tenant Anda." }
+    }
+    if (checkRes.rows[0].status === "DISABLED") {
+      await queryPg(`DELETE FROM invite_links WHERE id = $1 AND "tenantId" = $2`, [inviteId, tenantId])
+      return { success: true }
+    }
+
     const res = await queryPg(
       `UPDATE invite_links
        SET status = 'DISABLED', "updatedAt" = NOW()
@@ -131,9 +149,6 @@ export async function revokeInviteLink(inviteId: string, tenantId: string): Prom
        RETURNING id`,
       [inviteId, tenantId]
     )
-    if (!res.rows || res.rows.length === 0) {
-      return { success: false, error: "Tautan undangan tidak ditemukan atau bukan milik tenant Anda." }
-    }
     return { success: true }
   } catch (err: any) {
     return { success: false, error: err.message || "Gagal menonaktifkan tautan undangan." }

@@ -18,6 +18,8 @@ import {
   X,
   Mail,
   User,
+  Share2,
+  Sparkles,
 } from "lucide-react"
 import { SettingsCard, SettingsCardHeader } from "@/components/settings/SettingsCard"
 import { UserAccount } from "@/app/settings/page"
@@ -92,7 +94,7 @@ interface TeamTabProps {
   updatingRoleId: string | null
   isResigning: boolean
   onFetchInvites: () => void
-  onCreateInvite: (params: { role: string; maxUses: string; expiresInDays: string }) => Promise<void>
+  onCreateInvite: (params: { role: string; maxUses: string; expiresInDays: string }) => Promise<any>
   onRevokeInvite: (id: string) => Promise<void>
   onCopyInviteLink: (token: string, id: string) => void
   copiedInviteId: string | null
@@ -174,16 +176,43 @@ export function TeamTab({
   const [isSavingRole, setIsSavingRole] = useState(false)
   const [isDeletingRoleId, setIsDeletingRoleId] = useState<string | null>(null)
 
+  // Created Invite Link Modal State
+  const [createdInviteModal, setCreatedInviteModal] = useState<{
+    url: string
+    token: string
+    role: string
+    expiresAt?: string | null
+    maxUses?: number | null
+  } | null>(null)
+  const [copiedModalLink, setCopiedModalLink] = useState(false)
+
   const handleInviteSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setCreatingInvite(true)
     try {
-      await onCreateInvite({
+      const res = await onCreateInvite({
         role: inviteRole,
         maxUses: inviteMaxUses,
         expiresInDays: inviteExpiresInDays,
       })
       setShowInviteForm(false)
+      if (res?.invite) {
+        const origin = typeof window !== "undefined" ? window.location.origin : "https://scota.web.id"
+        const fullUrl = `${origin}/join/${res.invite.token}`
+        try {
+          await navigator.clipboard.writeText(fullUrl)
+          setCopiedModalLink(true)
+        } catch {
+          setCopiedModalLink(false)
+        }
+        setCreatedInviteModal({
+          url: fullUrl,
+          token: res.invite.token,
+          role: res.invite.role || inviteRole,
+          expiresAt: res.invite.expiresAt,
+          maxUses: res.invite.maxUses || (inviteMaxUses ? Number(inviteMaxUses) : null),
+        })
+      }
     } finally {
       setCreatingInvite(false)
     }
@@ -456,9 +485,10 @@ export function TeamTab({
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80 font-medium">
                   {invites.map((inv) => {
-                    const isExpired = inv.expiresAt && new Date(inv.expiresAt) < new Date()
-                    const isFull = inv.maxUses && inv.usedCount >= inv.maxUses
-                    const isActive = inv.isActive && !isExpired && !isFull
+                    const isStatusActive = inv.status ? inv.status === "ACTIVE" : Boolean(inv.isActive ?? true)
+                    const isExpired = Boolean(inv.expiresAt && new Date(inv.expiresAt) < new Date())
+                    const isFull = Boolean(inv.maxUses && inv.usedCount >= inv.maxUses)
+                    const isActive = isStatusActive && !isExpired && !isFull
 
                     return (
                       <tr key={inv.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
@@ -485,7 +515,7 @@ export function TeamTab({
                         </td>
                         <td className="p-2.5">
                           {isActive ? (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                            <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
                               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                               <span>Aktif</span>
                             </span>
@@ -496,27 +526,44 @@ export function TeamTab({
                           )}
                         </td>
                         <td className="p-2.5 text-right">
-                          <div className="inline-flex items-center gap-1">
+                          <div className="inline-flex items-center gap-1.5 justify-end">
                             {isActive && (
-                              <button
-                                type="button"
-                                onClick={() => onCopyInviteLink(inv.token, inv.id)}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold cursor-pointer transition-colors"
-                              >
-                                {copiedInviteId === inv.id ? (
-                                  <>
-                                    <CheckCheck className="w-3 h-3 text-emerald-600" />
-                                    <span>Tersalin!</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <Copy className="w-3 h-3" />
-                                    <span>Salin Link</span>
-                                  </>
-                                )}
-                              </button>
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => onCopyInviteLink(inv.token, inv.id)}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold cursor-pointer transition-colors"
+                                  title="Salin tautan ke clipboard"
+                                >
+                                  {copiedInviteId === inv.id ? (
+                                    <>
+                                      <CheckCheck className="w-3 h-3 text-emerald-600" />
+                                      <span>Tersalin!</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Copy className="w-3 h-3" />
+                                      <span>Salin Link</span>
+                                    </>
+                                  )}
+                                </button>
+                                <a
+                                  href={`https://wa.me/?text=${encodeURIComponent(
+                                    `Halo! Bergabunglah dengan tim toko kami di Scota dengan peran ${inv.role} melalui tautan Google SSO ini:\n${
+                                      typeof window !== "undefined" ? window.location.origin : "https://scota.web.id"
+                                    }/join/${inv.token}`
+                                  )}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[11px] font-bold transition-colors"
+                                  title="Bagikan ke WhatsApp"
+                                >
+                                  <Share2 className="w-3 h-3" />
+                                  <span className="hidden sm:inline">WA</span>
+                                </a>
+                              </>
                             )}
-                            {inv.isActive && (
+                            {isStatusActive && (
                               <button
                                 type="button"
                                 onClick={() => onRevokeInvite(inv.id)}
@@ -1381,6 +1428,130 @@ export function TeamTab({
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* Success Modal: Created Invite Link */}
+        {createdInviteModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs animate-in fade-in duration-200">
+            <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6 space-y-5">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-500 shrink-0">
+                    <CheckCircle2 className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-slate-900 dark:text-white">
+                      Tautan Undangan Siap!
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Peran staf: <span className="font-bold text-emerald-600 dark:text-emerald-400 uppercase">{createdInviteModal.role}</span>
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCreatedInviteModal(null)
+                    setCopiedModalLink(false)
+                  }}
+                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 space-y-1">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-300">
+                  <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <span>Tautan otomatis disalin ke clipboard Anda!</span>
+                </div>
+                <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
+                  Staf cukup membuka link ini lalu login dengan akun Google mereka untuk langsung terdaftar di toko ini.
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400">
+                  Link Bergabung Google SSO
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={createdInviteModal.url}
+                    className="flex-1 px-3 py-2.5 text-xs font-mono rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 select-all"
+                    onClick={(e) => (e.target as HTMLInputElement).select()}
+                  />
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await navigator.clipboard.writeText(createdInviteModal.url)
+                      setCopiedModalLink(true)
+                      setTimeout(() => setCopiedModalLink(false), 2500)
+                    }}
+                    className="px-3.5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 shrink-0 cursor-pointer shadow-xs transition-colors"
+                  >
+                    {copiedModalLink ? (
+                      <>
+                        <CheckCheck className="w-3.5 h-3.5" />
+                        <span>Tersalin!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Salin</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-600 dark:text-slate-400 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800">
+                <div>
+                  <span className="text-slate-400 block text-[10px]">Maks Penggunaan</span>
+                  <span className="font-bold text-slate-800 dark:text-slate-200">
+                    {createdInviteModal.maxUses ? `${createdInviteModal.maxUses} akun` : "Tanpa batas"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[10px]">Masa Berlaku</span>
+                  <span className="font-bold text-slate-800 dark:text-slate-200">
+                    {createdInviteModal.expiresAt
+                      ? new Date(createdInviteModal.expiresAt).toLocaleDateString("id-ID", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        })
+                      : "Selamanya"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 pt-2">
+                <a
+                  href={`https://wa.me/?text=${encodeURIComponent(
+                    `Halo! Anda diundang bergabung ke tim toko kami di Scota dengan peran *${createdInviteModal.role}*.\n\nKlik tautan ini untuk bergabung menggunakan Google SSO:\n${createdInviteModal.url}`
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 py-2.5 px-4 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-white text-xs font-black flex items-center justify-center gap-2 cursor-pointer shadow-xs transition-colors"
+                >
+                  <Share2 className="w-4 h-4" />
+                  <span>Kirim ke WhatsApp</span>
+                </a>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCreatedInviteModal(null)
+                    setCopiedModalLink(false)
+                  }}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-colors"
+                >
+                  Selesai
+                </button>
+              </div>
             </div>
           </div>
         )}

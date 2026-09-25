@@ -526,11 +526,14 @@ function SettingsContent() {
       if (res.ok) {
         toast.success(data.message || "Tautan undangan Google berhasil dibuat!")
         fetchInvites()
+        return data
       } else {
         toast.error(data.error || "Gagal membuat tautan undangan")
+        return null
       }
     } catch (err: any) {
       toast.error(err.message || "Terjadi kesalahan jaringan")
+      return null
     }
   }
 

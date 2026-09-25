@@ -25,12 +25,14 @@ import {
   ChevronRight,
   Trash2,
   Unlock,
+  MessageCircle,
 } from "lucide-react"
 import { SubscriptionTier, TIER_CONFIG } from "@/lib/subscription"
 import { StatusBadge } from "@/components/superadmin/StatusBadge"
 import { ConfirmDialog } from "@/components/superadmin/ConfirmDialog"
 import { EmptyState } from "@/components/superadmin/EmptyState"
 import { TenantSummary } from "@/lib/superadmin"
+import { TenantInspectorSheet } from "@/components/superadmin/TenantInspectorSheet"
 
 function SuperadminTenantsContent() {
   const searchParams = useSearchParams()
@@ -41,6 +43,8 @@ function SuperadminTenantsContent() {
   const [searchTerm, setSearchTerm] = useState(initialSearch)
   const [tierFilter, setTierFilter] = useState<string>("all")
   const [statusFilter, setStatusFilter] = useState<string>("all")
+  const [activeTab, setActiveTab] = useState<"all" | "active" | "trial" | "expiring" | "suspended">("all")
+  const [inspectedTenant, setInspectedTenant] = useState<TenantSummary | null>(null)
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
@@ -104,6 +108,18 @@ function SuperadminTenantsContent() {
     fetchTenants()
   }, [])
 
+  // Tab Counts
+  const totalCount = tenants.length
+  const activeCount = tenants.filter((t) => t.status === "active").length
+  const trialCount = tenants.filter((t) => t.tier === "trial" || t.status === "trial").length
+  const expiringCount = tenants.filter((t) => {
+    const valid = new Date(t.validUntil)
+    const now = new Date()
+    const in7Days = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+    return valid < in7Days && valid > now
+  }).length
+  const suspendedCount = tenants.filter((t) => t.status === "suspended").length
+
   // Filter & Search Logic
   const filteredTenants = tenants.filter((t) => {
     const matchesSearch =
@@ -115,7 +131,16 @@ function SuperadminTenantsContent() {
     const matchesTier = tierFilter === "all" || t.tier === tierFilter
     const matchesStatus = statusFilter === "all" || t.status === statusFilter
 
-    return matchesSearch && matchesTier && matchesStatus
+    let matchesTab = true
+    if (activeTab === "active") matchesTab = t.status === "active"
+    if (activeTab === "trial") matchesTab = t.tier === "trial" || t.status === "trial"
+    if (activeTab === "expiring") {
+      const valid = new Date(t.validUntil)
+      matchesTab = valid < new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) && valid > new Date()
+    }
+    if (activeTab === "suspended") matchesTab = t.status === "suspended"
+
+    return matchesSearch && matchesTier && matchesStatus && matchesTab
   })
 
   // Pagination calculation
@@ -319,6 +344,42 @@ function SuperadminTenantsContent() {
         </button>
       </div>
 
+      {/* Segmented Filter Tabs */}
+      <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-slate-900/90 border border-slate-800/80 overflow-x-auto">
+        {[
+          { id: "all", label: "Semua Tenant", count: totalCount },
+          { id: "active", label: "Aktif", count: activeCount },
+          { id: "trial", label: "Trial 14 Hari", count: trialCount },
+          { id: "expiring", label: "Jatuh Tempo (<7 Hari)", count: expiringCount },
+          { id: "suspended", label: "Disuspend", count: suspendedCount },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => {
+              setActiveTab(tab.id as any)
+              setCurrentPage(1)
+            }}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+              activeTab === tab.id
+                ? "bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20 font-black"
+                : "text-slate-400 hover:text-white hover:bg-slate-800/60"
+            }`}
+          >
+            <span>{tab.label}</span>
+            <span
+              className={`px-1.5 py-0.2 rounded-md text-[10px] font-mono ${
+                activeTab === tab.id
+                  ? "bg-slate-950 text-emerald-400"
+                  : "bg-slate-800 text-slate-400"
+              }`}
+            >
+              {tab.count}
+            </span>
+          </button>
+        ))}
+      </div>
+
       {/* Filter & Search Bar */}
       <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-4 shadow-xl flex flex-col md:flex-row items-center gap-3 justify-between">
         {/* Search */}
@@ -418,13 +479,13 @@ function SuperadminTenantsContent() {
                   return (
                     <tr key={t.username} className="hover:bg-slate-800/40 transition-colors">
                       {/* Tenant Identity */}
-                      <td className="py-3.5 px-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-2xl bg-gradient-to-tr from-slate-800 to-slate-700 border border-slate-600 flex items-center justify-center text-xs font-black text-white shadow-sm">
+                      <td className="py-3.5 px-4 cursor-pointer" onClick={() => setInspectedTenant(t)}>
+                        <div className="flex items-center gap-3 group">
+                          <div className="w-9 h-9 rounded-2xl bg-gradient-to-tr from-slate-800 to-slate-700 border border-slate-600 flex items-center justify-center text-xs font-black text-white shadow-sm group-hover:border-emerald-500 transition-colors">
                             {t.username.substring(0, 2).toUpperCase()}
                           </div>
                           <div>
-                            <strong className="text-white text-xs block leading-tight">
+                            <strong className="text-white text-xs block leading-tight group-hover:text-emerald-400 transition-colors">
                               {t.businessName || t.fullName}
                             </strong>
                             <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-mono mt-0.5">
@@ -501,14 +562,30 @@ function SuperadminTenantsContent() {
                       {/* Actions */}
                       <td className="py-3.5 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
-                          {/* Detail Link */}
-                          <Link
-                            href={`/superadmin/tenants/${t.username}`}
-                            className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-all"
-                            title="Buka Detail Tenant"
+                          {/* Inspect Sheet Trigger */}
+                          <button
+                            type="button"
+                            onClick={() => setInspectedTenant(t)}
+                            className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-all cursor-pointer"
+                            title="Buka Slide-Over Inspector"
                           >
                             <Eye className="w-4 h-4 text-sky-400" />
-                          </Link>
+                          </button>
+
+                          {/* Direct WhatsApp Link */}
+                          {t.phone && (
+                            <a
+                              href={`https://wa.me/${t.phone.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(
+                                `Halo ${t.businessName || t.fullName}, kami dari tim Scota...`
+                              )}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="p-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-400 transition-all"
+                              title="Hubungi via WhatsApp"
+                            >
+                              <MessageCircle className="w-4 h-4" />
+                            </a>
+                          )}
 
                           {/* Edit Subscription */}
                           <button
@@ -915,6 +992,30 @@ function SuperadminTenantsContent() {
         isLoading={isDeletingTenant}
         onConfirm={handleConfirmDelete}
         onCancel={() => setDeleteTarget(null)}
+      />
+
+      {/* Slide-over Tenant Inspector Sheet */}
+      <TenantInspectorSheet
+        tenant={inspectedTenant}
+        isOpen={Boolean(inspectedTenant)}
+        onClose={() => setInspectedTenant(null)}
+        onEditSub={(t) => {
+          setEditingTenant(t)
+          setNewTier(t.tier === "trial" ? "pro" : t.tier)
+          setInspectedTenant(null)
+        }}
+        onResetPass={(t) => {
+          setResetPassTenant(t)
+          setInspectedTenant(null)
+        }}
+        onToggleSuspend={(t) => {
+          setSuspendTarget(t)
+          setInspectedTenant(null)
+        }}
+        onDelete={(t) => {
+          setDeleteTarget(t)
+          setInspectedTenant(null)
+        }}
       />
     </div>
   )

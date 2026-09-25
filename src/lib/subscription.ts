@@ -8,6 +8,8 @@ export interface StudioProfile {
   logoUrl?: string
   invoiceFooter: string
   taxNumber?: string
+  businessType?: string
+  businessEmail?: string
 }
 
 export interface ApprovalWorkflowConfig {

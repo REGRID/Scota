@@ -38,7 +38,12 @@ ALTER TABLE tenants ADD COLUMN IF NOT EXISTS "businessType" TEXT DEFAULT 'Toko &
 ALTER TABLE tenants ADD COLUMN IF NOT EXISTS "estimatedDailyTransactions" TEXT;
 ALTER TABLE tenants ADD COLUMN IF NOT EXISTS "onboardingCompleted" BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS "phone" TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS "secondaryEmail" TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS "jobTitle" TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS "city" TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS "promoOptIn" BOOLEAN NOT NULL DEFAULT true;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS "onboardingCompleted" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS "businessEmail" TEXT;
 
 -- Table: tenant_migration_log (Multi-Tenant Schema Migration History & Audit Trail)
 CREATE TABLE IF NOT EXISTS tenant_migration_log (

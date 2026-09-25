@@ -1873,6 +1873,20 @@ export function ReceiptHistoryDashboard({
       const pageWidth = doc.internal.pageSize.getWidth()
       const pageHeight = doc.internal.pageSize.getHeight()
 
+      // Load Company & Tenant Brand Identity
+      let studioProfile: any = null
+      try {
+        const raw = localStorage.getItem("scota_studio_profile")
+        if (raw) studioProfile = JSON.parse(raw)
+      } catch {}
+      const companyName = studioProfile?.studioName || localStorage.getItem("scota_business_name") || "Scota Business"
+      const companyTagline = studioProfile?.tagline || ""
+      const companyAddress = studioProfile?.address || localStorage.getItem("scota_business_address") || ""
+      const companyPhone = studioProfile?.phone || localStorage.getItem("scota_business_phone") || ""
+      const companyTaxNumber = studioProfile?.taxNumber || localStorage.getItem("scota_business_tax_number") || ""
+      const companyFooter = studioProfile?.invoiceFooter || localStorage.getItem("scota_business_footer") || "Laporan resmi pembukuan dan rekapitulasi nota belanja."
+      const companyLogo = studioProfile?.logoUrl || localStorage.getItem("scota_business_logo") || ""
+
       // Header Banner
       doc.setFillColor(15, 23, 42)
       doc.rect(10, 10, pageWidth - 20, 14, "F")
@@ -1884,21 +1898,51 @@ export function ReceiptHistoryDashboard({
 
       doc.setFontSize(8)
       doc.setTextColor(16, 185, 129)
-      doc.text("NOTA BISNIS — OFFICIAL STATEMENT", pageWidth - 14, 19, { align: "right" })
+      doc.text(`${companyName.toUpperCase()} — OFFICIAL STATEMENT`, pageWidth - 14, 19, { align: "right" })
 
-      // Metadata Header Section
+      // Metadata Header Section with Company Branding & Logo
       let currentY = 28
+      let startTextX = 10
+      if (companyLogo && companyLogo.startsWith("data:image")) {
+        try {
+          doc.addImage(companyLogo, "WEBP", 10, currentY - 2, 12, 12)
+          startTextX = 25
+        } catch {
+          try {
+            doc.addImage(companyLogo, "PNG", 10, currentY - 2, 12, 12)
+            startTextX = 25
+          } catch {}
+        }
+      }
+
       doc.setFont("helvetica", "bold")
-      doc.setFontSize(9.5)
+      doc.setFontSize(10)
       doc.setTextColor(15, 23, 42)
-      doc.text("Laporan Rekapitulasi Pembukuan Nota", 10, currentY)
+      doc.text(companyName, startTextX, currentY)
 
-      doc.setFont("helvetica", "italic")
-      doc.setFontSize(7.5)
-      doc.setTextColor(100, 116, 139)
-      doc.text("(Receipt Accounting Summary Report)", 10, currentY + 3.8)
+      if (companyTagline) {
+        doc.setFont("helvetica", "normal")
+        doc.setFontSize(7.5)
+        doc.setTextColor(16, 185, 129)
+        doc.text(companyTagline, startTextX, currentY + 3.8)
+      }
 
-      currentY += 8.5
+      const contactLine = [
+        companyAddress,
+        companyPhone ? `Telp: ${companyPhone}` : "",
+        companyTaxNumber ? `[${companyTaxNumber}]` : "",
+      ]
+        .filter(Boolean)
+        .join(" • ")
+
+      if (contactLine) {
+        doc.setFont("helvetica", "normal")
+        doc.setFontSize(6.8)
+        doc.setTextColor(100, 116, 139)
+        doc.text(contactLine, startTextX, currentY + (companyTagline ? 7.2 : 4))
+      }
+
+      currentY += (companyLogo || contactLine) ? 12 : 8.5
 
       // Metadata Info Rows
       const metadataRows: { label: string; value: string; isHighlight?: boolean }[] = [
@@ -2117,7 +2161,7 @@ export function ReceiptHistoryDashboard({
         doc.setFontSize(8)
         doc.setTextColor(148, 163, 184)
         doc.text(
-          `Halaman ${i} dari ${totalPages} — Dokumen Laporan Rekapitulasi Pembukuan Scota`,
+          `${companyFooter} • Halaman ${i} dari ${totalPages}`,
           pageWidth / 2,
           pageHeight - 6,
           { align: "center" }

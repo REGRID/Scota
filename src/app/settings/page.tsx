@@ -173,6 +173,13 @@ function SettingsContent() {
   // Business Profile State
   const [businessName, setBusinessName] = useState("")
   const [tagline, setTagline] = useState("")
+  const [logoUrl, setLogoUrl] = useState("")
+  const [businessType, setBusinessType] = useState("Food & Beverage (Kafe / Restoran / Kedai)")
+  const [address, setAddress] = useState("")
+  const [phone, setPhone] = useState("")
+  const [businessEmail, setBusinessEmail] = useState("")
+  const [taxNumber, setTaxNumber] = useState("")
+  const [invoiceFooter, setInvoiceFooter] = useState("Terima kasih atas kerja sama Anda dengan usaha kami.")
   const [defaultTaxPercent, setDefaultTaxPercent] = useState("11")
   const [isSavingBusiness, setIsSavingBusiness] = useState(false)
 
@@ -208,6 +215,16 @@ function SettingsContent() {
 
       const storedBiz = localStorage.getItem("scota_business_name")
       if (storedBiz) setBusinessName(storedBiz)
+      const storedLogo = localStorage.getItem("scota_business_logo")
+      if (storedLogo) setLogoUrl(storedLogo)
+      const storedAddr = localStorage.getItem("scota_business_address")
+      if (storedAddr) setAddress(storedAddr)
+      const storedPhone = localStorage.getItem("scota_business_phone")
+      if (storedPhone) setPhone(storedPhone)
+      const storedTax = localStorage.getItem("scota_business_tax_number")
+      if (storedTax) setTaxNumber(storedTax)
+      const storedFooter = localStorage.getItem("scota_business_footer")
+      if (storedFooter) setInvoiceFooter(storedFooter)
 
       setPermState(getNotificationPermissionStatus())
       setNotifySettings(getNotificationSettings())
@@ -361,9 +378,17 @@ function SettingsContent() {
             setRequireForSettle(Boolean(data.approvalWorkflow.requireForSettle))
             setMinAmountThreshold(String(data.approvalWorkflow.minAmountThreshold || 0))
           }
-          if (data.studioProfile) {
-            if (data.studioProfile.studioName) setBusinessName(data.studioProfile.studioName)
-            if (data.studioProfile.tagline) setTagline(data.studioProfile.tagline)
+          const prof = data.subscription?.studioProfile || data.studioProfile
+          if (prof) {
+            if (prof.studioName) setBusinessName(prof.studioName)
+            if (prof.tagline) setTagline(prof.tagline)
+            if (prof.logoUrl) setLogoUrl(prof.logoUrl)
+            if (prof.businessType) setBusinessType(prof.businessType)
+            if (prof.address) setAddress(prof.address)
+            if (prof.phone) setPhone(prof.phone)
+            if (prof.businessEmail) setBusinessEmail(prof.businessEmail)
+            if (prof.taxNumber) setTaxNumber(prof.taxNumber)
+            if (prof.invoiceFooter) setInvoiceFooter(prof.invoiceFooter)
           }
         }
       }
@@ -820,6 +845,12 @@ function SettingsContent() {
     try {
       const cleanName = businessName.trim()
       const cleanTagline = tagline.trim()
+      const cleanAddress = address.trim()
+      const cleanPhone = phone.trim()
+      const cleanBusinessEmail = businessEmail.trim()
+      const cleanTaxNumber = taxNumber.trim()
+      const cleanInvoiceFooter = invoiceFooter.trim()
+
       const headers = await getAuthenticatedHeaders({ "Content-Type": "application/json" })
       const res = await fetch("/api/subscription", {
         method: "POST",
@@ -829,18 +860,52 @@ function SettingsContent() {
           studioProfile: {
             studioName: cleanName,
             tagline: cleanTagline,
+            logoUrl: logoUrl || undefined,
+            businessType: businessType || undefined,
+            address: cleanAddress || undefined,
+            phone: cleanPhone || undefined,
+            businessEmail: cleanBusinessEmail || undefined,
+            taxNumber: cleanTaxNumber || undefined,
+            invoiceFooter: cleanInvoiceFooter || undefined,
           },
         }),
       })
 
       if (res.ok) {
         localStorage.setItem("scota_business_name", cleanName)
-        toast.success("Profil bisnis berhasil disimpan ke database!")
+        if (logoUrl) localStorage.setItem("scota_business_logo", logoUrl)
+        else localStorage.removeItem("scota_business_logo")
+        localStorage.setItem("scota_business_address", cleanAddress)
+        localStorage.setItem("scota_business_phone", cleanPhone)
+        localStorage.setItem("scota_business_tax_number", cleanTaxNumber)
+        localStorage.setItem("scota_business_footer", cleanInvoiceFooter)
+
+        // Store full profile for instant PDF export usage
+        localStorage.setItem(
+          "scota_studio_profile",
+          JSON.stringify({
+            studioName: cleanName,
+            tagline: cleanTagline,
+            logoUrl,
+            businessType,
+            address: cleanAddress,
+            phone: cleanPhone,
+            businessEmail: cleanBusinessEmail,
+            taxNumber: cleanTaxNumber,
+            invoiceFooter: cleanInvoiceFooter,
+          })
+        )
+
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event("storage"))
+        }
+
+        toast.success("Profil bisnis & identitas toko berhasil disimpan!")
       } else {
         toast.error("Gagal menyimpan profil bisnis ke server")
       }
     } catch {
-      toast.error("Terjadi kesalahan saat menyimpan profil")
+      toast.error("Terjadi kesalahan saat menyimpan profil bisnis")
     } finally {
       setIsSavingBusiness(false)
     }
@@ -944,8 +1009,22 @@ function SettingsContent() {
               setBusinessName={setBusinessName}
               tagline={tagline}
               setTagline={setTagline}
+              logoUrl={logoUrl}
+              setLogoUrl={setLogoUrl}
+              businessType={businessType}
+              setBusinessType={setBusinessType}
+              address={address}
+              setAddress={setAddress}
+              phone={phone}
+              setPhone={setPhone}
+              businessEmail={businessEmail}
+              setBusinessEmail={setBusinessEmail}
+              taxNumber={taxNumber}
+              setTaxNumber={setTaxNumber}
               defaultTaxPercent={defaultTaxPercent}
               setDefaultTaxPercent={setDefaultTaxPercent}
+              invoiceFooter={invoiceFooter}
+              setInvoiceFooter={setInvoiceFooter}
               isSavingBusiness={isSavingBusiness}
               onSaveBusiness={handleSaveBusiness}
             />

@@ -40,6 +40,9 @@ export async function getSubscriptionInfo(tenantId: string = DEFAULT_TENANT_ID):
     try {
       const res = await queryPg<any>(
         `SELECT s.*, t."businessName", t.tagline as "tenantTagline", t.status as "tenantStatus",
+                t."businessType", t."businessEmail", t."taxNumber" as "tenantTaxNumber",
+                t.address as "tenantAddress", t.phone as "tenantPhone",
+                t."logoUrl" as "tenantLogoUrl", t."invoiceFooter" as "tenantInvoiceFooter",
                 t."createdAt" as "tenantCreatedAt", t."expiresAt" as "tenantExpiresAt",
                 EXISTS (
                   SELECT 1 FROM admin_accounts a 
@@ -207,11 +210,13 @@ export async function getSubscriptionInfo(tenantId: string = DEFAULT_TENANT_ID):
         const profile: StudioProfile = {
           studioName: resolvedStudioName,
           tagline: resolvedTagline,
-          address: data.address || DEFAULT_STUDIO_PROFILE.address,
-          phone: data.phone || DEFAULT_STUDIO_PROFILE.phone,
-          logoUrl: data.logoUrl || undefined,
-          invoiceFooter: data.invoiceFooter || DEFAULT_STUDIO_PROFILE.invoiceFooter,
-          taxNumber: data.taxNumber || undefined,
+          address: data.address || data.tenantAddress || DEFAULT_STUDIO_PROFILE.address,
+          phone: data.phone || data.tenantPhone || DEFAULT_STUDIO_PROFILE.phone,
+          logoUrl: data.logoUrl || data.tenantLogoUrl || undefined,
+          invoiceFooter: data.invoiceFooter || data.tenantInvoiceFooter || DEFAULT_STUDIO_PROFILE.invoiceFooter,
+          taxNumber: data.taxNumber || data.tenantTaxNumber || undefined,
+          businessType: data.businessType || undefined,
+          businessEmail: data.businessEmail || undefined,
         }
 
         let workflow: ApprovalWorkflowConfig = { ...DEFAULT_APPROVAL_WORKFLOW }
@@ -451,8 +456,10 @@ export async function updateStudioProfile(
       // Also update tenants table
       await queryPg(
         `UPDATE tenants 
-         SET "businessName" = $1, tagline = $2, address = $3, phone = $4, "logoUrl" = $5, "invoiceFooter" = $6, "taxNumber" = $7, "updatedAt" = NOW()
-         WHERE id = $8`,
+         SET "businessName" = $1, tagline = $2, address = $3, phone = $4, "logoUrl" = $5,
+             "invoiceFooter" = $6, "taxNumber" = $7, "businessType" = COALESCE($8, "businessType"),
+             "businessEmail" = $9, "updatedAt" = NOW()
+         WHERE id = $10`,
         [
           updatedProfile.studioName,
           updatedProfile.tagline,
@@ -461,6 +468,8 @@ export async function updateStudioProfile(
           updatedProfile.logoUrl || null,
           updatedProfile.invoiceFooter,
           updatedProfile.taxNumber || null,
+          updatedProfile.businessType || null,
+          updatedProfile.businessEmail || null,
           targetTenant,
         ]
       ).catch(() => {})

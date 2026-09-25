@@ -126,27 +126,27 @@ export default function SuperadminOverviewPage() {
   return (
     <div className="space-y-8 animate-in fade-in duration-300 font-sans selection:bg-emerald-500 selection:text-slate-950">
       {/* Top Cockpit Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-900 pb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-900 pb-5">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-              Mission Control & Platform Analytics
+              Ringkasan Platform
             </h1>
-            <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">
-              Live Aggregated
+            <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">
+              Live
             </span>
           </div>
-          <p className="text-xs sm:text-sm text-slate-400 max-w-2xl leading-relaxed">
-            Pusat kendali operasional SaaS SCOTA: pantau pendapatan berulang (MRR/ARR), rasio konversi tenant, utilisasi kuota AI, serta stabilitas multi-tenant database.
+          <p className="text-xs sm:text-sm text-slate-400 max-w-2xl">
+            Pantau performa bisnis, pendapatan berulang (MRR), dan aktivitas seluruh tenant.
           </p>
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
           <Link
             href="/superadmin/tenants"
-            className="px-4 py-2.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-black transition-all shadow-lg shadow-emerald-500/20 flex items-center gap-2 cursor-pointer active:scale-98"
+            className="px-4 py-2.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold transition-all shadow-md shadow-emerald-500/20 flex items-center gap-2 cursor-pointer active:scale-98"
           >
-            <span>Kelola Seluruh Tenant</span>
+            <span>Kelola Tenant</span>
             <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
@@ -155,26 +155,24 @@ export default function SuperadminOverviewPage() {
       {/* Top 4 BentoStatCards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
         <BentoStatCard
-          title="Total Tenant Bisnis"
+          title="Total Tenant"
           value={stats?.totalTenants ?? 0}
           icon={Users}
           accentColor="sky"
           iconColor="text-sky-400 bg-sky-500/10 border-sky-500/20"
-          trend={{ value: `${stats?.activeTenants ?? 0} Aktif Berjalan`, isPositive: true }}
-          description="Tenant toko & entitas terdaftar"
-          badge="DATABASE"
+          trend={{ value: `${stats?.activeTenants ?? 0} Aktif`, isPositive: true }}
+          description="Akun bisnis terdaftar"
           loading={isLoading}
         />
 
         <BentoStatCard
-          title="Monthly Recurring Revenue"
+          title="Pendapatan Bulanan (MRR)"
           value={`Rp ${(stats?.monthlyRecurringRevenue ?? 0).toLocaleString("id-ID")}`}
           icon={TrendingUp}
           accentColor="emerald"
           iconColor="text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
-          trend={{ value: `ARR: Rp ${(arr / 1000000).toFixed(1)} Juta`, isPositive: true }}
-          description="Pendapatan langganan berulang"
-          badge="REVENUE"
+          trend={{ value: `ARR: Rp ${(arr / 1000000).toFixed(1)} Jt`, isPositive: true }}
+          description="Estimasi pendapatan berulang"
           loading={isLoading}
         />
 
@@ -185,23 +183,21 @@ export default function SuperadminOverviewPage() {
           accentColor="purple"
           iconColor="text-purple-400 bg-purple-500/10 border-purple-500/20"
           trend={{ value: `${paidTenants} dari ${totalTenants} Akun`, isPositive: paidTenants > 0 }}
-          description="Rasio trial ke paket langganan"
-          badge="CONVERSION"
+          description="Rasio pelanggan berbayar"
           loading={isLoading}
         />
 
         <BentoStatCard
-          title="Audit Nota & OCR"
+          title="Total Struk Nota"
           value={stats?.totalReceipts ?? 0}
           icon={Sparkles}
           accentColor="amber"
           iconColor="text-amber-400 bg-amber-500/10 border-amber-500/20"
           trend={{
-            value: `${expiringList.length} Tenant Expiring`,
+            value: `${expiringList.length} Jatuh Tempo`,
             isPositive: expiringList.length === 0,
           }}
-          description="Total struk nota terproses AI"
-          badge="AI OCR"
+          description="Struk diproses oleh AI OCR"
           loading={isLoading}
         />
       </div>
@@ -215,14 +211,14 @@ export default function SuperadminOverviewPage() {
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
                   <h3 className="text-base font-black text-white tracking-tight">
-                    Pertumbuhan MRR & Run-rate Langganan
+                    Pertumbuhan MRR
                   </h3>
                   <span className="px-2 py-0.5 rounded-full text-[9.5px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                    IDR Currency
+                    IDR
                   </span>
                 </div>
                 <p className="text-xs text-slate-400">
-                  Estimasi arus kas masuk bulanan dari tenant aktif berdasarkan paket langganan.
+                  Tren pendapatan berulang bulanan dari pelanggan aktif.
                 </p>
               </div>
 
@@ -313,14 +309,14 @@ export default function SuperadminOverviewPage() {
             <div className="space-y-1">
               <div className="flex items-center justify-between">
                 <h3 className="text-base font-black text-white tracking-tight">
-                  Porsi Paket Langganan
+                  Distribusi Paket
                 </h3>
                 <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-slate-800 text-slate-300">
-                  TIER BREAKDOWN
+                  TIER
                 </span>
               </div>
               <p className="text-xs text-slate-400">
-                Distribusi pemakaian tier oleh seluruh entitas tenant bisnis.
+                Komposisi pengguna berdasarkan paket langganan.
               </p>
             </div>
 
@@ -391,17 +387,17 @@ export default function SuperadminOverviewPage() {
               <div className="space-y-0.5">
                 <h3 className="text-base font-black text-white flex items-center gap-2">
                   <AlertTriangle className="w-4 h-4 text-amber-400" />
-                  <span>Radar Churn & Masa Aktif Habis (&lt; 7 Hari)</span>
+                  <span>Jatuh Tempo (&lt; 7 Hari)</span>
                 </h3>
                 <p className="text-xs text-slate-400">
-                  Daftar tenant yang membutuhkan follow-up retensi sebelum masa aktif berakhir.
+                  Tenant yang memerlukan konfirmasi perpanjangan langganan.
                 </p>
               </div>
               <Link
                 href="/superadmin/tenants"
                 className="text-xs font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 group"
               >
-                <span>Buka Data Grid Tenant</span>
+                <span>Lihat Semua Tenant</span>
                 <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
               </Link>
             </div>
@@ -499,11 +495,11 @@ export default function SuperadminOverviewPage() {
               <div className="flex items-center justify-between">
                 <h3 className="text-base font-black text-white flex items-center gap-2">
                   <Activity className="w-4 h-4 text-emerald-400" />
-                  <span>Aktivitas Platform Live</span>
+                  <span>Aktivitas Sistem</span>
                 </h3>
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
               </div>
-              <p className="text-xs text-slate-400">Stream rekam jejak event dan audit keamanan real-time.</p>
+              <p className="text-xs text-slate-400">Catatan operasional dan integritas data.</p>
             </div>
 
             <div className="space-y-3 flex-1 overflow-y-auto max-h-72 divide-y divide-slate-900 text-xs">
@@ -551,7 +547,7 @@ export default function SuperadminOverviewPage() {
               href="/superadmin/audit-log"
               className="w-full py-2.5 px-3 rounded-2xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
             >
-              <span>Lihat Seluruh Audit Log Keamanan</span>
+              <span>Lihat Semua Log</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>

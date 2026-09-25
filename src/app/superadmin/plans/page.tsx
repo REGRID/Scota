@@ -89,10 +89,10 @@ export default function SuperadminPlansPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-            Master Paket & Batasan Fitur SaaS
+            Paket & Batasan Fitur
           </h1>
           <p className="text-xs sm:text-sm text-slate-400">
-            Atur kuota pemindaian OCR nota bulanan, batasan staf pengguna, harga langganan, dan rincian fitur paket.
+            Kelola kuota OCR bulanan, batas staf, harga, dan rincian fitur setiap tier langganan.
           </p>
         </div>
       </div>

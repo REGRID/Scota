@@ -327,10 +327,10 @@ function SuperadminTenantsContent() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-            Daftar Tenant & Pelanggan
+            Manajemen Tenant
           </h1>
           <p className="text-xs sm:text-sm text-slate-400">
-            Kelola akses bisnis, perpanjang masa aktif paket SaaS, atur kuota OCR, dan kelola akun tenant.
+            Kelola akun bisnis, status paket langganan, kuota OCR, dan masa aktif.
           </p>
         </div>
 
@@ -340,18 +340,18 @@ function SuperadminTenantsContent() {
           className="px-4 py-2.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs transition-all shadow-md shadow-emerald-500/20 flex items-center gap-2 cursor-pointer self-start sm:self-auto"
         >
           <Plus className="w-4 h-4" />
-          <span>Tambah Tenant Manual</span>
+          <span>Tambah Tenant</span>
         </button>
       </div>
 
       {/* Segmented Filter Tabs */}
       <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-slate-900/90 border border-slate-800/80 overflow-x-auto">
         {[
-          { id: "all", label: "Semua Tenant", count: totalCount },
+          { id: "all", label: "Semua", count: totalCount },
           { id: "active", label: "Aktif", count: activeCount },
-          { id: "trial", label: "Trial 14 Hari", count: trialCount },
-          { id: "expiring", label: "Jatuh Tempo (<7 Hari)", count: expiringCount },
-          { id: "suspended", label: "Disuspend", count: suspendedCount },
+          { id: "trial", label: "Trial", count: trialCount },
+          { id: "expiring", label: "Jatuh Tempo", count: expiringCount },
+          { id: "suspended", label: "Suspend", count: suspendedCount },
         ].map((tab) => (
           <button
             key={tab.id}

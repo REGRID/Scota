@@ -56,10 +56,10 @@ export default function SuperadminAuditLogPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-            Audit Log & Jejak Aktivitas Superadmin
+            Audit Log Aktivitas
           </h1>
           <p className="text-xs sm:text-sm text-slate-400">
-            Catatan kronologis seluruh aksi penting superadmin (perubahan paket, reset password, pembuatan voucher).
+            Catatan kronologis seluruh aksi penting di portal Superadmin.
           </p>
         </div>
       </div>

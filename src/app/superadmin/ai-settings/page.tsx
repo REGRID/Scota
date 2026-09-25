@@ -145,15 +145,14 @@ export default function SuperadminAiSettingsPage() {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-black uppercase tracking-wider">
-              Superadmin Control
+              Konfigurasi AI
             </span>
-            <span className="text-xs text-slate-400">• Engine AI Master</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-            Integrasi Google Gemini AI & OCR
+            Integrasi AI & OCR
           </h1>
           <p className="text-xs text-slate-400">
-            Pusat konfigurasi kunci API kecerdasan buatan, model visi nota, dan kebijakan OCR untuk seluruh tenant Scota.
+            Kelola API key Google Gemini, model visi nota, dan parameter OCR untuk seluruh tenant.
           </p>
         </div>
 
@@ -163,7 +162,7 @@ export default function SuperadminAiSettingsPage() {
           className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs font-black transition-all shadow-md shadow-emerald-600/20 cursor-pointer self-start sm:self-auto"
         >
           <Check className="w-4 h-4" />
-          <span>Simpan Konfigurasi Master</span>
+          <span>Simpan Perubahan</span>
         </button>
       </div>
 

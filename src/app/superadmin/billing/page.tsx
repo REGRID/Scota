@@ -164,10 +164,10 @@ export default function SuperadminBillingPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-            Billing, Transaksi & Laporan Keuangan
+            Billing & Transaksi
           </h1>
           <p className="text-xs sm:text-sm text-slate-400">
-            Rekap transaksi pembayaran langganan SaaS lintas tenant dan pembuatan voucher lisensi resmi offline.
+            Rekap transaksi pembayaran langganan SaaS dan pembuatan voucher lisensi.
           </p>
         </div>
 

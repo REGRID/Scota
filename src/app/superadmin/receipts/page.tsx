@@ -54,10 +54,10 @@ export default function SuperadminReceiptsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-            Audit Nota Global (OCR Debugger)
+            Audit Nota Global
           </h1>
           <p className="text-xs sm:text-sm text-slate-400">
-            Pemantauan kualitas ekstraksi AI Gemini dari foto nota yang diunggah oleh seluruh tenant.
+            Pantau hasil ekstraksi AI OCR dari nota seluruh tenant secara real-time.
           </p>
         </div>
 
@@ -67,7 +67,7 @@ export default function SuperadminReceiptsPage() {
           className="self-start sm:self-auto px-4 py-2 rounded-2xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white text-xs font-bold transition-all flex items-center gap-2 cursor-pointer"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin text-emerald-400" : ""}`} />
-          <span>Refresh Nota</span>
+          <span>Segarkan</span>
         </button>
       </div>
 

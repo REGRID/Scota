@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { useUser, SignInButton } from "@clerk/nextjs"
+import { useUser, useClerk, SignInButton } from "@clerk/nextjs"
 import { ShieldAlert, Lock, Loader2, ArrowLeft, ArrowRight } from "lucide-react"
 import { SuperadminSidebar } from "@/components/superadmin/SuperadminSidebar"
 import { SuperadminTopbar } from "@/components/superadmin/SuperadminTopbar"
@@ -18,6 +18,7 @@ export default function SuperadminLayout({
   const router = useRouter()
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const { isLoaded, isSignedIn, user } = useUser()
+  const { signOut } = useClerk()
   const [isSuperadminSessionValid, setIsSuperadminSessionValid] = useState<boolean | null>(null)
 
   // Verify internal superadmin JWT session
@@ -53,7 +54,7 @@ export default function SuperadminLayout({
     return (
       <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center space-y-3 font-sans">
         <Loader2 className="w-10 h-10 text-emerald-400 animate-spin" />
-        <p className="text-xs font-semibold text-slate-400">Memeriksa Otorisasi Superadmin...</p>
+        <p className="text-xs font-semibold text-slate-400">Memeriksa Akses Superadmin...</p>
       </div>
     )
   }
@@ -69,7 +70,7 @@ export default function SuperadminLayout({
           <div className="space-y-1.5">
             <h1 className="text-lg font-bold text-white">Autentikasi Superadmin</h1>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Silakan login menggunakan akun Google Anda untuk melanjutkan ke portal manajemen.
+              Login dengan akun Google resmi untuk mengakses portal Superadmin.
             </p>
           </div>
           <div className="pt-2 flex flex-col gap-2.5">
@@ -87,7 +88,53 @@ export default function SuperadminLayout({
               className="inline-flex items-center justify-center gap-1.5 text-xs text-slate-400 hover:text-white py-2 transition-colors"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Kembali ke Beranda</span>
+              <span>Halaman Utama</span>
+            </Link>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Strict Single-Account Gate: Only 1 authorized email can access superadmin
+  const authorizedEmail = (
+    process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL ||
+    "refo.gangga.dev@gmail.com"
+  )
+    .toLowerCase()
+    .trim()
+  const userEmail = (user.primaryEmailAddress?.emailAddress || "").toLowerCase().trim()
+
+  if (userEmail !== authorizedEmail) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4 relative font-sans selection:bg-emerald-500 selection:text-white">
+        <div className="w-full max-w-md bg-slate-900/95 border border-rose-500/30 rounded-3xl p-6 sm:p-8 text-center space-y-5 shadow-2xl">
+          <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-400 flex items-center justify-center mx-auto shadow-inner">
+            <ShieldAlert className="w-6 h-6" />
+          </div>
+          <div className="space-y-1.5">
+            <h1 className="text-lg font-bold text-white">Akses Ditolak</h1>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Portal Superadmin dibatasi hanya untuk 1 akun resmi (
+              <span className="text-emerald-400 font-mono font-bold">{authorizedEmail}</span>). Akun
+              Anda (<span className="text-rose-400 font-mono">{userEmail || "Tanpa Email"}</span>)
+              tidak terdaftar sebagai Superadmin.
+            </p>
+          </div>
+          <div className="pt-2 flex flex-col gap-2.5">
+            <button
+              type="button"
+              onClick={() => signOut({ redirectUrl: "/superadmin" })}
+              className="w-full py-3 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs transition-all cursor-pointer"
+            >
+              Ganti Akun Google
+            </button>
+            <Link
+              href="/"
+              className="inline-flex items-center justify-center gap-1.5 text-xs text-slate-400 hover:text-white py-2 transition-colors"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Halaman Utama</span>
             </Link>
           </div>
         </div>
@@ -111,14 +158,14 @@ export default function SuperadminLayout({
             className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-emerald-400 transition-colors py-1 px-3"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Kembali ke Beranda</span>
+            <span>Halaman Utama</span>
           </Link>
         </div>
       </div>
     )
   }
 
-  // 5. Authorized & Verified: Render Full Superadmin Dashboard
+  // 4. Authorized & Verified: Render Full Superadmin Dashboard
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans flex antialiased selection:bg-emerald-500 selection:text-slate-950">
       {/* Desktop Fixed Sidebar */}

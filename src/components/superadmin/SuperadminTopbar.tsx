@@ -21,7 +21,7 @@ export function SuperadminTopbar({
   const router = useRouter()
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
 
-  // Global keyboard shortcut: Cmd+K / Ctrl+K
+  // Shortcut keyboard: Cmd+K / Ctrl+K
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
@@ -46,9 +46,9 @@ export function SuperadminTopbar({
           </button>
 
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-black uppercase tracking-wider">
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-bold uppercase tracking-wider">
               <ShieldAlert className="w-3.5 h-3.5" />
-              <span>Superadmin Mission Control</span>
+              <span>Superadmin</span>
             </div>
           </div>
         </div>
@@ -62,7 +62,7 @@ export function SuperadminTopbar({
             className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800/90 border border-slate-800 text-slate-400 hover:text-slate-200 text-xs font-medium transition-all cursor-pointer shadow-sm group"
           >
             <Search className="w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-400 transition-colors" />
-            <span className="hidden sm:inline">Cari tenant, rute, aksi...</span>
+            <span className="hidden sm:inline">Cari tenant atau menu...</span>
             <span className="sm:hidden">Cari</span>
             <kbd className="flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-slate-800 text-[10px] text-slate-400 font-mono border border-slate-700/60">
               <Command className="w-2.5 h-2.5" />
@@ -85,15 +85,12 @@ export function SuperadminTopbar({
             </button>
           )}
 
-          {/* Superadmin Profile Badge */}
-          <div className="flex items-center gap-2.5 pl-2 sm:pl-3 border-l border-slate-800/80">
+          {/* Superadmin Profile Badge: Avatar + Regrid */}
+          <div className="flex items-center gap-2 pl-2 sm:pl-3 border-l border-slate-800/80">
             <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-emerald-500 via-teal-500 to-sky-600 flex items-center justify-center text-slate-950 font-black text-xs shadow-md shadow-emerald-500/20 ring-1 ring-white/20">
-              SA
+              R
             </div>
-            <div className="hidden sm:block text-left leading-tight">
-              <strong className="text-xs font-bold text-white block">REGRID Master</strong>
-              <span className="text-[10px] text-emerald-400 font-semibold font-mono">Enterprise Admin</span>
-            </div>
+            <span className="text-xs font-bold text-white tracking-wide">Regrid</span>
           </div>
         </div>
       </header>

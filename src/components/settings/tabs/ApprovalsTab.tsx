@@ -1,11 +1,10 @@
 "use client"
 
 import React from "react"
-import { ShieldCheck, Lock, Loader2, Check } from "lucide-react"
+import { ShieldCheck, Loader2, Check, AlertCircle } from "lucide-react"
 import { SettingsCard, SettingsCardHeader, SettingsCardFooter } from "@/components/settings/SettingsCard"
 
-interface SecurityTabProps {
-  currentUser: string
+interface ApprovalsTabProps {
   enableApproval: boolean
   setEnableApproval: (val: boolean) => void
   approverTarget: "ANY_ADMIN" | "ADMIN" | "MANAGER" | "OWNER" | "SPECIFIC_USER"
@@ -22,16 +21,11 @@ interface SecurityTabProps {
   setRequireForSettle: (val: boolean) => void
   minAmountThreshold: string
   setMinAmountThreshold: (val: string) => void
-  oldPassword: string
-  setOldPassword: (val: string) => void
-  newPassword: string
-  setNewPassword: (val: string) => void
-  isSavingSecurity: boolean
-  onSaveSecurity: () => Promise<void>
+  isSavingWorkflow: boolean
+  onSaveWorkflow: () => Promise<void>
 }
 
-export function SecurityTab({
-  currentUser,
+export function ApprovalsTab({
   enableApproval,
   setEnableApproval,
   approverTarget,
@@ -48,20 +42,15 @@ export function SecurityTab({
   setRequireForSettle,
   minAmountThreshold,
   setMinAmountThreshold,
-  oldPassword,
-  setOldPassword,
-  newPassword,
-  setNewPassword,
-  isSavingSecurity,
-  onSaveSecurity,
-}: SecurityTabProps) {
+  isSavingWorkflow,
+  onSaveWorkflow,
+}: ApprovalsTabProps) {
   return (
     <div className="space-y-6">
-      {/* Dual Control Approval Policy Card */}
       <SettingsCard>
         <SettingsCardHeader
           title="Alur Dual-Control & Kebijakan Persetujuan"
-          description="Konfigurasikan sistem verifikasi 4-mata (dual-control) untuk mencegah manipulasi data nota belanja dan pengeluaran."
+          description="Konfigurasikan sistem verifikasi 4-mata (dual-control) untuk mencegah manipulasi data nota belanja dan pengeluaran operasional toko."
           icon={ShieldCheck}
         />
 
@@ -192,53 +181,23 @@ export function SecurityTab({
                 />
               </div>
               <p className="text-[11px] text-slate-400">
-                Isi <strong>0</strong> jika seluruh nota tanpa batas minimum harus disetujui, atau tentukan nominal (misal: 1.000.000) agar nota kecil dapat auto-publish.
+                Isi <strong>0</strong> jika seluruh nota tanpa batas minimum harus disetujui, atau tentukan nominal (misal: 1.000.000) agar nota di bawah batas dapat langsung dipublikasikan.
               </p>
             </div>
           </div>
         )}
 
-        {/* Change Internal Password Card Section */}
-        <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800">
-          <div className="flex items-center gap-2">
-            <Lock className="w-4 h-4 text-emerald-500" />
-            <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
-              Ubah Kata Sandi Kredensial Toko ({currentUser.toUpperCase()})
-            </h3>
-          </div>
-          <p className="text-[11px] text-slate-400">
-            Digunakan untuk akses alternatif melalui ID Pengguna dan Password langsung.
-          </p>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-lg">
-            <input
-              type="password"
-              value={oldPassword}
-              onChange={(e) => setOldPassword(e.target.value)}
-              placeholder="Kata Sandi Saat Ini"
-              className="px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white font-mono outline-none focus:border-emerald-500"
-            />
-            <input
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="Kata Sandi Baru"
-              className="px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white font-mono outline-none focus:border-emerald-500"
-            />
-          </div>
-        </div>
-
         <SettingsCardFooter>
           <span className="text-[11px] text-slate-400">
-            Kebijakan persetujuan otomatis berlaku pada transaksi nota baru.
+            Kebijakan persetujuan otomatis berlaku pada transaksi nota baru toko.
           </span>
           <button
             type="button"
-            disabled={isSavingSecurity}
-            onClick={onSaveSecurity}
+            disabled={isSavingWorkflow}
+            onClick={onSaveWorkflow}
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 active:scale-98 text-white text-xs font-bold transition-all shadow-sm shadow-emerald-600/20 cursor-pointer"
           >
-            {isSavingSecurity ? (
+            {isSavingWorkflow ? (
               <>
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
                 <span>Menyimpan...</span>
@@ -246,7 +205,7 @@ export function SecurityTab({
             ) : (
               <>
                 <Check className="w-3.5 h-3.5" />
-                <span>Simpan Kebijakan Keamanan</span>
+                <span>Simpan Alur Persetujuan</span>
               </>
             )}
           </button>

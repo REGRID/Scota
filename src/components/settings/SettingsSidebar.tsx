@@ -3,6 +3,7 @@
 import React from "react"
 import {
   User,
+  Lock,
   Users,
   Building2,
   Store,
@@ -14,11 +15,12 @@ import {
 
 export type SettingsTabId =
   | "profile"
+  | "password"
   | "users"
   | "branches"
   | "business"
+  | "approvals"
   | "billing"
-  | "security"
   | "notifications"
 
 interface SettingsSidebarProps {
@@ -63,6 +65,11 @@ export function SettingsSidebar({
           label: "Profil Saya",
           icon: User,
         },
+        {
+          id: "password",
+          label: "Kata Sandi & Akses",
+          icon: Lock,
+        },
       ],
     },
     {
@@ -92,6 +99,11 @@ export function SettingsSidebar({
           label: "Profil Bisnis",
           icon: Store,
         },
+        {
+          id: "approvals",
+          label: "Alur Persetujuan",
+          icon: ShieldCheck,
+        },
       ],
     },
     {
@@ -107,13 +119,8 @@ export function SettingsSidebar({
       ],
     },
     {
-      title: "Keamanan & Notifikasi",
+      title: "Sistem & Notifikasi",
       items: [
-        {
-          id: "security",
-          label: "Alur Dual-Control",
-          icon: ShieldCheck,
-        },
         {
           id: "notifications",
           label: "Notifikasi Web Push",

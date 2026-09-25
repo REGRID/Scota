@@ -26,7 +26,8 @@ import { TeamTab } from "@/components/settings/tabs/TeamTab"
 import { BranchesTab } from "@/components/settings/tabs/BranchesTab"
 import { BillingTab } from "@/components/settings/tabs/BillingTab"
 import { BusinessTab } from "@/components/settings/tabs/BusinessTab"
-import { SecurityTab } from "@/components/settings/tabs/SecurityTab"
+import { ApprovalsTab } from "@/components/settings/tabs/ApprovalsTab"
+import { PasswordSecurityTab } from "@/components/settings/tabs/PasswordSecurityTab"
 import { NotificationsTab } from "@/components/settings/tabs/NotificationsTab"
 
 export interface UserAccount {
@@ -43,11 +44,12 @@ export interface UserAccount {
 
 const TAB_LABELS: Record<SettingsTabId, string> = {
   profile: "Profil Saya",
+  password: "Kata Sandi & Akses",
   users: "Staf & Hak Akses",
   branches: "Cabang Usaha",
   business: "Profil Bisnis",
+  approvals: "Alur Persetujuan",
   billing: "Paket & Kuota",
-  security: "Alur Dual-Control",
   notifications: "Notifikasi Web Push",
 }
 
@@ -59,22 +61,32 @@ function SettingsContent() {
   const router = useRouter()
 
   // Tab State
-  const tabFromQuery = searchParams.get("tab") as SettingsTabId | null
+  const tabFromQuery = searchParams.get("tab") as string | null
   const validTabs: SettingsTabId[] = [
     "profile",
+    "password",
     "users",
     "branches",
     "business",
+    "approvals",
     "billing",
-    "security",
     "notifications",
   ]
-  const initialTab = tabFromQuery && validTabs.includes(tabFromQuery) ? tabFromQuery : "profile"
-  const [activeTab, setActiveTab] = useState<SettingsTabId>(initialTab)
+  const resolveInitialTab = (tab: string | null): SettingsTabId => {
+    if (!tab) return "profile"
+    if (tab === "security") return "approvals"
+    if (validTabs.includes(tab as SettingsTabId)) return tab as SettingsTabId
+    return "profile"
+  }
+  const [activeTab, setActiveTab] = useState<SettingsTabId>(resolveInitialTab(tabFromQuery))
 
   useEffect(() => {
-    if (tabFromQuery && validTabs.includes(tabFromQuery)) {
-      setActiveTab(tabFromQuery)
+    if (tabFromQuery) {
+      if (tabFromQuery === "security") {
+        setActiveTab("approvals")
+      } else if (validTabs.includes(tabFromQuery as SettingsTabId)) {
+        setActiveTab(tabFromQuery as SettingsTabId)
+      }
     }
   }, [tabFromQuery])
 
@@ -155,7 +167,8 @@ function SettingsContent() {
   const [requireForDelete, setRequireForDelete] = useState(false)
   const [requireForSettle, setRequireForSettle] = useState(false)
   const [minAmountThreshold, setMinAmountThreshold] = useState("0")
-  const [isSavingSecurity, setIsSavingSecurity] = useState(false)
+  const [isSavingWorkflow, setIsSavingWorkflow] = useState(false)
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false)
 
   // Business Profile State
   const [businessName, setBusinessName] = useState("")
@@ -719,42 +732,9 @@ function SettingsContent() {
     }
   }
 
-  const handleSaveSecurity = async () => {
-    setIsSavingSecurity(true)
+  const handleSaveWorkflow = async () => {
+    setIsSavingWorkflow(true)
     try {
-      let passwordChanged = false
-      if (oldPassword.trim() || newPassword.trim()) {
-        if (!oldPassword.trim() || !newPassword.trim()) {
-          toast.error("Password saat ini dan password baru harus diisi keduanya.")
-          setIsSavingSecurity(false)
-          return
-        }
-        if (newPassword.trim().length < 8) {
-          toast.error("Password baru minimal 8 karakter demi keamanan.")
-          setIsSavingSecurity(false)
-          return
-        }
-
-        const pwRes = await fetch("/api/auth/change-password", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            username: currentUser,
-            oldPassword: oldPassword.trim(),
-            newPassword: newPassword.trim(),
-          }),
-        })
-        const pwData = await pwRes.json()
-        if (!pwRes.ok) {
-          toast.error(pwData.error || "Gagal memperbarui password.")
-          setIsSavingSecurity(false)
-          return
-        }
-        passwordChanged = true
-        setOldPassword("")
-        setNewPassword("")
-      }
-
       localStorage.setItem("scota_approval_threshold", minAmountThreshold)
       localStorage.setItem("scota_dual_control_enabled", String(enableApproval))
       localStorage.setItem("scota_approver_target", approverTarget)
@@ -788,18 +768,50 @@ function SettingsContent() {
       })
 
       if (res.ok) {
-        if (passwordChanged) {
-          toast.success("Password baru & kebijakan persetujuan berhasil disimpan!")
-        } else {
-          toast.success("Kebijakan persetujuan berhasil disimpan ke database!")
-        }
+        toast.success("Kebijakan alur persetujuan berhasil disimpan!")
       } else {
         toast.error("Gagal menyimpan alur persetujuan ke server")
       }
     } catch {
-      toast.error("Terjadi kesalahan saat menyimpan pengaturan")
+      toast.error("Terjadi kesalahan saat menyimpan alur persetujuan")
     } finally {
-      setIsSavingSecurity(false)
+      setIsSavingWorkflow(false)
+    }
+  }
+
+  const handleUpdatePassword = async () => {
+    if (!oldPassword.trim() || !newPassword.trim()) {
+      toast.error("Kata sandi saat ini dan kata sandi baru wajib diisi keduanya.")
+      return
+    }
+    if (newPassword.trim().length < 8) {
+      toast.error("Kata sandi baru minimal 8 karakter demi keamanan.")
+      return
+    }
+
+    setIsUpdatingPassword(true)
+    try {
+      const pwRes = await fetch("/api/auth/change-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: currentUser,
+          oldPassword: oldPassword.trim(),
+          newPassword: newPassword.trim(),
+        }),
+      })
+      const pwData = await pwRes.json()
+      if (!pwRes.ok) {
+        toast.error(pwData.error || "Gagal memperbarui kata sandi.")
+        return
+      }
+      toast.success("Kata sandi kredensial toko berhasil diperbarui!")
+      setOldPassword("")
+      setNewPassword("")
+    } catch {
+      toast.error("Terjadi kesalahan saat memperbarui kata sandi")
+    } finally {
+      setIsUpdatingPassword(false)
     }
   }
 
@@ -939,9 +951,20 @@ function SettingsContent() {
             />
           )}
 
-          {activeTab === "security" && (
-            <SecurityTab
+          {activeTab === "password" && (
+            <PasswordSecurityTab
               currentUser={currentUser}
+              oldPassword={oldPassword}
+              setOldPassword={setOldPassword}
+              newPassword={newPassword}
+              setNewPassword={setNewPassword}
+              isUpdatingPassword={isUpdatingPassword}
+              onUpdatePassword={handleUpdatePassword}
+            />
+          )}
+
+          {activeTab === "approvals" && (
+            <ApprovalsTab
               enableApproval={enableApproval}
               setEnableApproval={setEnableApproval}
               approverTarget={approverTarget}
@@ -958,12 +981,8 @@ function SettingsContent() {
               setRequireForSettle={setRequireForSettle}
               minAmountThreshold={minAmountThreshold}
               setMinAmountThreshold={setMinAmountThreshold}
-              oldPassword={oldPassword}
-              setOldPassword={setOldPassword}
-              newPassword={newPassword}
-              setNewPassword={setNewPassword}
-              isSavingSecurity={isSavingSecurity}
-              onSaveSecurity={handleSaveSecurity}
+              isSavingWorkflow={isSavingWorkflow}
+              onSaveWorkflow={handleSaveWorkflow}
             />
           )}
 

@@ -4,6 +4,18 @@ import { getUserAccountDetails, updateAdminPassword } from "@/lib/adminAccounts"
 import { hashPassword } from "@/lib/password"
 import { DEFAULT_TENANT_ID } from "@/lib/session"
 
+import {
+  getSuperadminEmail,
+  getSuperadminUsername,
+  isSuperadminEmail,
+} from "@/lib/superadminConfig"
+
+export {
+  getSuperadminEmail,
+  getSuperadminUsername,
+  isSuperadminEmail,
+}
+
 /**
  * Check whether a given username has Superadmin / Platform Owner / Developer privileges.
  * 100% dynamic: checks against environment variables and database role.
@@ -13,9 +25,9 @@ export async function isSuperadminUser(username: string): Promise<boolean> {
   if (!clean || clean.startsWith("demo_")) return false
 
   const envSuperadmins = [
-    process.env.SUPERADMIN_USERNAME || "superadmin",
-    process.env.DEVELOPER_USERNAME || "developer",
-  ].map((u) => u.trim().toLowerCase())
+    getSuperadminUsername(),
+    (process.env.DEVELOPER_USERNAME || "developer").trim().toLowerCase(),
+  ]
 
   if (envSuperadmins.includes(clean)) return true
 
@@ -122,7 +134,7 @@ export async function getAllTenants(): Promise<TenantSummary[]> {
           const rawUser = email || row.adminUsername || `tenant_${tenantId.slice(0, 8)}`
           const usernameKey = rawUser.toLowerCase().trim()
 
-          const masterEmail = (process.env.SUPERADMIN_EMAIL || "refo.gangga.dev@gmail.com").toLowerCase().trim()
+          const masterEmail = getSuperadminEmail()
           const isSuperadminAccount =
             email === masterEmail ||
             row.adminRole === "SUPERADMIN" ||
@@ -291,7 +303,7 @@ export async function getAllTenants(): Promise<TenantSummary[]> {
                 existingEntry.status = "suspended"
               }
             } else {
-              const isSuperadminEmail = email === (process.env.SUPERADMIN_EMAIL || "refo.gangga.dev@gmail.com").toLowerCase().trim()
+              const isSuperadminEmail = email === getSuperadminEmail()
               const role = "OWNER"
               const tier: SubscriptionTier = isSuperadminEmail ? "developer" : "trial"
               const tierCfg = TIER_CONFIG[tier] || TIER_CONFIG.trial
@@ -325,8 +337,8 @@ export async function getAllTenants(): Promise<TenantSummary[]> {
     }
   }
 
-  const masterSuperadminEmail = (process.env.SUPERADMIN_EMAIL || "refo.gangga.dev@gmail.com").toLowerCase().trim()
-  const masterSuperadminUser = (process.env.SUPERADMIN_USERNAME || "superadmin").toLowerCase().trim()
+  const masterSuperadminEmail = getSuperadminEmail()
+  const masterSuperadminUser = getSuperadminUsername()
 
   return Array.from(tenantsMap.values()).filter((t) => {
     const u = t.username.toLowerCase().trim()

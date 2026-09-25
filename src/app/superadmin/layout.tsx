@@ -8,6 +8,7 @@ import { ShieldAlert, Lock, Loader2, ArrowLeft, ArrowRight } from "lucide-react"
 import { SuperadminSidebar } from "@/components/superadmin/SuperadminSidebar"
 import { SuperadminTopbar } from "@/components/superadmin/SuperadminTopbar"
 import { SuperadminLoginForm } from "@/components/SuperadminLoginForm"
+import { getSuperadminEmail } from "@/lib/superadminConfig"
 
 export default function SuperadminLayout({
   children,
@@ -20,6 +21,7 @@ export default function SuperadminLayout({
   const { isLoaded, isSignedIn, user } = useUser()
   const { signOut } = useClerk()
   const [isSuperadminSessionValid, setIsSuperadminSessionValid] = useState<boolean | null>(null)
+  const [authorizedEmail, setAuthorizedEmail] = useState<string>(() => getSuperadminEmail())
 
   // Verify internal superadmin JWT session
   const verifyInternalSession = async () => {
@@ -40,6 +42,14 @@ export default function SuperadminLayout({
 
   useEffect(() => {
     verifyInternalSession()
+    fetch("/api/auth/superadmin-email")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.authorizedEmail) {
+          setAuthorizedEmail(data.authorizedEmail)
+        }
+      })
+      .catch(() => {})
   }, [])
 
   // Auto-redirect from /superadmin/login to /superadmin once fully authorized
@@ -97,15 +107,10 @@ export default function SuperadminLayout({
   }
 
   // Strict Single-Account Gate: Only 1 authorized email can access superadmin
-  const authorizedEmail = (
-    process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL ||
-    "refo.gangga.dev@gmail.com"
-  )
-    .toLowerCase()
-    .trim()
+  const targetEmail = authorizedEmail.toLowerCase().trim()
   const userEmail = (user.primaryEmailAddress?.emailAddress || "").toLowerCase().trim()
 
-  if (userEmail !== authorizedEmail) {
+  if (userEmail !== targetEmail) {
     return (
       <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4 relative font-sans selection:bg-emerald-500 selection:text-white">
         <div className="w-full max-w-md bg-slate-900/95 border border-rose-500/30 rounded-3xl p-6 sm:p-8 text-center space-y-5 shadow-2xl">

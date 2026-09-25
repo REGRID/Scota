@@ -148,6 +148,12 @@ export async function POST(req: NextRequest) {
 
     let importedCategories = 0
     let importedReceipts = 0
+    const failedItems: {
+      type: "category" | "receipt"
+      id?: string
+      name?: string
+      error: string
+    }[] = []
 
     if (isDatabaseConfigured) {
       const migrated = await isTenantSchemaMigrated(session.tenantId)
@@ -174,7 +180,15 @@ export async function POST(req: NextRequest) {
                   ]
                 )
                 importedCategories++
-              } catch (e) {}
+              } catch (e: any) {
+                console.error(`[Backup Restore] Gagal restore category id=${cat?.id} name=${cat?.name}:`, e?.message || e)
+                failedItems.push({
+                  type: "category",
+                  id: cat?.id,
+                  name: cat?.name,
+                  error: e?.message || "Kesalahan database saat menyimpan kategori",
+                })
+              }
             }
           }
 
@@ -229,7 +243,15 @@ export async function POST(req: NextRequest) {
                   }
                 }
                 importedReceipts++
-              } catch (e) {}
+              } catch (e: any) {
+                console.error(`[Backup Restore] Gagal restore receipt id=${r?.id} merchant=${r?.merchantName}:`, e?.message || e)
+                failedItems.push({
+                  type: "receipt",
+                  id: r?.id,
+                  name: r?.merchantName || r?.receiptNumber || r?.id,
+                  error: e?.message || "Kesalahan database saat menyimpan nota",
+                })
+              }
             }
           }
         })
@@ -245,7 +267,15 @@ export async function POST(req: NextRequest) {
                 [cat.id, cat.name, cat.parentId || null, session.tenantId]
               )
               importedCategories++
-            } catch (e) {}
+            } catch (e: any) {
+              console.error(`[Backup Restore Legacy] Gagal restore category id=${cat?.id} name=${cat?.name}:`, e?.message || e)
+              failedItems.push({
+                type: "category",
+                id: cat?.id,
+                name: cat?.name,
+                error: e?.message || "Kesalahan database saat menyimpan kategori",
+              })
+            }
           }
         }
 
@@ -295,7 +325,15 @@ export async function POST(req: NextRequest) {
                 }
               }
               importedReceipts++
-            } catch (e) {}
+            } catch (e: any) {
+              console.error(`[Backup Restore Legacy] Gagal restore receipt id=${r?.id} merchant=${r?.merchantName}:`, e?.message || e)
+              failedItems.push({
+                type: "receipt",
+                id: r?.id,
+                name: r?.merchantName || r?.receiptNumber || r?.id,
+                error: e?.message || "Kesalahan database saat menyimpan nota",
+              })
+            }
           }
         }
       }
@@ -305,9 +343,13 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `Berhasil mengimpor ${importedReceipts} nota & ${importedCategories} kategori baru dari file backup.`,
+      message:
+        `Berhasil mengimpor ${importedReceipts} nota & ${importedCategories} kategori baru dari file backup.` +
+        (failedItems.length > 0 ? ` (${failedItems.length} item gagal dipulihkan, lihat rincian)` : ""),
       importedReceipts,
       importedCategories,
+      failedCount: failedItems.length,
+      failedItems: failedItems.slice(0, 50),
     })
   } catch (error: any) {
     console.error("Backup Import Error:", error)

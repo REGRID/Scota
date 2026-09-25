@@ -9,6 +9,7 @@ import {
   DEFAULT_APPROVAL_WORKFLOW,
 } from "@/lib/subscription"
 import { DEFAULT_TENANT_ID } from "@/lib/session"
+import { getSuperadminEmail } from "@/lib/superadminConfig"
 
 // In-memory fallback per tenant
 const inMemoryTenantSubscriptions = new Map<string, SubscriptionInfo>()
@@ -34,7 +35,7 @@ function getFallbackSubscription(tenantId: string): SubscriptionInfo {
  */
 export async function getSubscriptionInfo(tenantId: string = DEFAULT_TENANT_ID): Promise<SubscriptionInfo> {
   const targetTenant = tenantId || DEFAULT_TENANT_ID
-  const masterEmail = (process.env.SUPERADMIN_EMAIL || "refo.gangga.dev@gmail.com").toLowerCase().trim()
+  const masterEmail = getSuperadminEmail()
 
   if (isDatabaseConfigured) {
     try {

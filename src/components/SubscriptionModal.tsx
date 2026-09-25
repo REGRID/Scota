@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState } from "react"
+import { useRouter } from "next/navigation"
 import {
   X,
   Sparkles,
@@ -36,6 +37,7 @@ export function SubscriptionModal({
   subscription,
   onSubscriptionUpdated,
 }: SubscriptionModalProps) {
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState<"plans" | "license" | "profile">("plans")
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly")
   const [licenseInput, setLicenseInput] = useState("")
@@ -305,7 +307,8 @@ export function SubscriptionModal({
                       <div className="pt-6 space-y-2">
                         <button
                           onClick={() => {
-                            window.location.href = `/pricing?plan=${tierKey}&cycle=${billingCycle}`
+                            onClose()
+                            router.push(`/pricing?plan=${tierKey}&cycle=${billingCycle}`)
                           }}
                           className={`w-full py-2.5 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
                             isCurrent

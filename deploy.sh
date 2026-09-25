@@ -40,6 +40,9 @@ node scripts/migrate-json-logs-to-db.js
 node scripts/run-migration-008.js
 node scripts/run-migration-010.js
 node scripts/run-migration-011-dynamic-roles.js
+node scripts/run-migration-012.js
+node scripts/run-migration-013.js
+node scripts/run-migration-014.js
 
 echo "🔨 [3/5] Building Next.js production bundle..."
 npm run build

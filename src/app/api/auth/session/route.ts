@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getSession } from "@/lib/authHelper"
 import { createSessionToken } from "@/lib/session"
+import { getTenantUserSummary } from "@/lib/tenantUsers"
 
 export async function GET(req: NextRequest) {
   try {
@@ -21,6 +22,8 @@ export async function GET(req: NextRequest) {
       onboardingCompleted: session.onboardingCompleted ?? false,
     })
 
+    const userSummary = await getTenantUserSummary(session.tenantId || "")
+
     const response = NextResponse.json({
       authenticated: true,
       user: {
@@ -33,6 +36,8 @@ export async function GET(req: NextRequest) {
         businessName: session.businessName || "Bisnis Saya",
         email: session.email,
         onboardingCompleted: session.onboardingCompleted ?? false,
+        hasMultipleUsers: userSummary.hasMultipleUsers,
+        userCount: userSummary.userCount,
       },
     })
 

@@ -64,6 +64,7 @@ export function MainApp({
   const [adminUser, setAdminUser] = useState<string>("admin")
   const [userRole, setUserRole] = useState<string>("ADMIN")
   const [staffName, setStaffName] = useState<string>("Staf")
+  const [hasMultipleUsers, setHasMultipleUsers] = useState<boolean>(false)
   const [authInitialMode, setAuthInitialMode] = useState<"login" | "register">(
     initialView === "register" ? "register" : "login"
   )
@@ -437,6 +438,9 @@ export function MainApp({
             }
 
             if (data.user?.staffName) setStaffName(data.user.staffName)
+            if (data.user?.hasMultipleUsers !== undefined) {
+              setHasMultipleUsers(Boolean(data.user.hasMultipleUsers))
+            }
             if (typeof window !== "undefined") {
               localStorage.setItem("nota_admin_user", resolvedName)
               if (data.user?.staffName) localStorage.setItem("nota_staff_name", data.user.staffName)
@@ -1388,6 +1392,7 @@ export function MainApp({
                 onEditReceipt={handleEditReceipt}
                 currentAdminUser={adminUser}
                 dualControlEnabled={dualControlEnabled}
+                hasMultipleUsers={hasMultipleUsers}
               />
             )}
           </>

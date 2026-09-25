@@ -112,6 +112,10 @@ export interface ReceiptData {
   note?: string | null
   items: ReceiptItem[]
   createdAt: string
+  staffName?: string | null
+  createdByName?: string | null
+  createdByRole?: string | null
+  createdByUsername?: string | null
 }
 
 export interface HierarchyGroup {
@@ -147,6 +151,7 @@ interface ReceiptHistoryDashboardProps {
   onEditReceipt?: (receipt: ReceiptData) => void
   currentAdminUser?: string
   dualControlEnabled?: boolean
+  hasMultipleUsers?: boolean
 }
 
 export function ReceiptHistoryDashboard({
@@ -154,11 +159,22 @@ export function ReceiptHistoryDashboard({
   onEditReceipt,
   currentAdminUser = "",
   dualControlEnabled: propDualControlEnabled,
+  hasMultipleUsers: propHasMultipleUsers,
 }: ReceiptHistoryDashboardProps) {
   const router = useRouter()
   const isDualControlActive = propDualControlEnabled !== undefined
     ? propDualControlEnabled
     : (typeof window !== "undefined" && localStorage.getItem("scota_dual_control_enabled") === "true")
+  const [hasMultipleUsers, setHasMultipleUsers] = useState<boolean>(() => {
+    if (propHasMultipleUsers !== undefined) return propHasMultipleUsers
+    return false
+  })
+
+  useEffect(() => {
+    if (propHasMultipleUsers !== undefined) {
+      setHasMultipleUsers(propHasMultipleUsers)
+    }
+  }, [propHasMultipleUsers])
   const { showAlert, showConfirm } = useAppDialog()
   const [allReceipts, setAllReceipts] = useState<ReceiptData[]>(() => {
     if (typeof window !== "undefined") {
@@ -318,7 +334,8 @@ export function ReceiptHistoryDashboard({
   const [selectedCategory, setSelectedCategory] = useState("Semua")
   const [selectedSubCategory, setSelectedSubCategory] = useState("Semua Sub-Kategori")
   const [selectedSubCategories, setSelectedSubCategories] = useState<string[]>([])
-  const [activeFilterPopover, setActiveFilterPopover] = useState<"kategori" | "metode" | "status" | "periode" | "urutan" | "activeFilters" | null>(null)
+  const [selectedUploader, setSelectedUploader] = useState<string>("Semua")
+  const [activeFilterPopover, setActiveFilterPopover] = useState<"kategori" | "metode" | "status" | "periode" | "urutan" | "activeFilters" | "pengunggah" | null>(null)
 
   // Date Range Filter State
   const [dateRangeFilter, setDateRangeFilter] = useState<"all" | "today" | "7days" | "month" | "custom">("all")
@@ -424,7 +441,8 @@ export function ReceiptHistoryDashboard({
       (selectedStatusFilter !== "Semua Status" && selectedStatuses.length === 0) ||
       selectedPersonFilter !== "Semua Penanggung Jawab" ||
       selectedPaymentMethods.length > 0 ||
-      dateRangeFilter !== "all"
+      dateRangeFilter !== "all" ||
+      (hasMultipleUsers && selectedUploader !== "Semua")
     )
   }, [
     selectedCategories,
@@ -436,6 +454,8 @@ export function ReceiptHistoryDashboard({
     selectedPersonFilter,
     selectedPaymentMethods,
     dateRangeFilter,
+    hasMultipleUsers,
+    selectedUploader,
   ])
 
   const activeFiltersCount = useMemo(() => {
@@ -446,7 +466,8 @@ export function ReceiptHistoryDashboard({
       selectedStatuses.length +
       (selectedStatusFilter !== "Semua Status" && selectedStatuses.length === 0 ? 1 : 0) +
       (selectedPersonFilter !== "Semua Penanggung Jawab" ? 1 : 0) +
-      (dateRangeFilter !== "all" ? 1 : 0)
+      (dateRangeFilter !== "all" ? 1 : 0) +
+      (hasMultipleUsers && selectedUploader !== "Semua" ? 1 : 0)
     )
   }, [
     selectedCategories,
@@ -456,9 +477,12 @@ export function ReceiptHistoryDashboard({
     selectedStatusFilter,
     selectedPersonFilter,
     dateRangeFilter,
+    hasMultipleUsers,
+    selectedUploader,
   ])
 
   const activeFilterSummaryLabel = useMemo(() => {
+    if (hasMultipleUsers && selectedUploader !== "Semua") return selectedUploader
     if (selectedSubCategories.length === 1) return selectedSubCategories[0]
     if (selectedSubCategories.length > 1) return `${selectedSubCategories.length} Sub`
     if (selectedCategories.length === 1) return selectedCategories[0]
@@ -478,6 +502,8 @@ export function ReceiptHistoryDashboard({
     selectedPaymentMethods,
     selectedStatuses,
     dateRangeFilter,
+    hasMultipleUsers,
+    selectedUploader,
   ])
 
   const handleClearAllFilters = () => {
@@ -489,6 +515,7 @@ export function ReceiptHistoryDashboard({
     setSelectedStatusFilter("Semua Status")
     setSelectedPersonFilter("Semua Penanggung Jawab")
     setSelectedPaymentMethods([])
+    setSelectedUploader("Semua")
     setDateRangeFilter("all")
     setStartDate("")
     setEndDate("")
@@ -602,6 +629,18 @@ export function ReceiptHistoryDashboard({
       }
     })
     return Array.from(personSet)
+  }, [allReceipts])
+
+  // Dynamically extract all unique uploader names (active when hasMultipleUsers is true)
+  const availableUploaders = useMemo(() => {
+    const uploaderSet = new Set<string>()
+    allReceipts.forEach((r) => {
+      const name = r.createdByName || r.staffName || r.createdByUsername
+      if (name && name.trim()) {
+        uploaderSet.add(name.trim())
+      }
+    })
+    return Array.from(uploaderSet).sort((a, b) => a.localeCompare(b))
   }, [allReceipts])
 
   // Pagination State
@@ -870,8 +909,22 @@ export function ReceiptHistoryDashboard({
     try {
       const res = await fetch(`/api/receipts?_t=${Date.now()}`, { cache: "no-store" })
       if (res.ok) {
+        const hasMultiHeader = res.headers.get("x-has-multiple-users")
+        if (hasMultiHeader !== null) {
+          setHasMultipleUsers(hasMultiHeader === "true")
+        }
         const data = await res.json()
         setAllReceipts(data)
+        if (Array.isArray(data)) {
+          const uploaderNames = new Set<string>()
+          data.forEach((r: ReceiptData) => {
+            const u = r.createdByName || r.staffName || r.createdByUsername
+            if (u && u.trim()) uploaderNames.add(u.trim().toLowerCase())
+          })
+          if (uploaderNames.size > 1) {
+            setHasMultipleUsers(true)
+          }
+        }
         try {
           localStorage.setItem("nota_receipts_cache_v2", JSON.stringify(data))
         } catch (e) {}
@@ -1409,6 +1462,14 @@ export function ReceiptHistoryDashboard({
         if (!matchesAnyMethod) return false
       }
 
+      // 7b. Uploader Filter (Only applied if hasMultipleUsers && selectedUploader !== "Semua")
+      if (hasMultipleUsers && selectedUploader !== "Semua") {
+        const uploaderName = r.createdByName || r.staffName || r.createdByUsername || ""
+        if (uploaderName.toLowerCase().trim() !== selectedUploader.toLowerCase().trim()) {
+          return false
+        }
+      }
+
       return true
     })
 
@@ -1454,6 +1515,8 @@ export function ReceiptHistoryDashboard({
     selectedPersonFilter,
     selectedPaymentMethods,
     sortBy,
+    hasMultipleUsers,
+    selectedUploader,
   ])
 
   // Reset to Page 1 when filters or sort change
@@ -1472,6 +1535,8 @@ export function ReceiptHistoryDashboard({
     selectedPersonFilter,
     selectedPaymentMethods,
     sortBy,
+    hasMultipleUsers,
+    selectedUploader,
   ])
 
   // Build lookup map for receipts that have pending approval requests
@@ -2247,6 +2312,9 @@ export function ReceiptHistoryDashboard({
       } else if (dateRangeFilter !== "all") {
         url.searchParams.set("dateRange", dateRangeFilter)
       }
+      if (hasMultipleUsers && selectedUploader && selectedUploader !== "Semua") {
+        url.searchParams.set("uploader", selectedUploader)
+      }
 
       url.searchParams.set("format", exportConfirmFormat)
       url.searchParams.set("order", "asc")
@@ -2972,6 +3040,32 @@ export function ReceiptHistoryDashboard({
               </button>
             </div>
 
+            {/* 4b. PENGUNGGAH / UPLOADER (ICON ONLY, CONDITIONAL: hasMultipleUsers) */}
+            {hasMultipleUsers && (
+              <div className="relative flex-1 lg:flex-none">
+                <button
+                  type="button"
+                  onClick={() => setActiveFilterPopover(activeFilterPopover === "pengunggah" ? null : "pengunggah")}
+                  className={`relative inline-flex items-center justify-center w-full lg:w-9 h-9 rounded-xl border text-xs font-bold shadow-2xs transition-all cursor-pointer active:scale-95 ${
+                    selectedUploader !== "Semua"
+                      ? "bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/30 font-black"
+                      : "bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-800"
+                  }`}
+                  title={
+                    selectedUploader === "Semua"
+                      ? "Filter Pengunggah Nota (Klik untuk memilih)"
+                      : `Pengunggah: ${selectedUploader}`
+                  }
+                  aria-label="Filter Pengunggah Nota"
+                >
+                  <User className={`w-4 h-4 ${selectedUploader !== "Semua" ? "text-violet-600 dark:text-violet-400" : "text-slate-400 dark:text-slate-500"}`} />
+                  {selectedUploader !== "Semua" && (
+                    <span className="absolute -top-1 -right-1 flex h-2 w-2 bg-violet-600 rounded-full shadow-xs" />
+                  )}
+                </button>
+              </div>
+            )}
+
             {/* 5. URUTKAN (ICON ONLY, HIDDEN ON XS) */}
             <div className="relative hidden sm:block sm:flex-1 lg:flex-none">
               <button
@@ -3535,6 +3629,91 @@ export function ReceiptHistoryDashboard({
                 </>
               )}
 
+              {/* MODAL 5b: FILTER PENGUNGGAH (HANYA MUNCUL JIKA hasMultipleUsers) */}
+              {activeFilterPopover === "pengunggah" && hasMultipleUsers && (
+                <>
+                  {/* Header */}
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-xl bg-violet-500/15 border border-violet-500/30 flex items-center justify-center text-violet-600 dark:text-violet-400">
+                        <User className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-black text-slate-900 dark:text-white">Filter Pengunggah</h3>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                          Saring nota berdasarkan staf atau admin yang mengunggah
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setActiveFilterPopover(null)}
+                      className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Body List */}
+                  <div className="flex-1 overflow-y-auto space-y-2 py-3 pr-1 scrollbar-thin max-h-[320px]">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedUploader("Semua")
+                        setActiveFilterPopover(null)
+                        setCurrentPage(1)
+                      }}
+                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
+                        selectedUploader === "Semua"
+                          ? "bg-violet-500/10 border-violet-500/30 text-violet-700 dark:text-violet-300 font-bold"
+                          : "border-slate-100 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                      }`}
+                    >
+                      <span>Semua Pengunggah</span>
+                      {selectedUploader === "Semua" && <Check className="w-4 h-4 text-violet-600 dark:text-violet-400" />}
+                    </button>
+
+                    {availableUploaders.map((uploader) => (
+                      <button
+                        key={uploader}
+                        type="button"
+                        onClick={() => {
+                          setSelectedUploader(uploader)
+                          setActiveFilterPopover(null)
+                          setCurrentPage(1)
+                        }}
+                        className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
+                          selectedUploader === uploader
+                            ? "bg-violet-500/10 border-violet-500/30 text-violet-700 dark:text-violet-300 font-bold"
+                            : "border-slate-100 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-violet-500" />
+                          <span>{uploader}</span>
+                        </div>
+                        {selectedUploader === uploader && <Check className="w-4 h-4 text-violet-600 dark:text-violet-400" />}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Footer */}
+                  <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedUploader("Semua")
+                        setActiveFilterPopover(null)
+                        setCurrentPage(1)
+                      }}
+                      className="text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                    >
+                      Reset Filter
+                    </button>
+                  </div>
+                </>
+              )}
+
               {/* MODAL 6: RINCIAN FILTER AKTIF (DARI TOMBOL BOX FILTER SAMPING PENCARIAN) */}
               {activeFilterPopover === "activeFilters" && (
                 <>
@@ -3662,6 +3841,25 @@ export function ReceiptHistoryDashboard({
                                 setStartDate("")
                                 setEndDate("")
                               }}
+                              className="hover:text-rose-500 cursor-pointer"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Uploader Filter */}
+                    {hasMultipleUsers && selectedUploader !== "Semua" && (
+                      <div className="space-y-1.5">
+                        <div className="text-[11px] font-black text-slate-400 uppercase tracking-wider">Pengunggah</div>
+                        <div className="flex flex-wrap gap-1.5">
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-violet-500/10 text-violet-700 dark:text-violet-300 border border-violet-500/25 text-xs font-bold">
+                            {selectedUploader}
+                            <button
+                              type="button"
+                              onClick={() => setSelectedUploader("Semua")}
                               className="hover:text-rose-500 cursor-pointer"
                             >
                               <X className="w-3.5 h-3.5" />
@@ -3943,6 +4141,15 @@ export function ReceiptHistoryDashboard({
                           {isSubCategoryActive && (
                             <span className="inline-block px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-600 dark:text-purple-400 font-bold text-[10px] border border-purple-500/20 truncate max-w-full">
                               {selectedSubCategory}
+                            </span>
+                          )}
+                          {hasMultipleUsers && (receipt.createdByName || receipt.staffName || receipt.createdByUsername) && (
+                            <span 
+                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-violet-500/10 text-violet-700 dark:text-violet-300 font-semibold text-[9.5px] border border-violet-500/20 truncate max-w-[130px]"
+                              title={`Diunggah oleh: ${receipt.createdByName || receipt.staffName || receipt.createdByUsername}${receipt.createdByRole ? ` (${receipt.createdByRole})` : ""}`}
+                            >
+                              <User className="w-2.5 h-2.5 shrink-0 text-violet-500" />
+                              <span className="truncate">{receipt.createdByName || receipt.staffName || receipt.createdByUsername}</span>
                             </span>
                           )}
                           {pendingReq && (
@@ -4707,6 +4914,12 @@ export function ReceiptHistoryDashboard({
                 <span>Filter Sub-Kategori:</span>
                 <span className="font-bold text-slate-900">{selectedSubCategory}</span>
               </p>
+              {hasMultipleUsers && selectedUploader !== "Semua" && (
+                <p className="flex justify-between">
+                  <span>Filter Pengunggah:</span>
+                  <span className="font-bold text-violet-700">{selectedUploader}</span>
+                </p>
+              )}
               <p className="flex justify-between">
                 <span>Jumlah Nota Diekspor:</span>
                 <span className="font-bold text-emerald-700">{filteredReceipts.length} Struk</span>
@@ -5650,6 +5863,30 @@ export function ReceiptHistoryDashboard({
                   <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-amber-800 dark:text-amber-300 text-xs space-y-1">
                     <span className="font-bold">Catatan:</span>
                     <p>{selectedReceipt.note}</p>
+                  </div>
+                )}
+
+                {/* IDENTITAS PENGUNGGAH NOTA (CONDITIONAL: hasMultipleUsers) */}
+                {hasMultipleUsers && (selectedReceipt.createdByName || selectedReceipt.staffName || selectedReceipt.createdByUsername) && (
+                  <div className="p-3 rounded-2xl bg-violet-50/70 dark:bg-violet-950/30 border border-violet-200/80 dark:border-violet-800/50 flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-violet-600/10 dark:bg-violet-500/20 text-violet-600 dark:text-violet-400 flex items-center justify-center shrink-0">
+                        <User className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                          Diunggah Oleh
+                        </div>
+                        <div className="font-extrabold text-slate-900 dark:text-white text-xs sm:text-sm">
+                          {selectedReceipt.createdByName || selectedReceipt.staffName || selectedReceipt.createdByUsername}
+                        </div>
+                      </div>
+                    </div>
+                    {selectedReceipt.createdByRole && (
+                      <span className="px-2.5 py-1 rounded-lg bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 font-bold text-[10px] uppercase tracking-wider border border-violet-200/60 dark:border-violet-700/40">
+                        {selectedReceipt.createdByRole}
+                      </span>
+                    )}
                   </div>
                 )}
 

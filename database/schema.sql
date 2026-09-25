@@ -87,6 +87,7 @@ CREATE TABLE IF NOT EXISTS receipts (
     note TEXT,
     "receiptNumber" TEXT,
     "staffName" TEXT DEFAULT 'Admin',
+    "createdByName" TEXT,
     "createdByRole" TEXT DEFAULT 'ADMIN',
     "createdByUsername" TEXT,
     "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -97,6 +98,7 @@ CREATE TABLE IF NOT EXISTS receipts (
 ALTER TABLE receipts ADD COLUMN IF NOT EXISTS "receiptNumber" TEXT;
 ALTER TABLE receipts ADD COLUMN IF NOT EXISTS "createdByRole" TEXT DEFAULT 'ADMIN';
 ALTER TABLE receipts ADD COLUMN IF NOT EXISTS "createdByUsername" TEXT;
+ALTER TABLE receipts ADD COLUMN IF NOT EXISTS "createdByName" TEXT;
 CREATE INDEX IF NOT EXISTS idx_receipts_receipt_number ON receipts("receiptNumber");
 
 -- 2. Table: receipt_items

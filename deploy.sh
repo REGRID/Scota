@@ -43,6 +43,8 @@ node scripts/run-migration-011-dynamic-roles.js
 node scripts/run-migration-012.js
 node scripts/run-migration-013.js
 node scripts/run-migration-014.js
+node scripts/run-migration-015.js
+node scripts/run-migration-016.js
 
 echo "🔨 [3/5] Building Next.js production bundle..."
 npm run build

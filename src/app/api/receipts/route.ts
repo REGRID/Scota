@@ -14,6 +14,7 @@ import { DEFAULT_APPROVAL_WORKFLOW } from "@/lib/subscription"
 import { DEFAULT_TENANT_ID } from "@/lib/session"
 import { DEMO_RECEIPT_LIMIT, getOrCreateDemoTenant } from "@/lib/demoTenant"
 import { getClientIp } from "@/lib/rateLimiter"
+import { getTenantUserSummary } from "@/lib/tenantUsers"
 
 let listCache: { key: string; data: any; timestamp: number } | null = null
 const LIST_CACHE_TTL = 5000 // 5 seconds cache
@@ -126,6 +127,7 @@ export async function GET(req: NextRequest) {
                 r.notes,
                 r.notes as note,
                 r."staffName",
+                r."createdByName",
                 r."createdByRole",
                 r."createdByUsername",
                 r."createdAt", 
@@ -214,6 +216,7 @@ export async function GET(req: NextRequest) {
             r."paymentStatus",
             r.note,
             r."staffName",
+            r."createdByName",
             r."createdByRole",
             r."createdByUsername",
             r."createdAt", 
@@ -313,8 +316,12 @@ export async function GET(req: NextRequest) {
 
     listCache = { key: cacheKey, data: normalizedReceipts, timestamp: now }
 
+    const userSummary = await getTenantUserSummary(targetTenantId)
+
     const response = NextResponse.json(normalizedReceipts)
     response.headers.set("Cache-Control", "public, s-maxage=5, stale-while-revalidate=15")
+    response.headers.set("x-has-multiple-users", userSummary.hasMultipleUsers ? "true" : "false")
+    response.headers.set("x-tenant-user-count", String(userSummary.userCount))
     return response
   } catch (error: any) {
     console.error("GET Receipts Error:", error)
@@ -400,11 +407,15 @@ export async function POST(req: NextRequest) {
     const compressedImageUrl = imageUrl ? await compressBase64Image(imageUrl) : null
 
     const resolvedAdmin = adminUser || (userRole === "KARYAWAN" && reqStaffName ? reqStaffName : "admin")
+    const creatorName = (reqStaffName || session.fullName || session.staffName || session.name || session.username || "Admin").trim()
+    const creatorRole = (session.role || "ADMIN").toUpperCase().trim()
+    const creatorUsername = (session.username || "").toLowerCase().trim()
+    const assignedStaffName = (reqStaffName || session.staffName || creatorName).trim()
     const uploaderName = reqStaffName
       ? `${reqStaffName} (Karyawan)`
       : userRole === "KARYAWAN"
       ? "Karyawan"
-      : resolvedAdmin
+      : creatorName
 
     const payloadObj = {
       merchantName: merchantName || "Nota / Toko",
@@ -418,9 +429,10 @@ export async function POST(req: NextRequest) {
       paymentMethod: paymentMethod || "Cash",
       paymentStatus: paymentStatus || "Lunas",
       note: cleanedNote,
-      staffName: reqStaffName || null,
-      createdByRole: userRole,
-      createdByUsername: adminUser || null,
+      staffName: assignedStaffName,
+      createdByName: creatorName,
+      createdByRole: creatorRole,
+      createdByUsername: creatorUsername,
       items: items.map((it: any) => ({
         name: it.name || "Item",
         category: it.category || "Lain-lain",
@@ -472,9 +484,9 @@ export async function POST(req: NextRequest) {
         if (isMigrated) {
           await withTenantSchema(userTenantId, async (client) => {
             const insertRes: any = await client.query(
-              `INSERT INTO receipts ("tenantId", "receiptNumber", "merchantName", date, "imageUrl", subtotal, "discountAmount", "taxAmount", "totalAmount", "paymentMethod", "paymentStatus", notes, "staffName", "createdByRole", "createdByUsername", "createdAt", "updatedAt")
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW(), NOW())
-               RETURNING id, "receiptNumber", "merchantName", date, "totalAmount", "paymentMethod", "paymentStatus", "createdByRole", "createdByUsername", "createdAt"`,
+              `INSERT INTO receipts ("tenantId", "receiptNumber", "merchantName", date, "imageUrl", subtotal, "discountAmount", "taxAmount", "totalAmount", "paymentMethod", "paymentStatus", notes, "staffName", "createdByName", "createdByRole", "createdByUsername", "createdAt", "updatedAt")
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, NOW(), NOW())
+               RETURNING id, "receiptNumber", "merchantName", date, "totalAmount", "paymentMethod", "paymentStatus", "createdByName", "createdByRole", "createdByUsername", "createdAt"`,
               [
                 userTenantId,
                 payloadObj.receiptNumber,
@@ -489,6 +501,7 @@ export async function POST(req: NextRequest) {
                 payloadObj.paymentStatus,
                 payloadObj.note,
                 payloadObj.staffName,
+                payloadObj.createdByName,
                 payloadObj.createdByRole,
                 payloadObj.createdByUsername,
               ]
@@ -517,9 +530,9 @@ export async function POST(req: NextRequest) {
           })
         } else {
           const insertRes = await queryPg<{ id: string }>(
-            `INSERT INTO receipts ("tenantId", "receiptNumber", "merchantName", date, "imageUrl", subtotal, "discountAmount", "taxAmount", "totalAmount", "paymentMethod", "paymentStatus", note, "staffName", "createdByRole", "createdByUsername", "createdAt", "updatedAt")
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW(), NOW())
-             RETURNING id, "receiptNumber", "merchantName", date, "totalAmount", "paymentMethod", "paymentStatus", "createdByRole", "createdByUsername", "createdAt"`,
+            `INSERT INTO receipts ("tenantId", "receiptNumber", "merchantName", date, "imageUrl", subtotal, "discountAmount", "taxAmount", "totalAmount", "paymentMethod", "paymentStatus", note, "staffName", "createdByName", "createdByRole", "createdByUsername", "createdAt", "updatedAt")
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, NOW(), NOW())
+             RETURNING id, "receiptNumber", "merchantName", date, "totalAmount", "paymentMethod", "paymentStatus", "createdByName", "createdByRole", "createdByUsername", "createdAt"`,
             [
               userTenantId,
               payloadObj.receiptNumber,
@@ -534,6 +547,7 @@ export async function POST(req: NextRequest) {
               payloadObj.paymentStatus,
               payloadObj.note,
               payloadObj.staffName,
+              payloadObj.createdByName,
               payloadObj.createdByRole,
               payloadObj.createdByUsername,
             ]

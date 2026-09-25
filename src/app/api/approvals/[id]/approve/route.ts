@@ -139,14 +139,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
       const compressedImageUrl = imageUrl ? await compressBase64Image(imageUrl) : null
       const requestedByVal = pendingApproval.requestedBy || ""
+      const creatorName = payload.createdByName || payload.staffName || requestedByVal || "Admin"
       const creatorRole = payload.createdByRole || (requestedByVal.toLowerCase().includes("karyawan") || requestedByVal.toLowerCase().includes("kasir") ? "KASIR" : "ADMIN")
-      const creatorUsername = payload.createdByUsername || pendingApproval.requestedBy || "system"
+      const creatorUsername = payload.createdByUsername || requestedByVal || "system"
+      const assignedStaffName = payload.staffName || creatorName
 
       if (isMigrated) {
         const newReceipt = await withTenantSchema(targetTenantId, async (client) => {
           const insertRes: any = await client.query(
-            `INSERT INTO receipts ("tenantId", "receiptNumber", "merchantName", date, "imageUrl", subtotal, "discountAmount", "taxAmount", "totalAmount", "paymentMethod", "paymentStatus", notes, "staffName", "createdByRole", "createdByUsername", "createdAt", "updatedAt")
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW(), NOW())
+            `INSERT INTO receipts ("tenantId", "receiptNumber", "merchantName", date, "imageUrl", subtotal, "discountAmount", "taxAmount", "totalAmount", "paymentMethod", "paymentStatus", notes, "staffName", "createdByName", "createdByRole", "createdByUsername", "createdAt", "updatedAt")
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, NOW(), NOW())
              RETURNING id`,
             [
               targetTenantId,
@@ -161,7 +163,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
               paymentMethod || "Cash",
               paymentStatus || "Lunas",
               note || null,
-              staffName || null,
+              assignedStaffName,
+              creatorName,
               creatorRole,
               creatorUsername,
             ]
@@ -196,8 +199,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         createdReceiptId = newReceipt.id
       } else {
         const newReceiptRes = await queryPg<{ id: string }>(
-          `INSERT INTO receipts ("tenantId", "receiptNumber", "merchantName", date, "imageUrl", subtotal, "discountAmount", "taxAmount", "totalAmount", "paymentMethod", "paymentStatus", note, "staffName", "createdByRole", "createdByUsername", "createdAt", "updatedAt")
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW(), NOW())
+          `INSERT INTO receipts ("tenantId", "receiptNumber", "merchantName", date, "imageUrl", subtotal, "discountAmount", "taxAmount", "totalAmount", "paymentMethod", "paymentStatus", note, "staffName", "createdByName", "createdByRole", "createdByUsername", "createdAt", "updatedAt")
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, NOW(), NOW())
            RETURNING id`,
           [
             targetTenantId,
@@ -212,7 +215,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             paymentMethod || "Cash",
             paymentStatus || "Lunas",
             note || null,
-            staffName || null,
+            assignedStaffName,
+            creatorName,
             creatorRole,
             creatorUsername,
           ]

@@ -3,6 +3,7 @@ import { queryPg, isDatabaseConfigured } from "@/lib/pgDb"
 import { isTenantSchemaMigrated, withTenantSchema } from "@/lib/tenantDb"
 import { requirePermission } from "@/lib/roleGuard"
 import { DEFAULT_TENANT_ID } from "@/lib/session"
+import { getTenantUserSummary } from "@/lib/tenantUsers"
 import * as XLSX from "xlsx"
 
 export async function GET(req: NextRequest) {
@@ -23,6 +24,7 @@ export async function GET(req: NextRequest) {
     const category = searchParams.get("category") || ""
     const status = searchParams.get("status") || ""
     const person = searchParams.get("person") || ""
+    const uploader = searchParams.get("uploader") || ""
     const dateRange = searchParams.get("dateRange") || ""
     const startDate = searchParams.get("startDate") || ""
     const endDate = searchParams.get("endDate") || ""
@@ -60,6 +62,7 @@ export async function GET(req: NextRequest) {
                 r."paymentStatus",
                 r.notes as note,
                 r."staffName",
+                r."createdByName",
                 r."createdByRole",
                 r."createdByUsername",
                 r."createdAt", 
@@ -106,6 +109,7 @@ export async function GET(req: NextRequest) {
               r."paymentStatus",
               r.note,
               r."staffName",
+              r."createdByName",
               r."createdByRole",
               r."createdByUsername",
               r."createdAt", 
@@ -224,6 +228,21 @@ export async function GET(req: NextRequest) {
         if (!matchesAnyMethod) return false
       }
 
+      // 7. Uploader Filter
+      if (uploader && uploader !== "Semua") {
+        const uploaderLower = uploader.toLowerCase().trim()
+        const creatorName = (r.createdByName || "").toLowerCase()
+        const staff = (r.staffName || "").toLowerCase()
+        const username = (r.createdByUsername || "").toLowerCase()
+        if (
+          !creatorName.includes(uploaderLower) &&
+          !staff.includes(uploaderLower) &&
+          !username.includes(uploaderLower)
+        ) {
+          return false
+        }
+      }
+
       return true
     })
 
@@ -233,6 +252,9 @@ export async function GET(req: NextRequest) {
         r.items.sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
       }
     })
+
+    const userSummary = await getTenantUserSummary(userTenantId)
+    const showUploader = userSummary.hasMultipleUsers
 
     // If format === "statement", generate Bank Statement (Rekening Koran) Excel / CSV
     if (format === "statement" || format === "statement-csv") {
@@ -260,6 +282,13 @@ export async function GET(req: NextRequest) {
           "Tanggal Input": inputDateStr,
           "No. Nota": r.receiptNumber?.trim() || "",
           "Uraian / Toko (Merchant)": r.merchantName,
+          ...(showUploader
+            ? {
+                "Pengunggah": `${r.createdByName || r.staffName || r.createdByUsername || "Admin"}${
+                  r.createdByRole ? ` (${r.createdByRole})` : ""
+                }`,
+              }
+            : {}),
           "Rincian Barang & Kategori": `${categorySummary} (${itemsSummary})`,
           "Qty": totalQty,
           "Metode Bayar": r.paymentMethod || "Cash",
@@ -325,6 +354,13 @@ export async function GET(req: NextRequest) {
         "Tanggal Input": inputDateStr,
         "No. Nota": r.receiptNumber?.trim() || "",
         "Nama Toko / Merchant": r.merchantName,
+        ...(showUploader
+          ? {
+              "Pengunggah": `${r.createdByName || r.staffName || r.createdByUsername || "Admin"}${
+                r.createdByRole ? ` (${r.createdByRole})` : ""
+              }`,
+            }
+          : {}),
         "Metode Pembayaran": r.paymentMethod || "Cash",
         "Status Pembayaran": r.paymentStatus || "Lunas",
         "Subtotal (Rp)": r.subtotal,
